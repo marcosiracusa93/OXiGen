@@ -12,6 +12,10 @@ using namespace std;
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/AsmParser/Parser.h"
 
+int setResourceDir(const string &resourceDir){
+        
+    }
+
 using namespace llvm;
 
 int main(int argc, char**argv) {
