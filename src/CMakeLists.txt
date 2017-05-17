@@ -1,4 +1,4 @@
-#cmake -DCMAKE_C_COMPILER=/usr/bin/clang -DCMAKE_CXX_COMPILER=/usr/bin/clang++ -DCMAKE_CXX_STANDARD=11 ../
+#cmake -DCMAKE_C_COMPILER=/usr/bin/clang -DCMAKE_CXX_COMPILER=/usr/bin/clang++ -DCMAKE_CXX_STANDARD=11 ../src
 
 
 # Specify the minimum version for CMake

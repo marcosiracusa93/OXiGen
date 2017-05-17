@@ -4,6 +4,7 @@
  */
  
 #include <iostream>
+#include <fstream>
 #include <utility>
 #include <memory>
 
@@ -18,16 +19,13 @@ using namespace std;
 using namespace llvm;
 
 //Directory used to access .ll files to process
-const string RESOURCES_DIR; 
+string RESOURCES_DIR; 
 //Directory used to store the processed files
-const string OUTPUT_DIR;
+string OUTPUT_DIR;
 
-Module* extractModuleFromFile(const string fileName){
+Module* extractModuleFromFile(StringRef *filePathRef,LLVMContext &context,SMDiagnostic &error){
 
-    static LLVMContext context;
-    SMDiagnostic error;
-
-    auto parsedModuleCont = parseAssemblyFile(fileName,error,context);
+    auto parsedModuleCont = parseAssemblyFile(*filePathRef,error,context);
 
     Module* parsedModule = parsedModuleCont.get();
     
@@ -38,21 +36,34 @@ Module* extractModuleFromFile(const string fileName){
 int main(int argc, char**argv) {
     
     //set directory to look for .ll files
+    ::RESOURCES_DIR = argv[2];
     //set file to process. Must be a .ll file containing a llvm module
     const string fileName = argv[1];
     
+    //LLVMContext variable
+    static LLVMContext context;
+    //error message
+    SMDiagnostic error;
     //module to process
     Module* module = NULL;
     
+    const string filePath = ::RESOURCES_DIR + fileName;
+    
     try{
+        //try to open the file to process
+        fstream file;
+        file.open(filePath);
+        file.close();
         
     }catch(const exception &e){
-        
+        cout << "Failed to open " + filePath;
+        return -1;
     }
     
+    StringRef *filePathRef = new StringRef(filePath);
+    
     //get a llvm module from the specified file
-    module = extractModuleFromFile(fileName);
-
-
-  return 0;
+    module = extractModuleFromFile(filePathRef,context,error);
+    
+    return 0;
 }
