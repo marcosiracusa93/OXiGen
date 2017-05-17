@@ -41,12 +41,14 @@ Thumbs.db
 **/cmake-build-Release/**
 **/CMakeFiles/**
 Makefile
+*.cmake
 *.json
 *.txt
 
 #project files#
 *.project
 *.workspace
+**/bin/**
 
 #gitignore copy#
 .gitignore.swp
