@@ -41,6 +41,7 @@ int main(int argc, char**argv) {
     //set file to process. Must be a .ll file containing a llvm module
     const string fileName = argv[1];
     
+    //module to process
     Module* module = NULL;
     
     try{

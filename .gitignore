@@ -47,6 +47,7 @@ Makefile
 *.project
 *.workspace
 bin/*
+build/*
 
 #gitignore copy#
 .gitignore.swp
