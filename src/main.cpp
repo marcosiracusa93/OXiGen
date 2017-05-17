@@ -23,31 +23,18 @@ string RESOURCES_DIR;
 //Directory used to store the processed files
 string OUTPUT_DIR;
 
-Module* extractModuleFromFile(StringRef *filePathRef,LLVMContext &context,SMDiagnostic &error){
-
-    auto parsedModuleCont = parseAssemblyFile(*filePathRef,error,context);
-
-    Module* parsedModule = parsedModuleCont.get();
-    
-    return parsedModule;
-        
-    }
-
 int main(int argc, char**argv) {
     
-    //set directory to look for .ll files
-    ::RESOURCES_DIR = argv[2];
-    //set file to process. Must be a .ll file containing a llvm module
-    const string fileName = argv[1];
+    static LLVMContext context;         //LLVMContext variable
+    SMDiagnostic error;                 //error message
+    Module* module;                     //module to process
+    StringRef filePathRef;              //StringRef for the file to process
     
-    //LLVMContext variable
-    static LLVMContext context;
-    //error message
-    SMDiagnostic error;
-    //module to process
-    Module* module = NULL;
+    ::RESOURCES_DIR = argv[2];          //set directory to look for .ll files
+    const string fileName = argv[1];    //set file to process. Must be a .ll file containing a llvm module
     
     const string filePath = ::RESOURCES_DIR + fileName;
+    filePathRef = filePath;
     
     try{
         //try to open the file to process
@@ -60,10 +47,9 @@ int main(int argc, char**argv) {
         return -1;
     }
     
-    StringRef *filePathRef = new StringRef(filePath);
-    
-    //get a llvm module from the specified file
-    module = extractModuleFromFile(filePathRef,context,error);
+    module = (Module*)parseAssemblyFile(filePathRef,error,context).get();
+
+    module->dump();
     
     return 0;
 }
