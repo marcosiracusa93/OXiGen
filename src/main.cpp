@@ -22,35 +22,35 @@ const string RESOURCES_DIR;
 //Directory used to store the processed files
 const string OUTPUT_DIR;
 
-int extractModuleFromFile(const string fileName){
+Module* extractModuleFromFile(const string fileName){
+
+    static LLVMContext context;
+    SMDiagnostic error;
+
+    auto parsedModuleCont = parseAssemblyFile(fileName,error,context);
+
+    Module* parsedModule = parsedModuleCont.get();
+    
+    return parsedModule;
         
     }
 
 int main(int argc, char**argv) {
     
     //set directory to look for .ll files
-    RESOURCES_DIR = argv[2];
     //set file to process. Must be a .ll file containing a llvm module
     const string fileName = argv[1];
     
+    Module* module = NULL;
     
-    extractModuleFromFile(fileName);
-
-    static LLVMContext context;
-    Module* module = new Module("top", context);
-
-    IRBuilder<> builder(context);
-
-    module->dump();
-
-    StringRef fileName = "/home/user/Documents/workspace/prova/resources/loop_1.ll";
-    SMDiagnostic error;
-
-    auto parsedModuleCont = parseAssemblyFile(fileName,error,context);
-
-    Module* parsedModule = parsedModuleCont.get();
-
-    ((Module*)parsedModule)->dump();
+    try{
+        
+    }catch(const exception &e){
+        
+    }
+    
+    //get a llvm module from the specified file
+    module = extractModuleFromFile(fileName);
 
 
   return 0;

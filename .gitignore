@@ -37,18 +37,16 @@ ehthumbs.db
 Thumbs.db
 
 # Cmake files #
-**/CmakeLists.txt
 **/cmake-build-Release/**
 **/CMakeFiles/**
 Makefile
 *.cmake
 *.json
-*.txt
 
 #project files#
 *.project
 *.workspace
-**/bin/**
+bin/*
 
 #gitignore copy#
 .gitignore.swp
