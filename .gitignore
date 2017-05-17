@@ -42,12 +42,12 @@ Thumbs.db
 Makefile
 *.cmake
 *.json
+CMakeCache.txt
 
 #project files#
 *.project
 *.workspace
 bin/*
-build/*
 
 #gitignore copy#
 .gitignore.swp
