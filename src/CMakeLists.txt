@@ -3,6 +3,9 @@
 
 # Specify the minimum version for CMake
 cmake_minimum_required(VERSION 3.5.1)
+
+set(CMAKE_CXX_FLAGS "-Wall -fno-rtti")
+
 # Project's name
 project(prova)
 

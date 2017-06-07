@@ -27,40 +27,29 @@
 #include "llvm/IR/Function.h"
 #include "llvm/Support/raw_ostream.h"
 
-
 using namespace llvm;
 
-
-
-/*
 namespace{
 
-		
-	struct TestPass : public FunctionPass {
-		static char ID;
-		TestPass() : FunctionPass(ID) {}
-
-	  	bool runOnFunction(Function &F) override {
-	    	errs() << "Hello: ";
-	    	errs().write_escaped(F.getName()) << '\n';
-	    	return false;
-	  	}
-	}; // end of struct TestPass	
-
-	char TestPass::ID = 0;
-	static RegisterPass<TestPass> X("testPass", "Pass used for testing",
-    							 	false,
-                             		true);
-} // end anonymous namespace
-
-FunctionPass* createTestWrapperPass() {
-	return new TestPass();
+    class TestPass : public FunctionPass{
+    
+    static char ID;
+        
+    public:
+        TestPass() : FunctionPass(ID){}
+        
+        bool runOnFunction(Function &F){
+                std::cout << "Running test pass on a function" << std::endl;
+                return true;
+        }
+    };
+    
+    char TestPass::ID = 0;
+    
+    TestPass* createTestWrapperPass(){
+        return new TestPass();
+        }
 }
-*/
-
-
-
-
 
 //Directory used to access .ll files to process
 std::string RESOURCES_DIR; 
@@ -104,7 +93,7 @@ int main(int argc, char**argv) {
     auto modPtr = parseAssemblyFile(filePathRef,error,context);
     
     if(modPtr == NULL){
-        std::cout << "Null pointer returned from parsing, abort" << std::endl;
+        std::cout << "Null pointer returned from parsing, abort\n" << filePath << std::endl;
         return -1;
     }
     
@@ -116,8 +105,8 @@ int main(int argc, char**argv) {
 	functionPassManager->add(createAAResultsWrapperPass());			// -aa
 	functionPassManager->add(createPromoteMemoryToRegisterPass());	// -mem2reg
 	functionPassManager->add(createSCEVAAWrapperPass());			// -scalar-evolution
-//	functionPassManager->add(createTestWrapperPass());
-	FunctionPass* fp = createBasicAAWrapperPass();
+	functionPassManager->add(createTestWrapperPass());
+    functionPassManager->add(createBasicAAWrapperPass());
 	functionPassManager->run(*module->getFunction(StringRef("main")));
 	
     return 0;
