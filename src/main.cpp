@@ -39,8 +39,17 @@ namespace{
         TestPass() : FunctionPass(ID){}
         
         bool runOnFunction(Function &F){
+                
                 std::cout << "Running test pass on a function" << std::endl;
+                
+                ScalarEvolution SE = getAnalysis<ScalarEvolutionWrapperPass>().getSE();
+                
                 return true;
+        }
+        
+        void getAnalysisUsage(AnalysisUsage &AU) const {
+            AU.setPreservesAll();
+            AU.addRequiredTransitive<ScalarEvolutionWrapperPass>();
         }
     };
     
@@ -100,13 +109,15 @@ int main(int argc, char**argv) {
     module = (Module*)modPtr.get();
 
     legacy::FunctionPassManager* functionPassManager = new legacy::FunctionPassManager(module);
+    
+    ScalarEvolutionWrapperPass&& scevPass = ScalarEvolutionWrapperPass();
+    ScalarEvolutionWrapperPass* scevPassRef = &scevPass;
 	
 	functionPassManager->add(createBasicAAWrapperPass());			// -basicaa
 	functionPassManager->add(createAAResultsWrapperPass());			// -aa
 	functionPassManager->add(createPromoteMemoryToRegisterPass());	// -mem2reg
-	functionPassManager->add(createSCEVAAWrapperPass());			// -scalar-evolution
+	functionPassManager->add(scevPassRef);			// -scalar-evolution
 	functionPassManager->add(createTestWrapperPass());
-    functionPassManager->add(createBasicAAWrapperPass());
 	functionPassManager->run(*module->getFunction(StringRef("main")));
 	
     return 0;

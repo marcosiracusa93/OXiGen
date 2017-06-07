@@ -4,6 +4,7 @@
 # Specify the minimum version for CMake
 cmake_minimum_required(VERSION 3.5.1)
 
+#add necessary flags to build passes out-of-source
 set(CMAKE_CXX_FLAGS "-Wall -fno-rtti")
 
 # Project's name
