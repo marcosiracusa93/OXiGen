@@ -20,6 +20,7 @@
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/Analysis/BasicAliasAnalysis.h"
 #include "llvm/Analysis/AliasAnalysis.h"
+#include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Analysis/ScalarEvolutionAliasAnalysis.h"
 
@@ -34,6 +35,8 @@ namespace{
     class TestPass : public FunctionPass{
     
     static char ID;
+    ScalarEvolution* SE;
+    LoopInfo* LI;
         
     public:
         TestPass() : FunctionPass(ID){}
@@ -42,15 +45,73 @@ namespace{
                 
                 std::cout << "Running test pass on a function" << std::endl;
                 
-                ScalarEvolution SE = getAnalysis<ScalarEvolutionWrapperPass>().getSE();
+                //get scalar evolution and loop analysis
+                TestPass::SE = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();
+                TestPass::LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
                 
+                //process every top level loops in the function
+                for(Loop* const loop : *LI){
+                    
+                    PHINode* indVar = loop->getCanonicalInductionVariable();
+                    
+                    if(indVar != NULL)
+                        //if indVar is found, process the part of the loop which depends on it
+                        indVarBasedLoopProcessing(loop,F);
+                    else
+                        errs() << "No canonical induction variable found, terminating... \n";
+                }
                 return true;
         }
         
         void getAnalysisUsage(AnalysisUsage &AU) const {
             AU.setPreservesAll();
+            AU.addRequiredTransitive<LoopInfoWrapperPass>();
             AU.addRequiredTransitive<ScalarEvolutionWrapperPass>();
         }
+        
+    private:
+    
+        void indVarBasedLoopProcessing(Loop* topLevelLoop, Function &F){
+            if(SE->hasLoopInvariantBackedgeTakenCount(topLevelLoop)){
+                errs() << "Processing with tbtc\n";  
+                
+                if(hasIOStreamDependences(topLevelLoop,F))
+                    //computeIOStreamBasedDFG(topLevelLoop,F);
+                    errs() << "TODO: IO stream dependences check\n";
+            }else
+                errs() << "No taken back trip count, terminating... \n";
+                return;
+        }
+        
+        bool hasIOStreamDependences(Loop* topLevelLoop, Function &F){
+            errs() << "Checking for IO streams dependences... \n";
+            
+            //compute list of possible IO streams
+            // 1. fargs -> getelementptr
+            // 2. stores <- getelementptr
+            //      ==> indvar dependant getelementptr uses
+            //          gets stored ? isOutput
+            //          is in fargs ? isInput
+            /*errs() << "Exit\n";
+            topLevelLoop->getExitBlock()->dump();
+            errs() << "Header\n";
+            topLevelLoop->getHeader()->dump();
+            errs() << "Unique Latch\n";
+            topLevelLoop->getLoopLatch()->dump();
+            errs() << "Preheader\n";
+            topLevelLoop->getLoopPreheader()->dump();
+            auto args = &(F.getArgumentList());*/
+            
+            for(BasicBlock *BB : topLevelLoop->blocks())
+                    if(BB != topLevelLoop->getHeader() &&
+                        BB != topLevelLoop->getLoopLatch()){
+                        for(Instruction &instr : BB->getInstList()){
+                            instr.dump();
+                        }
+                    }
+                    
+            return true;
+            }
     };
     
     char TestPass::ID = 0;
@@ -110,15 +171,20 @@ int main(int argc, char**argv) {
 
     legacy::FunctionPassManager* functionPassManager = new legacy::FunctionPassManager(module);
     
-    ScalarEvolutionWrapperPass&& scevPass = ScalarEvolutionWrapperPass();
-    ScalarEvolutionWrapperPass* scevPassRef = &scevPass;
+    ScalarEvolutionWrapperPass* scevPassRef = new ScalarEvolutionWrapperPass();
+    LoopInfoWrapperPass* loopInfoPassRef = new LoopInfoWrapperPass();
 	
 	functionPassManager->add(createBasicAAWrapperPass());			// -basicaa
 	functionPassManager->add(createAAResultsWrapperPass());			// -aa
 	functionPassManager->add(createPromoteMemoryToRegisterPass());	// -mem2reg
-	functionPassManager->add(scevPassRef);			// -scalar-evolution
+    functionPassManager->add(loopInfoPassRef);                       // -loops
+	functionPassManager->add(scevPassRef);			                // -scalar-evolution
 	functionPassManager->add(createTestWrapperPass());
-	functionPassManager->run(*module->getFunction(StringRef("main")));
+	functionPassManager->run(*module->getFunction(StringRef("loop")));
+    
+    //errs() << "\n--------------------------------------\n\n";
+    
+    //module->dump();
 	
     return 0;
 }
