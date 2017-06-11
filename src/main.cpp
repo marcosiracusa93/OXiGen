@@ -7,6 +7,8 @@
 #include <fstream>
 #include <utility>
 #include <memory>
+#include <list>
+#include <algorithm>
 
 #include "llvm/IR/Module.h"
 #include "llvm/IR/LLVMContext.h"
@@ -31,6 +33,97 @@
 using namespace llvm;
 
 namespace{
+    
+    struct IOStreams{
+    
+    private:
+        
+        std::vector<Value*> inputStreams;
+        std::vector<Value*> outputStreams;
+        
+    public:
+    
+        IOStreams(std::vector<Value*> inStr, std::vector<Value*> outStr) {
+            
+            this->inputStreams = inStr;
+            this->outputStreams = outStr;
+        }
+        
+        std::vector<Value*> getInputStreams(){
+            return this->inputStreams;
+        }
+        
+        std::vector<Value*> getOutputStreams(){
+            return this->outputStreams;
+        }
+    
+    };
+    
+    class DFGNode{
+    
+    private:
+        Value* node;
+        std::vector<DFGNode*> predecessors;
+        DFGNode* successor;
+        
+    public:
+        DFGNode(Value* value){
+            this->node = value;
+        } 
+        
+        Value* getValue(){ return node; }
+
+        std::vector<DFGNode*> getPredecessors(){ return predecessors; }
+        
+        DFGNode* getSuccessor(){ return successor; }
+        
+        void linkPredecessor(DFGNode* pred){
+            predecessors.push_back(pred);
+            pred->setSuccessor(this);
+        }
+        
+        void setSuccessor(DFGNode* succ){ successor = succ; }
+        
+        void printNode(){
+            
+            errs() << "Node \n";
+            node->dump();
+            errs() << "\nPredecessors\n";
+            
+            for(DFGNode* predecessor : predecessors){
+                predecessor->getValue()->dump();
+            }
+        }
+        
+    };
+    
+    class DFG{
+    
+    private:
+        DFGNode* endNode;
+        
+    public:
+        DFG(DFGNode* initNode){ this->endNode = initNode; }
+        
+        DFGNode* getEndNode(){ return endNode; }
+        
+        void printDFG(DFGNode* startingNode){
+            
+            startingNode->printNode();
+         
+            for(DFGNode* pred : startingNode->getPredecessors())
+                printDFG(pred);
+        }
+        
+        void printDFG(){
+            
+            endNode->printNode();
+         
+            for(DFGNode* pred : endNode->getPredecessors())
+                printDFG(pred);
+        }
+        
+        };
 
     class TestPass : public FunctionPass{
     
@@ -59,8 +152,9 @@ namespace{
                         indVarBasedLoopProcessing(loop,F);
                     else
                         errs() << "No canonical induction variable found, terminating... \n";
+                        return false;
                 }
-                return true;
+                return false;
         }
         
         void getAnalysisUsage(AnalysisUsage &AU) const {
@@ -71,47 +165,117 @@ namespace{
         
     private:
     
+        ///Processes a loop which has a canonical induction variable
         void indVarBasedLoopProcessing(Loop* topLevelLoop, Function &F){
+            
             if(SE->hasLoopInvariantBackedgeTakenCount(topLevelLoop)){
-                errs() << "Processing with tbtc\n";  
                 
-                if(hasIOStreamDependences(topLevelLoop,F))
-                    //computeIOStreamBasedDFG(topLevelLoop,F);
-                    errs() << "TODO: IO stream dependences check\n";
+                errs() << "Processing with taken back trip count...\n"; 
+                
+                if(topLevelLoop->getSubLoops().size() == 0){
+                    
+                    errs() << "Processing innermost loop...\n";
+                    
+                    IOStreams* IOs = getIOStreamDependences(topLevelLoop,F);
+                    
+                    errs() << "Input Streams: \n";
+                    
+                    for(Value* inStr : IOs->getInputStreams()) 
+                        inStr->dump(); 
+                        
+                    errs() << "Output streams: \n";
+                    
+                    for(Value* outStr : IOs->getOutputStreams())
+                        outStr->dump();
+                    
+                    /*computeIOStreamBasedDFG(topLevelLoop,F,IOs);*/
+                        
+                }else{
+                    errs() << "Processing subloops... TODO\n";
+                }
+                    
             }else
                 errs() << "No taken back trip count, terminating... \n";
                 return;
         }
         
-        bool hasIOStreamDependences(Loop* topLevelLoop, Function &F){
+        ///Returns an object containing the values of the streams used in the loop
+        ///If they appear in the function arguments, they are classified as input streams
+        ///If they are stored, they are classified as output streams
+        IOStreams* getIOStreamDependences(Loop* topLevelLoop, Function &F){
+            
             errs() << "Checking for IO streams dependences... \n";
             
-            //compute list of possible IO streams
-            // 1. fargs -> getelementptr
-            // 2. stores <- getelementptr
-            //      ==> indvar dependant getelementptr uses
-            //          gets stored ? isOutput
-            //          is in fargs ? isInput
-            /*errs() << "Exit\n";
-            topLevelLoop->getExitBlock()->dump();
-            errs() << "Header\n";
-            topLevelLoop->getHeader()->dump();
-            errs() << "Unique Latch\n";
-            topLevelLoop->getLoopLatch()->dump();
-            errs() << "Preheader\n";
-            topLevelLoop->getLoopPreheader()->dump();
-            auto args = &(F.getArgumentList());*/
+            std::vector<Value*> inputStreams;
+            std::vector<Value*> outputStreams;
             
-            for(BasicBlock *BB : topLevelLoop->blocks())
-                    if(BB != topLevelLoop->getHeader() &&
-                        BB != topLevelLoop->getLoopLatch()){
-                        for(Instruction &instr : BB->getInstList()){
-                            instr.dump();
-                        }
-                    }
+            //Iterate basic blocks of the loop body
+            for(BasicBlock *BB : topLevelLoop->blocks()){
+                if(BB != topLevelLoop->getHeader() &&
+                    BB != topLevelLoop->getLoopLatch()){
                     
-            return true;
+                    //for each getelementptr, check if uses an IO stream
+                    for(Instruction &instr : BB->getInstList()){
+                        if(instr.getOpcodeName() == std::string("getelementptr"))
+                            if(directlyUses(&instr,topLevelLoop->getCanonicalInductionVariable())){
+
+                                if(isStored(&instr))
+                                    outputStreams.push_back(instr.getOperand(0));
+                                    
+                                for(Argument &arg : F.args()){
+                                    if(&arg == instr.getOperand(0)){
+                                        inputStreams.push_back(instr.getOperand(0));
+                                    }
+                                }
+                            }       
+                    }
+                }
             }
+                 
+            return new IOStreams(inputStreams,outputStreams);
+            }
+        
+       /* DFG* computeIOStreamBasedDFG(Loop* topLevelLoop,Function &F,IOStreams* IOs){
+            
+            
+        
+        }*/
+        
+        ///Checks if 'dependentValue' uses 'targetValue' directly
+        ///At present, uses through 'sext' instructions are considered direct 
+        bool directlyUses(Value *dependentValue, Value* targetValue){
+            
+            if(Instruction* instr = dyn_cast<Instruction>(dependentValue))
+                for(Use &operand : instr->operands()){
+
+                    if(operand.get() == targetValue){
+                        return true;
+                    }
+
+                    if(Instruction* instrAsOperand = dyn_cast<Instruction>(operand.get()))
+                        if(instrAsOperand != nullptr and
+                            instrAsOperand->getOpcodeName()== std::string("sext")){
+                                
+                            return directlyUses(instrAsOperand,targetValue);//propagate as direct use
+                    }
+                }
+                
+            return false;
+        }
+        
+        ///Checks wether the value passed is used by a store instruction
+        ///TODO: verify/implement recursive behavior
+        bool isStored(Value* value){
+
+            for(User* user : value->users()){
+                if(Instruction* userAsInstr = dyn_cast<Instruction>(user)) 
+                    if(userAsInstr->getOpcodeName() == std::string("store") &&
+                        user->getOperand(1) == value)
+                        return true;
+            }
+
+            return false;
+        }
     };
     
     char TestPass::ID = 0;
@@ -181,10 +345,6 @@ int main(int argc, char**argv) {
 	functionPassManager->add(scevPassRef);			                // -scalar-evolution
 	functionPassManager->add(createTestWrapperPass());
 	functionPassManager->run(*module->getFunction(StringRef("loop")));
-    
-    //errs() << "\n--------------------------------------\n\n";
-    
-    //module->dump();
 	
     return 0;
 }
