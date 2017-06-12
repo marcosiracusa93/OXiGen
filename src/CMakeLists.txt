@@ -5,7 +5,7 @@
 cmake_minimum_required(VERSION 3.5.1)
 
 #add necessary flags to build passes out-of-source
-set(CMAKE_CXX_FLAGS "-Wall -fno-rtti")
+add_definitions(-Wall -fno-rtti)
 
 # Project's name
 project(prova)

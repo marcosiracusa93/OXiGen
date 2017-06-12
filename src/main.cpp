@@ -97,6 +97,52 @@ namespace{
         
     };
     
+    class DFGWriteNode : public DFGNode {
+    
+    private:
+        
+        Value* writingStream;
+        
+    public:
+        
+        DFGWriteNode(Value* value, IOStreams* loopStreams) : DFGNode(value) {
+            
+            for(Value* stream : loopStreams->getOutputStreams()){
+                if(Instruction* instr = dyn_cast<Instruction>(value))
+                    if(instr->getOperand(1) == stream){
+
+                        writingStream = stream;
+                        errs() << "WriteStream found\n";
+                    }   
+            }
+        }
+        
+        Value* getWritingStream(){ return writingStream; }
+    };
+    
+    class DFGReadNode : public DFGNode {
+    
+    private:
+        
+        Value* sourceStream;
+        
+    public:
+        
+        DFGReadNode(Value* value, IOStreams* loopStreams) : DFGNode(value) {
+            
+            for(Value* stream : loopStreams->getInputStreams()){
+                if(Instruction* instr = dyn_cast<Instruction>(value))
+                    if(instr->getOperand(1) == stream){
+                        
+                        sourceStream = stream;
+                        errs() << "SourceStream found\n";
+                    }
+            }
+        }
+        
+        Value* getReadingStream(){ return sourceStream; }
+    };
+        
     class DFG{
     
     private:
@@ -188,8 +234,12 @@ namespace{
                     for(Value* outStr : IOs->getOutputStreams())
                         outStr->dump();
                     
-                    /*computeIOStreamBasedDFG(topLevelLoop,F,IOs);*/
-                        
+                    std::vector<DFG*> dfgs = computeIOStreamBasedDFG(topLevelLoop,F,IOs);
+                    
+                    for(DFG* dfg : dfgs){
+                        dfg->printDFG(); 
+                    }
+                    
                 }else{
                     errs() << "Processing subloops... TODO\n";
                 }
@@ -235,11 +285,38 @@ namespace{
             return new IOStreams(inputStreams,outputStreams);
             }
         
-       /* DFG* computeIOStreamBasedDFG(Loop* topLevelLoop,Function &F,IOStreams* IOs){
+        std::vector<DFG*> computeIOStreamBasedDFG(Loop* topLevelLoop,Function &F,IOStreams* IOs){
             
+            std::vector<DFG*> computedDFGs;
             
+            for(Value* outStream : IOs->getOutputStreams()){
+
+                for(BasicBlock *BB : topLevelLoop->blocks()){
+                    if(BB != topLevelLoop->getHeader() &&
+                        BB != topLevelLoop->getLoopLatch()){
+                        
+                        for(Instruction &instr : BB->getInstList()){
+                            
+                            if(instr.getOpcodeName() == std::string("store"))
+                                if(Instruction* storeAddr = dyn_cast<Instruction>(instr.getOperand(1)))
+                                    if(storeAddr->getOperand(0) == outStream ){
+                                        
+                                        errs() << "Computing DFG\n";
+                                        computedDFGs.push_back(computeDFGFromBase(new DFGWriteNode(&instr,IOs)));
+                                    }
+                        }
+                    }
+                }
+            }
+            return computedDFGs;
+        }
         
-        }*/
+        DFG* computeDFGFromBase(DFGNode* baseNode){
+                
+            DFG* graph = new DFG(baseNode);
+            
+            return graph;
+        }
         
         ///Checks if 'dependentValue' uses 'targetValue' directly
         ///At present, uses through 'sext' instructions are considered direct 
