@@ -109,7 +109,7 @@ namespace{
             
             for(Value* stream : loopStreams->getOutputStreams()){
                 if(Instruction* instr = dyn_cast<Instruction>(value))
-                    if(instr->getOperand(1) == stream){
+                    if(((Instruction*)(instr->getOperand(1)))->getOperand(0) == stream){
 
                         writingStream = stream;
                         errs() << "WriteStream found\n";
@@ -132,7 +132,7 @@ namespace{
             
             for(Value* stream : loopStreams->getInputStreams()){
                 if(Instruction* instr = dyn_cast<Instruction>(value))
-                    if(instr->getOperand(1) == stream){
+                    if(((Instruction*)(instr->getOperand(0)))->getOperand(0) == stream){
                         
                         sourceStream = stream;
                         errs() << "SourceStream found\n";
@@ -310,11 +310,25 @@ namespace{
             }
             return computedDFGs;
         }
+		
+		void populateDFG(DFGNode* node){
+			if(Instruction* instr = dyn_cast<Instruction>(node->getValue()))
+			{
+				for(Value* operand : instr->operands())
+				{
+					DFGNode* prevNode = new DFGNode(operand);
+					node->linkPredecessor(prevNode);
+					populateDFG(prevNode);
+				}	
+			}
+		}
         
         DFG* computeDFGFromBase(DFGNode* baseNode){
                 
             DFG* graph = new DFG(baseNode);
             
+			
+			
             return graph;
         }
         
