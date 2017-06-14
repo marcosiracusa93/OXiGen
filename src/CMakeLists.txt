@@ -16,11 +16,19 @@ message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
 message(STATUS "LLVM include dirs: ${LLVM_INCLUDE_DIRS}")
 message(STATUS "LLVM Definitions: ${LLVM_DEFINITIONS}")
 
-include_directories(${LLVM_INCLUDE_DIRS})
+set( INCLUDE_DIR "${PROJECT_SOURCE_DIR}/../include" )
+set( SOURCES_DIR "${PROJECT_SOURCE_DIR}/../src")
+
+include_directories(${LLVM_INCLUDE_DIRS} ${INCLUDE_DIR})
 add_definitions(${LLVM_DEFINITIONS})
 
+file (GLOB SOURCES 
+        ${INCLUDE_DIR}/*/*.h
+        ${SOURCES_DIR}/*.cpp
+        )
+
 # The executable to build
-add_executable(main main.cpp)
+add_executable(main ${SOURCES})
 
 # Set the path for binaries
 set( EXECUTABLE_OUTPUT_PATH "${PROJECT_SOURCE_DIR}/../bin" )
