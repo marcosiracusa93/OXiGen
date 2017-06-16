@@ -9,9 +9,9 @@ using namespace SimpleDFG;
 
 void DFGNode::printNode(){
     
-    errs() << "Node \n";
+    errs() << "\nNode\n";
     node->dump();
-    errs() << "\nPredecessors\n";
+    errs() << "Predecessors\n";
     
     for(DFGNode* predecessor : predecessors){
         predecessor->getValue()->dump();
@@ -59,6 +59,7 @@ void DFG::printDFG(DFGNode* startingNode){
 
 void DFG::printDFG(){
     
+    errs() << "\n--------PRINTING DFG----------\n";
     endNode->printNode();
  
     for(DFGNode* pred : endNode->getPredecessors())

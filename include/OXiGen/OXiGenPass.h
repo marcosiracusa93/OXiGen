@@ -44,11 +44,16 @@ namespace OXiGen{
         std::vector<DFG*> computeIOStreamBasedDFG(Loop* topLevelLoop,Function &F,Utils::IOStreams* IOs);
 		
         ///Recursive function to construct a DFG from a base node
-		void populateDFG(DFGNode* node);
+		void populateDFG(DFGNode* node,Loop* loop, Utils::IOStreams* IOs);
         
         ///Function called to begin a DFG construction using 'populateDFG'
-        DFG* computeDFGFromBase(DFGNode* baseNode);
+        DFG* computeDFGFromBase(DFGWriteNode* baseNode, Loop* loop, Utils::IOStreams* IOs);
         
+        Instruction* getInstrFromOperand(Value* value, std::string opcodeName);
+        
+        DFGNode* shortcutSoreGetelementPtr(DFGWriteNode* storeNode);
+        
+        bool hasSextOnIndvar(Instruction* instr,Loop* loop);
         ///Checks if 'dependentValue' uses 'targetValue' directly
         ///At present, uses through 'sext' instructions are considered direct 
         bool directlyUses(Value *dependentValue, Value* targetValue);

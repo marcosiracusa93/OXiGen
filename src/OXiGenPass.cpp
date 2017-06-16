@@ -68,6 +68,7 @@ void TestPass::indVarBasedLoopProcessing(Loop* topLevelLoop, Function &F){
             for(DFG* dfg : dfgs){
                 dfg->printDFG(); 
             }
+                
             
         }else{
             errs() << "Processing subloops... TODO\n";
@@ -131,7 +132,7 @@ std::vector<DFG*> TestPass::computeIOStreamBasedDFG(Loop* topLevelLoop,Function 
                             if(storeAddr->getOperand(0) == outStream ){
                                 
                                 errs() << "Computing DFG\n";
-                                computedDFGs.push_back(computeDFGFromBase(new DFGWriteNode(&instr,IOs)));
+                                computedDFGs.push_back(computeDFGFromBase(new DFGWriteNode(&instr,IOs),topLevelLoop, IOs));
                             }
                 }
             }
@@ -141,26 +142,110 @@ std::vector<DFG*> TestPass::computeIOStreamBasedDFG(Loop* topLevelLoop,Function 
 }
 
 ///TODO add some doc
-void TestPass::populateDFG(DFGNode* node){
-    if(Instruction* instr = dyn_cast<Instruction>(node->getValue()))
-    {
-        for(Value* operand : instr->operands())
-        {
-            DFGNode* prevNode = new DFGNode(operand);
-            node->linkPredecessor(prevNode);
-            populateDFG(prevNode);
-        }	
+void TestPass::populateDFG(DFGNode* node,Loop* loop, IOStreams* IOs){
+    
+    Value* parentVal = node->getValue();
+
+    if(Instruction* parentInstr = dyn_cast<Instruction>(parentVal)){
+        
+        for(Value* operandVal : parentInstr->operands()){
+            
+            if(Instruction* operandAsInstr = dyn_cast<Instruction>(operandVal))
+            {
+                if(operandAsInstr->getOpcodeName() == std::string("load"))
+                {
+                    Instruction* getelemPtrInstr = getInstrFromOperand(
+                        operandAsInstr->getOperand(0), std::string("getelementptr"));
+                    
+                    if(getelemPtrInstr != nullptr && (hasSextOnIndvar(getelemPtrInstr,loop) ||
+                    getelemPtrInstr->getOperand(1) == loop->getCanonicalInductionVariable()))
+                    {
+                        errs() << "Init read node\n";
+                        DFGReadNode* childNode = new DFGReadNode(operandVal,IOs);
+                        node->linkPredecessor(childNode);
+                        
+                        errs() << "Read node added: \n";
+                        childNode->getValue()->dump();
+                        errs() << "Parent:\n";
+                        
+                        for(DFGNode* predecessor : node->getPredecessors()){
+                            predecessor->getValue()->dump();
+                        }           
+                    }
+                }
+                else
+                {
+                    DFGNode* childNode = new DFGNode(operandVal);
+                    node->linkPredecessor(childNode);
+                        
+                    errs() << "Found normal node: \n";
+                    childNode->getValue()->dump();
+                        
+                    populateDFG(childNode,loop,IOs);
+                    
+                }
+            }
+            else
+            {
+                DFGNode* childNode = new DFGNode(operandVal);
+                childNode->linkPredecessor(node);
+                
+                errs() << "Found non-instr node\n";
+                operandVal->dump();
+            }
+        }
     }
+    else
+    {
+        errs() << "Non onstr parent\n";
+        return;
+    }
+    
 }
 
 ///TODO add some doc
-DFG* TestPass::computeDFGFromBase(DFGNode* baseNode){
+DFG* TestPass::computeDFGFromBase(DFGWriteNode* baseNode,Loop* loop, IOStreams* IOs){
         
     DFG* graph = new DFG(baseNode);
     
-    
+    populateDFG(shortcutSoreGetelementPtr(baseNode),loop,IOs);
     
     return graph;
+}
+
+Instruction* TestPass::getInstrFromOperand(Value* value, std::string opcodeName){
+        
+    if(Instruction* instr = dyn_cast<Instruction>(value))
+        if(instr->getOpcodeName() == opcodeName)
+            return instr;
+    return nullptr;
+}
+
+DFGNode* TestPass::shortcutSoreGetelementPtr(DFGWriteNode* storeNode){
+        
+        Instruction* storeInstr = (Instruction*) storeNode->getValue();
+        DFGNode* startingNode = new DFGNode(storeInstr->getOperand(0));
+        
+        storeNode->linkPredecessor(startingNode);
+        return startingNode;
+    }
+
+bool TestPass::hasSextOnIndvar(Instruction* instr,Loop* loop){
+        
+    for(Value* operand : instr->operands()){
+        
+        if(Instruction* childInstr = dyn_cast<Instruction>(operand)){
+            if(childInstr->getOperand(0) == loop->getCanonicalInductionVariable() &&
+                childInstr->getOpcodeName() == std::string("sext"))
+                    
+                errs() << " Found\n";
+                instr->dump();
+                errs() << "Having sext indvar\n";
+                
+                return true;
+        }
+    }
+    return false;
 }
         
 ///Checks if 'dependentValue' uses 'targetValue' directly
