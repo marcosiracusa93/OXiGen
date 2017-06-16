@@ -18,6 +18,7 @@
 #include "llvm/AsmParser/Parser.h"
 
 #include "OXiGen/OXiGenPass.h"
+#include "DFG/DFGManager.h"
 
 using namespace llvm;
 
@@ -82,5 +83,11 @@ int main(int argc, char**argv) {
 	functionPassManager->add(OXiGen::createTestWrapperPass());
 	functionPassManager->run(*module->getFunction(StringRef("loop")));
 	
+    SimpleDFG::SequentialNamesManager* snm = new SequentialNamesManager();
+    
+    for(int i  = 0; i < 100; i++){
+        errs() << "name: "<< snm->getNewName() << "\n";
+    }
+    
     return 0;
 }

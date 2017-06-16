@@ -1,7 +1,8 @@
+#ifndef IOSTREAMS_H
+#define IOSTREAMS_H
 
 #include "llvm-c/Core.h"
 #include "llvm/IR/Function.h"
-
 
 namespace Utils{
     
@@ -25,3 +26,5 @@ namespace Utils{
     
     };
 }
+
+#endif

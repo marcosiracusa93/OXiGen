@@ -1,3 +1,5 @@
+#ifndef NODES_H
+#define NODES_H
 
 #include "Utils/IOStreams.h"
 #include "llvm/Support/raw_ostream.h"
@@ -77,3 +79,5 @@ namespace SimpleDFG {
     };
 
 }
+
+#endif

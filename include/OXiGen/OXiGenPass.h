@@ -1,3 +1,5 @@
+#ifndef OXIGENPASS_H
+#define OXIGENPASS_H
 
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/Analysis/BasicAliasAnalysis.h"
@@ -65,3 +67,5 @@ namespace OXiGen{
     
     TestPass* createTestWrapperPass();
 }
+
+#endif
