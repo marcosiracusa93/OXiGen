@@ -14,9 +14,9 @@
 #include "DFG/Nodes.h"
 
 using namespace llvm;
-using namespace SimpleDFG;
+using namespace simple_dfg;
 
-namespace OXiGen{
+namespace oxigen{
     
     class TestPass : public FunctionPass{
     

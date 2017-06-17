@@ -6,7 +6,7 @@
 
 using namespace llvm;
 
-namespace SimpleDFG {
+namespace simple_dfg {
     
     class DFGNode{
     
@@ -15,8 +15,15 @@ namespace SimpleDFG {
         std::vector<DFGNode*> predecessors;
         DFGNode* successor;
         
+        std::string name;
+        bool markedFlag;
+        
     public:
-        DFGNode(Value* value){ this->node = value;} 
+        DFGNode(Value* value){
+            this->node = value;
+            this->markedFlag = false;
+            this->name = "unnamed";
+        } 
         
         Value* getValue(){ return node; }
 
@@ -24,6 +31,14 @@ namespace SimpleDFG {
         
         DFGNode* getSuccessor(){ return successor; }
         
+        std::string getName() { return name; }
+        
+        bool getFlag() { return markedFlag; }
+        
+        void setName(std::string name){ this->name = name; }
+        
+        void setFlag(bool value){ this->markedFlag = value; }
+         
         void linkPredecessor(DFGNode* pred){
             predecessors.push_back(pred);
             pred->setSuccessor(this);
@@ -32,6 +47,8 @@ namespace SimpleDFG {
         void setSuccessor(DFGNode* succ){ successor = succ; }
         
         void printNode();
+        
+        int countSubgraphNodes();
         
     };
     
@@ -72,9 +89,19 @@ namespace SimpleDFG {
         
         DFGNode* getEndNode(){ return endNode; }
         
+        int getNodesCount();
+        
+        void setNameVector(std::vector<std::string> &nodeNames, DFGNode* node);
+        
         void printDFG(DFGNode* startingNode);
         
         void printDFG();
+    
+    private:
+    
+        int countChildren(DFGNode* parent,int count);
+        
+        void resetFlags(DFGNode* node);
         
     };
 

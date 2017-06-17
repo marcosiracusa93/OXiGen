@@ -2,11 +2,12 @@
 #include <vector>
 #include <iostream>
 #include "OXiGen/OXiGenPass.h"
+#include "DFG/DFGManager.h"
 
-using namespace OXiGen;
+using namespace oxigen;
 using namespace Utils;
 
-TestPass* OXiGen::createTestWrapperPass(){ return new TestPass::TestPass(); }
+TestPass* oxigen::createTestWrapperPass(){ return new TestPass::TestPass(); }
 
 TestPass::TestPass() : FunctionPass(ID){}
 
@@ -43,12 +44,12 @@ void TestPass::getAnalysisUsage(AnalysisUsage &AU) const {
 ///Processes a loop which has a canonical induction variable
 void TestPass::indVarBasedLoopProcessing(Loop* topLevelLoop, Function &F){
     
-    if(SE->hasLoopInvariantBackedgeTakenCount(topLevelLoop)){
-        
+    if(SE->hasLoopInvariantBackedgeTakenCount(topLevelLoop))
+    {
         errs() << "Processing with taken back trip count...\n"; 
         
-        if(topLevelLoop->getSubLoops().size() == 0){
-            
+        if(topLevelLoop->getSubLoops().size() == 0)
+        {
             errs() << "Processing innermost loop...\n";
             
             IOStreams* IOs = getIOStreamDependences(topLevelLoop,F);
@@ -65,18 +66,25 @@ void TestPass::indVarBasedLoopProcessing(Loop* topLevelLoop, Function &F){
             
             std::vector<DFG*> dfgs = computeIOStreamBasedDFG(topLevelLoop,F,IOs);
             
-            for(DFG* dfg : dfgs){
-                dfg->printDFG(); 
+            for(DFG* dfg : dfgs)
+            {
+                dfg->printDFG();
             }
-                
-            
-        }else{
+
+            simple_dfg::DFGManager* dfgManager = new simple_dfg::DFGManager(dfgs);
+            dfgManager->printDFGAsKernel(std::string("loopKernel"),std::string("loop"));
+        }
+        else
+        {
             errs() << "Processing subloops... TODO\n";
         }
             
-    }else
+    }
+    else
+    {
         errs() << "No taken back trip count, terminating... \n";
         return;
+    }
 }
         
 ///Returns an object containing the values of the streams used in the loop

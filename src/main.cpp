@@ -42,9 +42,11 @@ int main(int argc, char**argv) {
     StringRef filePathRef;              	// StringRef for the file to process
     std::string fileName;               	// file to process, must be a .ll file containing a llvm module
     std::string filePath;               	// full path for the file to process
+    std::string functionName;               // name of the function to process
     
     ::RESOURCES_DIR = argv[2];          	// set directory to look for .ll files
-    fileName = argv[1];                 	// set name of the file to process
+    fileName = argv[1];                     // set name of the file to process
+    functionName = argv[3];                 // set the name of the function to process
     
     filePath = ::RESOURCES_DIR + fileName; 	// set full path
     filePathRef = filePath;                	// set a StringRef for the full path
@@ -78,16 +80,10 @@ int main(int argc, char**argv) {
 	functionPassManager->add(createBasicAAWrapperPass());			// -basicaa
 	functionPassManager->add(createAAResultsWrapperPass());			// -aa
 	functionPassManager->add(createPromoteMemoryToRegisterPass());	// -mem2reg
-    functionPassManager->add(loopInfoPassRef);                       // -loops
+    functionPassManager->add(loopInfoPassRef);                      // -loops
 	functionPassManager->add(scevPassRef);			                // -scalar-evolution
-	functionPassManager->add(OXiGen::createTestWrapperPass());
-	functionPassManager->run(*module->getFunction(StringRef("loop")));
-	
-    SimpleDFG::SequentialNamesManager* snm = new SequentialNamesManager();
-    
-    for(int i  = 0; i < 100; i++){
-        errs() << "name: "<< snm->getNewName() << "\n";
-    }
-    
+	functionPassManager->add(oxigen::createTestWrapperPass());
+	functionPassManager->run(*module->getFunction(StringRef(functionName)));
+
     return 0;
 }

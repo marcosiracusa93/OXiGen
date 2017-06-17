@@ -3,7 +3,7 @@
 
 #include "DFG/Nodes.h"
 
-namespace SimpleDFG{
+namespace simple_dfg{
     
     class SequentialNamesManager{
         
@@ -15,10 +15,10 @@ namespace SimpleDFG{
         SequentialNamesManager(){ this->nextName = std::string("a"); }
         
         std::string getNewName(){
-                std::string newName = nextName;
-                varNames.push_back(newName);
-                nextName = generateNextName();
-                return newName;
+            std::string newName = nextName;
+            varNames.push_back(newName);
+            nextName = generateNextName();
+            return newName;
         }
         
         bool isPresent(std::string varName);
@@ -30,17 +30,33 @@ namespace SimpleDFG{
     class DFGManager{
     
     private:
-        SequentialNamesManager namesManager;
+        SequentialNamesManager* namesManager;
         
         std::vector<DFG*> DFGs;
         DFG* finalDFG;
         
-        
     public:
     
-        DFGManager(std::vector<DFG*> DFGs){ this->DFGs = DFGs; }
+        typedef std::map<std::string,std::string> OpcodeMap;
+        typedef std::map<std::string,std::string> TypesMap;
         
-        //void printDFGAsKernel(std::string kerelName);
+        static OpcodeMap opcodeMap;
+        static TypesMap typesMap;
+        static std::vector<std::string> imports;
+        static std::string kernelSignature;
+    
+        DFGManager(std::vector<DFG*> DFGs){ 
+            this->DFGs = DFGs;
+            namesManager = new SequentialNamesManager();
+        }
+        
+        void printDFGAsKernel(std::string kernelName, std::string packageName);
+        
+    private:
+    
+        std::string generateKernelString(std::string kernelName,std::string packageName);
+        
+        void assignNodeNames();
     };
 }
 
