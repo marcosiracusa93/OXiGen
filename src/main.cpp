@@ -82,7 +82,7 @@ int main(int argc, char**argv) {
 	functionPassManager->add(createPromoteMemoryToRegisterPass());	// -mem2reg
     functionPassManager->add(loopInfoPassRef);                      // -loops
 	functionPassManager->add(scevPassRef);			                // -scalar-evolution
-	functionPassManager->add(oxigen::createTestWrapperPass());
+	functionPassManager->add(oxigen::createTestWrapperPass(functionName));
 	functionPassManager->run(*module->getFunction(StringRef(functionName)));
 
     return 0;

@@ -7,9 +7,9 @@
 using namespace oxigen;
 using namespace Utils;
 
-TestPass* oxigen::createTestWrapperPass(){ return new TestPass::TestPass(); }
+TestPass* oxigen::createTestWrapperPass(std::string functionName){ return new TestPass::TestPass(functionName); }
 
-TestPass::TestPass() : FunctionPass(ID){}
+TestPass::TestPass(std::string functionName) : FunctionPass(ID){ this->functionName = functionName; }
 
 ///TODO add some doc
 bool TestPass::runOnFunction(Function &F) {
@@ -65,14 +65,9 @@ void TestPass::indVarBasedLoopProcessing(Loop* topLevelLoop, Function &F){
                 outStr->dump();
             
             std::vector<DFG*> dfgs = computeIOStreamBasedDFG(topLevelLoop,F,IOs);
-            
-            for(DFG* dfg : dfgs)
-            {
-                dfg->printDFG();
-            }
 
             simple_dfg::DFGManager* dfgManager = new simple_dfg::DFGManager(dfgs);
-            dfgManager->printDFGAsKernel(std::string("loopKernel"),std::string("loop"));
+            dfgManager->printDFGAsKernel(functionName + std::string("Kernel"),functionName);
         }
         else
         {
@@ -168,26 +163,14 @@ void TestPass::populateDFG(DFGNode* node,Loop* loop, IOStreams* IOs){
                     if(getelemPtrInstr != nullptr && (hasSextOnIndvar(getelemPtrInstr,loop) ||
                     getelemPtrInstr->getOperand(1) == loop->getCanonicalInductionVariable()))
                     {
-                        errs() << "Init read node\n";
                         DFGReadNode* childNode = new DFGReadNode(operandVal,IOs);
                         node->linkPredecessor(childNode);
-                        
-                        errs() << "Read node added: \n";
-                        childNode->getValue()->dump();
-                        errs() << "Parent:\n";
-                        
-                        for(DFGNode* predecessor : node->getPredecessors()){
-                            predecessor->getValue()->dump();
-                        }           
                     }
                 }
                 else
                 {
                     DFGNode* childNode = new DFGNode(operandVal);
                     node->linkPredecessor(childNode);
-                        
-                    errs() << "Found normal node: \n";
-                    childNode->getValue()->dump();
                         
                     populateDFG(childNode,loop,IOs);
                     
@@ -197,9 +180,6 @@ void TestPass::populateDFG(DFGNode* node,Loop* loop, IOStreams* IOs){
             {
                 DFGNode* childNode = new DFGNode(operandVal);
                 childNode->linkPredecessor(node);
-                
-                errs() << "Found non-instr node\n";
-                operandVal->dump();
             }
         }
     }
@@ -245,11 +225,6 @@ bool TestPass::hasSextOnIndvar(Instruction* instr,Loop* loop){
         if(Instruction* childInstr = dyn_cast<Instruction>(operand)){
             if(childInstr->getOperand(0) == loop->getCanonicalInductionVariable() &&
                 childInstr->getOpcodeName() == std::string("sext"))
-                    
-                errs() << " Found\n";
-                instr->dump();
-                errs() << "Having sext indvar\n";
-                
                 return true;
         }
     }

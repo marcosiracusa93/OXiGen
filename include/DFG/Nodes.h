@@ -89,6 +89,10 @@ namespace simple_dfg {
         
         DFGNode* getEndNode(){ return endNode; }
         
+        std::vector<DFGReadNode*> getReadNodes(DFGNode* baseNode);
+        
+        std::vector<DFGWriteNode*> getWriteNodes(DFGNode* baseNode);
+        
         int getNodesCount();
         
         void setNameVector(std::vector<std::string> &nodeNames, DFGNode* node);

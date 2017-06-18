@@ -12,23 +12,17 @@ std::vector<std::string> DFGManager::imports = {
 std::string DFGManager::kernelSignature = 
     std::string("class <kernelName> extends Kernel {\n\n")              +
     std::string("\t<kernelName>(KernelParameters parameters) {\n")    +
-    std::string("\t\tsuper(parameters);\n");
+    std::string("\t\tsuper(parameters);\n\n");
     
-DFGManager::OpcodeMap DFGManager::opcodeMap = {
-    
-    {"fadd"," + "},
-    {"add"," + "},
-    {"mul"," * "},
-    {"fmul"," * "}
-    
-};
-
-DFGManager::TypesMap DFGManager::typesMap = {
+MaxJInstructionPrinter::OpcodeMap MaxJInstructionPrinter::opcodeMap = {
     
     {"fadd"," + "},
-    {"add"," + "},
-    {"mul"," * "},
-    {"fmul"," * "}
+    {"add", " + "},
+    {"mul", " * "},
+    {"fmul"," * "},
+    {"fdiv", " / "},
+    {"sdiv", " / "},
+    {"udiv", " / "},
     
 };
 
@@ -75,6 +69,117 @@ bool SequentialNamesManager::isPresent(std::string varName){
     }
     return false; 
 } 
+
+std::string MaxJInstructionPrinter::getImputStreamsDeclarations(std::vector<DFGReadNode*> inputs){
+
+    std::string declarations;
+    
+    for(DFGReadNode* inputNode : inputs)
+    {
+        Value* inputStream = inputNode->getReadingStream();
+        Type* inputStreamType = inputStream->getType()->getPointerElementType();
+        std::string nodeName = inputNode->getName();
+        
+        if(inputStreamType->isFloatingPointTy())
+        {
+            int size = inputStreamType->getPrimitiveSizeInBits();
+            int mantissa = inputStreamType->getFPMantissaWidth();
+            
+            std::string decl = std::string("\t\tDFEVar ") + nodeName +
+                        std::string(" = io.input(\"") + nodeName + 
+                        std::string("\", dfeFloat(") + std::to_string(size-mantissa) +
+                        std::string(", ") + std::to_string(mantissa) + std::string("));\n");
+                        
+            declarations.append(decl);
+        }
+        if(inputStreamType->isIntegerTy())
+        {
+            int bitWidth = inputStreamType->getIntegerBitWidth();
+            
+            std::string decl = std::string("\t\tDFEVar ") + nodeName +
+                        std::string(" = io.input(\"") + nodeName + 
+                        std::string("\", dfeInt(") + std::to_string(bitWidth) + 
+                        std::string("));\n");
+                        
+            declarations.append(decl);
+        }
+    }
+    
+    return declarations;
+}
+
+std::string MaxJInstructionPrinter::getOutputStreamsDeclarations(std::vector<DFGWriteNode*> outputs){
+    
+    std::string declarations;
+    
+    for(DFGWriteNode* outputNode :outputs)
+    {
+        Value* outputStream = outputNode->getWritingStream();
+        Type* outputStreamType = outputStream->getType()->getPointerElementType();
+        std::string nodeName = outputNode->getName();
+        std::string resultName = outputNode->getPredecessors().front()->getName();
+        
+        if(outputStreamType->isFloatingPointTy())
+        {
+            int size = outputStreamType->getPrimitiveSizeInBits();
+            int mantissa = outputStreamType->getFPMantissaWidth();
+            
+            std::string decl = std::string("\t\tio.output(\"") + nodeName + 
+                        std::string("\", ") + resultName + std::string(", dfeFloat(") + 
+                        std::to_string(size-mantissa) + std::string(", ") +
+                        std::to_string(mantissa) + std::string("));\n");
+                        
+            declarations.append(decl);
+        }
+        if(outputStreamType->isIntegerTy())
+        {
+            int bitWidth = outputStreamType->getIntegerBitWidth();
+            
+            std::string decl = std::string("\t\tio.output(\"") + nodeName + 
+                        std::string("\", ") + resultName + std::string(", dfeInt(") + 
+                        std::to_string(bitWidth) + std::string("));\n");
+                        
+            declarations.append(decl);
+        }
+        
+    }
+    
+    return declarations;
+}
+
+std::string MaxJInstructionPrinter::generateInstructionsString(DFGNode* node){
+    
+    std::string instructionsString;
+    
+    std::string currentInstr = "";
+    
+    if(Instruction* instr = dyn_cast<Instruction>(node->getValue()))
+    {
+        if(instr->getOpcodeName() != std::string("load") &&
+            instr->getOpcodeName() != std::string("store"))
+        {
+            std::string opcode = MaxJInstructionPrinter::opcodeMap[instr->getOpcodeName()];
+            
+            currentInstr = std::string("\t\tDFEVar ") + node->getName() +
+                std::string(" = ");
+            
+            for(DFGNode* pred : node->getPredecessors())
+            {
+                currentInstr.append(pred->getName());
+                currentInstr.append(opcode);
+            }
+            currentInstr = currentInstr.substr(0,currentInstr.size()-opcode.size());
+            currentInstr.append(";\n");
+        }
+    }
+    
+    for(DFGNode* pred : node->getPredecessors())
+    {
+        instructionsString.append(generateInstructionsString(pred));
+    }
+    
+    return instructionsString.append(currentInstr);
+}
 
 void DFGManager::printDFGAsKernel(std::string kernelName, std::string packageName){
     
@@ -133,6 +238,17 @@ std::string DFGManager::generateKernelString(std::string kernelName,std::string 
     kernelAsString.append(kernelSignatureTmpl);
     
     DFGManager::assignNodeNames();
+    
+    std::vector<DFGReadNode*> readNodes = 
+        DFGManager::finalDFG->getReadNodes(DFGManager::finalDFG->getEndNode());
+    std::vector<DFGWriteNode*> writeNodes = 
+        DFGManager::finalDFG->getWriteNodes(DFGManager::finalDFG->getEndNode());
+    
+    kernelAsString.append(DFGManager::maxjPrinter->getImputStreamsDeclarations(readNodes));
+    
+    kernelAsString.append(DFGManager::maxjPrinter->generateInstructionsString(DFGManager::finalDFG->getEndNode()));
+    
+    kernelAsString.append(DFGManager::maxjPrinter->getOutputStreamsDeclarations(writeNodes));
     
     return kernelAsString;
 }

@@ -27,27 +27,38 @@ namespace simple_dfg{
         std::string generateNextName();
     };
     
+    class MaxJInstructionPrinter{
+        
+    private:
+        typedef std::map<std::string,std::string> OpcodeMap;
+        static OpcodeMap opcodeMap;
+        
+    public:
+        MaxJInstructionPrinter(){}
+        
+        std::string getImputStreamsDeclarations(std::vector<DFGReadNode*> inputs);
+        std::string getOutputStreamsDeclarations(std::vector<DFGWriteNode*> outputs);
+        std::string generateInstructionsString(DFGNode* node);
+    };
+    
     class DFGManager{
     
     private:
         SequentialNamesManager* namesManager;
+        MaxJInstructionPrinter* maxjPrinter;
         
         std::vector<DFG*> DFGs;
         DFG* finalDFG;
         
     public:
     
-        typedef std::map<std::string,std::string> OpcodeMap;
-        typedef std::map<std::string,std::string> TypesMap;
-        
-        static OpcodeMap opcodeMap;
-        static TypesMap typesMap;
         static std::vector<std::string> imports;
         static std::string kernelSignature;
     
         DFGManager(std::vector<DFG*> DFGs){ 
             this->DFGs = DFGs;
             namesManager = new SequentialNamesManager();
+            maxjPrinter = new MaxJInstructionPrinter();
         }
         
         void printDFGAsKernel(std::string kernelName, std::string packageName);

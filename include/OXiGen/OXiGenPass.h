@@ -23,9 +23,10 @@ namespace oxigen{
     char ID = 0;
     ScalarEvolution* SE;
     LoopInfo* LI;
+    std::string functionName;
         
     public:
-        TestPass();
+        TestPass(std::string functionName);
         
         bool runOnFunction(Function &F) override;
         
@@ -65,7 +66,7 @@ namespace oxigen{
         bool isStored(Value* value);
     };
     
-    TestPass* createTestWrapperPass();
+    TestPass* createTestWrapperPass(std::string functionName);
 }
 
 #endif

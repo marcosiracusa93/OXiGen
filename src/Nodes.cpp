@@ -35,10 +35,9 @@ DFGWriteNode::DFGWriteNode(Value* value, Utils::IOStreams* loopStreams) : DFGNod
     
     for(Value* stream : loopStreams->getOutputStreams()){
         if(Instruction* instr = dyn_cast<Instruction>(value)){
-            if(((Instruction*)(instr->getOperand(1)))->getOperand(0) == stream){
-
+            if(((Instruction*)(instr->getOperand(1)))->getOperand(0) == stream)
+            {
                 writingStream = stream;
-                errs() << "WriteStream found\n";
             }   
         }
     }
@@ -50,10 +49,9 @@ DFGReadNode::DFGReadNode(Value* value, Utils::IOStreams* loopStreams) : DFGNode(
     
     for(Value* stream : loopStreams->getInputStreams()){
         if(Instruction* instr = dyn_cast<Instruction>(value))
-            if(((Instruction*)(instr->getOperand(0)))->getOperand(0) == stream){
-                
+            if(((Instruction*)(instr->getOperand(0)))->getOperand(0) == stream)
+            {
                 sourceStream = stream;
-                errs() << "SourceStream found\n";
             }
     }
 }
@@ -88,7 +86,6 @@ int DFG::countChildren(DFGNode* parent, int count){
     {
         if(!pred->getFlag())
         {
-            pred->getValue()->dump();
             count++;
             pred->setFlag(true);
         }
@@ -114,6 +111,40 @@ void DFG::setNameVector(std::vector<std::string> &nodeNames, DFGNode* node){
     {
         DFG::setNameVector(nodeNames,pred);
     }       
+}
+
+std::vector<DFGReadNode*> DFG::getReadNodes(DFGNode* baseNode){
+
+    std::vector<DFGReadNode*> readNodes;
+    
+    if(Instruction* instr = dyn_cast<Instruction>(baseNode->getValue()))
+        if(instr->getOpcodeName() == std::string("load"))
+            readNodes.push_back((DFGReadNode*)baseNode);
+    
+    for(DFGNode* pred : baseNode->getPredecessors())
+    {
+        std::vector<DFGReadNode*> succReadNodes = getReadNodes(pred);  
+        readNodes.insert(readNodes.end(),succReadNodes.begin(),succReadNodes.end());
+    }
+    
+    return readNodes;
+}
+
+std::vector<DFGWriteNode*> DFG::getWriteNodes(DFGNode* baseNode){
+
+    std::vector<DFGWriteNode*> writeNodes;
+    
+    if(Instruction* instr = dyn_cast<Instruction>(baseNode->getValue()))
+        if(instr->getOpcodeName() == std::string("store"))
+            writeNodes.push_back((DFGWriteNode*)baseNode);
+    
+    for(DFGNode* pred : baseNode->getPredecessors())
+    {
+        std::vector<DFGWriteNode*> succWriteNodes = getWriteNodes(pred);  
+        writeNodes.insert(writeNodes.end(),succWriteNodes.begin(),succWriteNodes.end());
+    }
+    
+    return writeNodes;
 }
 
 void DFG::printDFG(DFGNode* startingNode){
