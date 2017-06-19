@@ -14,6 +14,8 @@ std::string DFGManager::kernelSignature =
     std::string("\t<kernelName>(KernelParameters parameters) {\n")    +
     std::string("\t\tsuper(parameters);\n\n");
     
+std::string DFGManager::kernelSignatureClosing = std::string("\t}\n}\n");
+    
 MaxJInstructionPrinter::OpcodeMap MaxJInstructionPrinter::opcodeMap = {
     
     {"fadd"," + "},
@@ -249,6 +251,8 @@ std::string DFGManager::generateKernelString(std::string kernelName,std::string 
     kernelAsString.append(DFGManager::maxjPrinter->generateInstructionsString(DFGManager::finalDFG->getEndNode()));
     
     kernelAsString.append(DFGManager::maxjPrinter->getOutputStreamsDeclarations(writeNodes));
+    
+    kernelAsString.append(DFGManager::kernelSignatureClosing);
     
     return kernelAsString;
 }

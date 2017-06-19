@@ -54,6 +54,7 @@ namespace simple_dfg{
     
         static std::vector<std::string> imports;
         static std::string kernelSignature;
+        static std::string kernelSignatureClosing;
     
         DFGManager(std::vector<DFG*> DFGs){ 
             this->DFGs = DFGs;
