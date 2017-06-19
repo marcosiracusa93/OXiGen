@@ -10,7 +10,7 @@ std::vector<std::string> DFGManager::imports = {
 };
 
 std::string DFGManager::kernelSignature = 
-    std::string("class <kernelName> extends Kernel {\n\n")              +
+    std::string("class <kernelName> extends Kernel {\n\n")            +
     std::string("\t<kernelName>(KernelParameters parameters) {\n")    +
     std::string("\t\tsuper(parameters);\n\n");
     
@@ -20,6 +20,8 @@ MaxJInstructionPrinter::OpcodeMap MaxJInstructionPrinter::opcodeMap = {
     
     {"fadd"," + "},
     {"add", " + "},
+    {"fsub"," - "},
+    {"sub"," - "},
     {"mul", " * "},
     {"fmul"," * "},
     {"fdiv", " / "},
@@ -199,7 +201,7 @@ void DFGManager::printDFGAsKernel(std::string kernelName, std::string packageNam
     }
 }
 
-void DFGManager::assignNodeNames(){
+void DFGManager::assignNodeNames(std::vector<DFGReadNode*> readNodes){
         
     int nodesCount = DFGManager::finalDFG->getNodesCount();
     
@@ -210,7 +212,7 @@ void DFGManager::assignNodeNames(){
         nodeNames.push_back(DFGManager::namesManager->getNewName());
     }
     
-    DFGManager::finalDFG->setNameVector(nodeNames,DFGManager::finalDFG->getEndNode());
+    DFGManager::finalDFG->setNameVector(nodeNames,DFGManager::finalDFG->getEndNode(),readNodes);
 }
 
 std::string DFGManager::generateKernelString(std::string kernelName,std::string packageName){
@@ -239,10 +241,11 @@ std::string DFGManager::generateKernelString(std::string kernelName,std::string 
     
     kernelAsString.append(kernelSignatureTmpl);
     
-    DFGManager::assignNodeNames();
-    
     std::vector<DFGReadNode*> readNodes = 
         DFGManager::finalDFG->getReadNodes(DFGManager::finalDFG->getEndNode());
+        
+    DFGManager::assignNodeNames(readNodes);
+    
     std::vector<DFGWriteNode*> writeNodes = 
         DFGManager::finalDFG->getWriteNodes(DFGManager::finalDFG->getEndNode());
     

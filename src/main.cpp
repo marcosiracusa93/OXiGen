@@ -1,5 +1,5 @@
 /**
- * Main class for the project.
+ * Main class for the OXiGen tool. 
  * @author Francesco Peverelli, Marco Siracusa
  */
  
@@ -77,13 +77,14 @@ int main(int argc, char**argv) {
     ScalarEvolutionWrapperPass* scevPassRef = new ScalarEvolutionWrapperPass();
     LoopInfoWrapperPass* loopInfoPassRef = new LoopInfoWrapperPass();
 	
-	functionPassManager->add(createBasicAAWrapperPass());			// -basicaa
-	functionPassManager->add(createAAResultsWrapperPass());			// -aa
-	functionPassManager->add(createPromoteMemoryToRegisterPass());	// -mem2reg
-    functionPassManager->add(loopInfoPassRef);                      // -loops
-	functionPassManager->add(scevPassRef);			                // -scalar-evolution
-	functionPassManager->add(oxigen::createTestWrapperPass(functionName));
-	functionPassManager->run(*module->getFunction(StringRef(functionName)));
+	functionPassManager->add(createBasicAAWrapperPass());			        // -basicaa
+	functionPassManager->add(createAAResultsWrapperPass());			        // -aa
+	functionPassManager->add(createPromoteMemoryToRegisterPass());	        // -mem2reg
+    functionPassManager->add(loopInfoPassRef);                              // -loops
+	functionPassManager->add(scevPassRef);			                        // -scalar-evolution
+	functionPassManager->add(oxigen::createTestWrapperPass(functionName));  // OXiGen custom pass
+	
+    functionPassManager->run(*module->getFunction(StringRef(functionName)));
 
     return 0;
 }

@@ -51,7 +51,7 @@ namespace simple_dfg {
         int countSubgraphNodes();
         
     };
-    
+
     class DFGWriteNode : public DFGNode {
     
     private:
@@ -95,7 +95,7 @@ namespace simple_dfg {
         
         int getNodesCount();
         
-        void setNameVector(std::vector<std::string> &nodeNames, DFGNode* node);
+        void setNameVector(std::vector<std::string> &nodeNames, DFGNode* node,std::vector<DFGReadNode*> &readNodes);
         
         void printDFG(DFGNode* startingNode);
         

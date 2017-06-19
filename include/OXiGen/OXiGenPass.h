@@ -17,29 +17,58 @@ using namespace llvm;
 using namespace simple_dfg;
 
 namespace oxigen{
-    
-    class TestPass : public FunctionPass{
+    /**
+     * @class TestPass
+     * @author Francesco Peverelli, Marco Siracusa 
+     * @file OXiGenPass.h
+     * @brief OXiGen custom pass. Processes the llvm IR to produce a MaxJ Kernel.
+     */
+    class OXiGenPass : public FunctionPass{
     
     char ID = 0;
-    ScalarEvolution* SE;
-    LoopInfo* LI;
-    std::string functionName;
+    ScalarEvolution* SE;        //result form the scalar evolution analysis pass
+    LoopInfo* LI;               //result from the analysis on loops on the function
+    std::string functionName;   //name of the analyzed function
         
     public:
-        TestPass(std::string functionName);
         
+        /**
+         * @brief Construction for the pass 
+         * @param functionName the name of the function to process
+         */
+        OXiGenPass(std::string functionName);
+        
+        /**
+         * @brief methods which processes the llvm function to produce the MaxJ code
+         * @param F an llvm::Function to be processed
+         * @return false - the function is not modified 
+         */
         bool runOnFunction(Function &F) override;
         
+        /**
+         * @brief specifies the required llvm passes for this pass 
+         * @param AU
+         */
         void getAnalysisUsage(AnalysisUsage &AU) const override;
         
     private:
     
-        ///Processes a loop which has a canonical induction variable
+        /**
+         * @brief processes a loop which has a canonical induction variable
+         * @param topLevelLoop one of the outermost loops in the fuction
+         * @param F the llvm::Function to be processed
+         */
         void indVarBasedLoopProcessing(Loop* topLevelLoop, Function &F);
         
-        ///Returns an object containing the values of the streams used in the loop
+        
         ///If they appear in the function arguments, they are classified as input streams
         ///If they are stored, they are classified as output streams
+        /**
+         * @brief  
+         * @param topLevelLoop
+         * @param F
+         * @return returns a pointer to a IOStreams object containing the values of the streams used in the loop 
+         */
         Utils::IOStreams* getIOStreamDependences(Loop* topLevelLoop, Function &F);
         
         ///Given a Loop and a set of IO streams, returns a vector of Dataflow graphs constructed with the
@@ -66,7 +95,7 @@ namespace oxigen{
         bool isStored(Value* value);
     };
     
-    TestPass* createTestWrapperPass(std::string functionName);
+    OXiGenPass* createTestWrapperPass(std::string functionName);
 }
 
 #endif

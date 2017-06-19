@@ -1,5 +1,6 @@
 
 #include "llvm-c/Core.h"
+#include "llvm/IR/Constants.h"
 #include "DFG/Nodes.h"
 
 using namespace llvm;
@@ -96,7 +97,7 @@ int DFG::countChildren(DFGNode* parent, int count){
     return count;
 }
 
-void DFG::setNameVector(std::vector<std::string> &nodeNames, DFGNode* node){
+void DFG::setNameVector(std::vector<std::string> &nodeNames, DFGNode* node,std::vector<DFGReadNode*> &readNodes){
     
     if(nodeNames.size() < 1)
     {
@@ -104,12 +105,29 @@ void DFG::setNameVector(std::vector<std::string> &nodeNames, DFGNode* node){
         return;
     }
     
-    node->setName(nodeNames.back());
-    nodeNames.pop_back();
+    
+    if(Instruction* instr = dyn_cast<Instruction>(node->getValue()))
+    {
+        if(instr->getOpcodeName() == std::string("load")){}
+        node->setName(nodeNames.back());
+        nodeNames.pop_back();
+    }
+    
+    if(ConstantFP* CFP = dyn_cast<ConstantFP>(node->getValue()))
+    {
+        node->setName(std::to_string(CFP->getValueAPF().convertToFloat()));
+        nodeNames.pop_back();
+    }
+    
+    if(ConstantInt* CFP = dyn_cast<ConstantInt>(node->getValue()))
+    {
+        node->setName(std::to_string(CFP->getZExtValue()));
+        nodeNames.pop_back();
+    }
     
     for(DFGNode* pred : node->getPredecessors())
     {
-        DFG::setNameVector(nodeNames,pred);
+        DFG::setNameVector(nodeNames,pred,readNodes);
     }       
 }
 

@@ -7,18 +7,18 @@
 using namespace oxigen;
 using namespace Utils;
 
-TestPass* oxigen::createTestWrapperPass(std::string functionName){ return new TestPass::TestPass(functionName); }
+OXiGenPass* oxigen::createTestWrapperPass(std::string functionName){ return new OXiGenPass::OXiGenPass(functionName); }
 
-TestPass::TestPass(std::string functionName) : FunctionPass(ID){ this->functionName = functionName; }
+OXiGenPass::OXiGenPass(std::string functionName) : FunctionPass(ID){ this->functionName = functionName; }
 
 ///TODO add some doc
-bool TestPass::runOnFunction(Function &F) {
+bool OXiGenPass::runOnFunction(Function &F) {
         
         std::cout << "Running test pass on a function" << std::endl;
         
         //get scalar evolution and loop analysis
-        TestPass::SE = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();
-        TestPass::LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
+        OXiGenPass::SE = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();
+        OXiGenPass::LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
         
         //process every top level loops in the function
         for(Loop* const loop : *LI){
@@ -35,14 +35,14 @@ bool TestPass::runOnFunction(Function &F) {
         return false;
 }
 
-void TestPass::getAnalysisUsage(AnalysisUsage &AU) const {
+void OXiGenPass::getAnalysisUsage(AnalysisUsage &AU) const {
     AU.setPreservesAll();
     AU.addRequiredTransitive<LoopInfoWrapperPass>();
     AU.addRequiredTransitive<ScalarEvolutionWrapperPass>();
 }
 
 ///Processes a loop which has a canonical induction variable
-void TestPass::indVarBasedLoopProcessing(Loop* topLevelLoop, Function &F){
+void OXiGenPass::indVarBasedLoopProcessing(Loop* topLevelLoop, Function &F){
     
     if(SE->hasLoopInvariantBackedgeTakenCount(topLevelLoop))
     {
@@ -87,7 +87,7 @@ void TestPass::indVarBasedLoopProcessing(Loop* topLevelLoop, Function &F){
 ///Returns an object containing the values of the streams used in the loop
 ///If they appear in the function arguments, they are classified as input streams
 ///If they are stored, they are classified as output streams
-IOStreams* TestPass::getIOStreamDependences(Loop* topLevelLoop, Function &F){
+IOStreams* OXiGenPass::getIOStreamDependences(Loop* topLevelLoop, Function &F){
     
     errs() << "Checking for IO streams dependences... \n";
     
@@ -120,7 +120,7 @@ IOStreams* TestPass::getIOStreamDependences(Loop* topLevelLoop, Function &F){
 }
 
 ///TODO add some doc
-std::vector<DFG*> TestPass::computeIOStreamBasedDFG(Loop* topLevelLoop,Function &F,IOStreams* IOs){
+std::vector<DFG*> OXiGenPass::computeIOStreamBasedDFG(Loop* topLevelLoop,Function &F,IOStreams* IOs){
     
     std::vector<DFG*> computedDFGs;
     
@@ -147,7 +147,7 @@ std::vector<DFG*> TestPass::computeIOStreamBasedDFG(Loop* topLevelLoop,Function 
 }
 
 ///TODO add some doc
-void TestPass::populateDFG(DFGNode* node,Loop* loop, IOStreams* IOs){
+void OXiGenPass::populateDFG(DFGNode* node,Loop* loop, IOStreams* IOs){
     
     Value* parentVal = node->getValue();
 
@@ -181,20 +181,20 @@ void TestPass::populateDFG(DFGNode* node,Loop* loop, IOStreams* IOs){
             else
             {
                 DFGNode* childNode = new DFGNode(operandVal);
-                childNode->linkPredecessor(node);
+                node->linkPredecessor(childNode);
             }
         }
     }
     else
     {
-        errs() << "Non onstr parent\n";
+        errs() << "Non instr parent\n";
         return;
     }
     
 }
 
 ///TODO add some doc
-DFG* TestPass::computeDFGFromBase(DFGWriteNode* baseNode,Loop* loop, IOStreams* IOs){
+DFG* OXiGenPass::computeDFGFromBase(DFGWriteNode* baseNode,Loop* loop, IOStreams* IOs){
         
     DFG* graph = new DFG(baseNode);
     
@@ -203,7 +203,7 @@ DFG* TestPass::computeDFGFromBase(DFGWriteNode* baseNode,Loop* loop, IOStreams* 
     return graph;
 }
 
-Instruction* TestPass::getInstrFromOperand(Value* value, std::string opcodeName){
+Instruction* OXiGenPass::getInstrFromOperand(Value* value, std::string opcodeName){
         
     if(Instruction* instr = dyn_cast<Instruction>(value))
         if(instr->getOpcodeName() == opcodeName)
@@ -211,7 +211,7 @@ Instruction* TestPass::getInstrFromOperand(Value* value, std::string opcodeName)
     return nullptr;
 }
 
-DFGNode* TestPass::shortcutSoreGetelementPtr(DFGWriteNode* storeNode){
+DFGNode* OXiGenPass::shortcutSoreGetelementPtr(DFGWriteNode* storeNode){
         
         Instruction* storeInstr = (Instruction*) storeNode->getValue();
         DFGNode* startingNode = new DFGNode(storeInstr->getOperand(0));
@@ -220,7 +220,7 @@ DFGNode* TestPass::shortcutSoreGetelementPtr(DFGWriteNode* storeNode){
         return startingNode;
     }
 
-bool TestPass::hasSextOnIndvar(Instruction* instr,Loop* loop){
+bool OXiGenPass::hasSextOnIndvar(Instruction* instr,Loop* loop){
         
     for(Value* operand : instr->operands()){
         
@@ -235,7 +235,7 @@ bool TestPass::hasSextOnIndvar(Instruction* instr,Loop* loop){
         
 ///Checks if 'dependentValue' uses 'targetValue' directly
 ///At present, uses through 'sext' instructions are considered direct 
-bool TestPass::directlyUses(Value *dependentValue, Value* targetValue){
+bool OXiGenPass::directlyUses(Value *dependentValue, Value* targetValue){
     
     if(Instruction* instr = dyn_cast<Instruction>(dependentValue))
         for(Use &operand : instr->operands()){
@@ -257,7 +257,7 @@ bool TestPass::directlyUses(Value *dependentValue, Value* targetValue){
 
 ///Checks wether the value passed is used by a store instruction
 ///TODO: verify/implement recursive behavior
-bool TestPass::isStored(Value* value){
+bool OXiGenPass::isStored(Value* value){
 
     for(User* user : value->users()){
         if(Instruction* userAsInstr = dyn_cast<Instruction>(user)) 
