@@ -65,6 +65,8 @@ void TestPass::indVarBasedLoopProcessing(Loop* topLevelLoop, Function &F){
                 outStr->dump();
             
             std::vector<DFG*> dfgs = computeIOStreamBasedDFG(topLevelLoop,F,IOs);
+            
+            for(DFG* dfg : dfgs) dfg->printDFG();
 
             simple_dfg::DFGManager* dfgManager = new simple_dfg::DFGManager(dfgs);
             dfgManager->printDFGAsKernel(functionName + std::string("Kernel"),functionName);
