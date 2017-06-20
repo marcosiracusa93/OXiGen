@@ -7,69 +7,72 @@ target triple = "x86_64-unknown-linux-gnu"
 @main.y = private unnamed_addr constant [10 x float] [float 2.000000e+00, float 2.000000e+00, float 2.000000e+00, float 2.000000e+00, float 2.000000e+00, float 2.000000e+00, float 2.000000e+00, float 2.000000e+00, float 2.000000e+00, float 2.000000e+00], align 16
 
 ; Function Attrs: noinline nounwind uwtable
-define i32 @gravitational_force(float*, float*, float, float, float*) #0 {
-  %6 = alloca float*, align 8
+define i32 @gravitational_force(float*, float*, float, float, float, float*) #0 {
   %7 = alloca float*, align 8
-  %8 = alloca float, align 4
+  %8 = alloca float*, align 8
   %9 = alloca float, align 4
-  %10 = alloca float*, align 8
-  %11 = alloca i32, align 4
-  store float* %0, float** %6, align 8
-  store float* %1, float** %7, align 8
-  store float %2, float* %8, align 4
-  store float %3, float* %9, align 4
-  store float* %4, float** %10, align 8
-  store i32 0, i32* %11, align 4
-  br label %12
+  %10 = alloca float, align 4
+  %11 = alloca float, align 4
+  %12 = alloca float*, align 8
+  %13 = alloca i32, align 4
+  store float* %0, float** %7, align 8
+  store float* %1, float** %8, align 8
+  store float %2, float* %9, align 4
+  store float %3, float* %10, align 4
+  store float %4, float* %11, align 4
+  store float* %5, float** %12, align 8
+  store i32 0, i32* %13, align 4
+  br label %14
 
-; <label>:12:                                     ; preds = %48, %5
-  %13 = load i32, i32* %11, align 4
-  %14 = icmp slt i32 %13, 10
-  br i1 %14, label %15, label %51
+; <label>:14:                                     ; preds = %51, %6
+  %15 = load i32, i32* %13, align 4
+  %16 = icmp slt i32 %15, 10
+  br i1 %16, label %17, label %54
 
-; <label>:15:                                     ; preds = %12
-  %16 = load float, float* %8, align 4
-  %17 = fmul float 4.000000e+00, %16
-  %18 = load float, float* %9, align 4
-  %19 = fmul float %17, %18
-  %20 = load float*, float** %6, align 8
-  %21 = load i32, i32* %11, align 4
-  %22 = sext i32 %21 to i64
-  %23 = getelementptr inbounds float, float* %20, i64 %22
-  %24 = load float, float* %23, align 4
-  %25 = load float*, float** %7, align 8
-  %26 = load i32, i32* %11, align 4
-  %27 = sext i32 %26 to i64
-  %28 = getelementptr inbounds float, float* %25, i64 %27
-  %29 = load float, float* %28, align 4
-  %30 = fsub float %24, %29
-  %31 = load float*, float** %6, align 8
-  %32 = load i32, i32* %11, align 4
-  %33 = sext i32 %32 to i64
-  %34 = getelementptr inbounds float, float* %31, i64 %33
-  %35 = load float, float* %34, align 4
-  %36 = load float*, float** %7, align 8
-  %37 = load i32, i32* %11, align 4
-  %38 = sext i32 %37 to i64
-  %39 = getelementptr inbounds float, float* %36, i64 %38
-  %40 = load float, float* %39, align 4
-  %41 = fsub float %35, %40
-  %42 = fmul float %30, %41
-  %43 = fdiv float %19, %42
-  %44 = load float*, float** %10, align 8
-  %45 = load i32, i32* %11, align 4
-  %46 = sext i32 %45 to i64
-  %47 = getelementptr inbounds float, float* %44, i64 %46
-  store float %43, float* %47, align 4
-  br label %48
+; <label>:17:                                     ; preds = %14
+  %18 = load float, float* %11, align 4
+  %19 = load float, float* %9, align 4
+  %20 = fmul float %18, %19
+  %21 = load float, float* %10, align 4
+  %22 = fmul float %20, %21
+  %23 = load float*, float** %7, align 8
+  %24 = load i32, i32* %13, align 4
+  %25 = sext i32 %24 to i64
+  %26 = getelementptr inbounds float, float* %23, i64 %25
+  %27 = load float, float* %26, align 4
+  %28 = load float*, float** %8, align 8
+  %29 = load i32, i32* %13, align 4
+  %30 = sext i32 %29 to i64
+  %31 = getelementptr inbounds float, float* %28, i64 %30
+  %32 = load float, float* %31, align 4
+  %33 = fsub float %27, %32
+  %34 = load float*, float** %7, align 8
+  %35 = load i32, i32* %13, align 4
+  %36 = sext i32 %35 to i64
+  %37 = getelementptr inbounds float, float* %34, i64 %36
+  %38 = load float, float* %37, align 4
+  %39 = load float*, float** %8, align 8
+  %40 = load i32, i32* %13, align 4
+  %41 = sext i32 %40 to i64
+  %42 = getelementptr inbounds float, float* %39, i64 %41
+  %43 = load float, float* %42, align 4
+  %44 = fsub float %38, %43
+  %45 = fmul float %33, %44
+  %46 = fdiv float %22, %45
+  %47 = load float*, float** %12, align 8
+  %48 = load i32, i32* %13, align 4
+  %49 = sext i32 %48 to i64
+  %50 = getelementptr inbounds float, float* %47, i64 %49
+  store float %46, float* %50, align 4
+  br label %51
 
-; <label>:48:                                     ; preds = %15
-  %49 = load i32, i32* %11, align 4
-  %50 = add nsw i32 %49, 1
-  store i32 %50, i32* %11, align 4
-  br label %12
+; <label>:51:                                     ; preds = %17
+  %52 = load i32, i32* %13, align 4
+  %53 = add nsw i32 %52, 1
+  store i32 %53, i32* %13, align 4
+  br label %14
 
-; <label>:51:                                     ; preds = %12
+; <label>:54:                                     ; preds = %14
   ret i32 0
 }
 
@@ -89,7 +92,7 @@ define i32 @main() #0 {
   %8 = getelementptr inbounds [10 x float], [10 x float]* %2, i32 0, i32 0
   %9 = getelementptr inbounds [10 x float], [10 x float]* %3, i32 0, i32 0
   %10 = getelementptr inbounds [10 x float], [10 x float]* %4, i32 0, i32 0
-  %11 = call i32 @gravitational_force(float* %8, float* %9, float 1.000000e+01, float 5.000000e+00, float* %10)
+  %11 = call i32 @gravitational_force(float* %8, float* %9, float 2.000000e+01, float 1.500000e+01, float 0x40239EB860000000, float* %10)
   ret i32 %11
 }
 
