@@ -1,6 +1,7 @@
 
 #include "llvm-c/Core.h"
 #include "llvm/IR/Constants.h"
+#include "llvm/IR/Argument.h"
 #include "DFG/Nodes.h"
 
 using namespace llvm;
@@ -97,7 +98,7 @@ int DFG::countChildren(DFGNode* parent, int count){
     return count;
 }
 
-void DFG::setNameVector(std::vector<std::string> &nodeNames, DFGNode* node,std::vector<DFGReadNode*> &readNodes){
+void DFG::setNameVector(std::vector<std::string> &nodeNames, DFGNode* node){
     
     if(nodeNames.size() < 1)
     {
@@ -106,9 +107,13 @@ void DFG::setNameVector(std::vector<std::string> &nodeNames, DFGNode* node,std::
     }
     
     
-    if(Instruction* instr = dyn_cast<Instruction>(node->getValue()))
+    if(dyn_cast<Instruction>(node->getValue()))
     {
-        if(instr->getOpcodeName() == std::string("load")){}
+        node->setName(nodeNames.back());
+        nodeNames.pop_back();
+    }
+    if(dyn_cast<Argument>(node->getValue()))
+    {
         node->setName(nodeNames.back());
         nodeNames.pop_back();
     }
@@ -127,7 +132,7 @@ void DFG::setNameVector(std::vector<std::string> &nodeNames, DFGNode* node,std::
     
     for(DFGNode* pred : node->getPredecessors())
     {
-        DFG::setNameVector(nodeNames,pred,readNodes);
+        DFG::setNameVector(nodeNames,pred);
     }       
 }
 
@@ -163,6 +168,53 @@ std::vector<DFGWriteNode*> DFG::getWriteNodes(DFGNode* baseNode){
     }
     
     return writeNodes;
+}
+
+std::vector<DFGReadNode*> DFG::getUniqueReadNodes(DFGNode* baseNode){
+    
+    std::vector<DFGReadNode*> readNodes = DFG::getReadNodes(baseNode);
+    std::vector<DFGReadNode*> uniqueReadNodes;
+    
+    for(DFGReadNode* node : readNodes){
+        for(DFGReadNode* n : readNodes)
+        {
+            if(node->getReadingStream() == n->getReadingStream() && (node->getName() != n->getName()))
+            {
+                n->setName(node->getName());
+            }
+        }
+    }
+    
+    for(DFGReadNode* node : readNodes)
+    {
+        bool isUnique = true;
+        
+        for(DFGReadNode* n : uniqueReadNodes)
+            if(node->getName() == n->getName())
+                isUnique = false;
+                
+        if(isUnique)
+            uniqueReadNodes.push_back(node);
+    }
+
+    return uniqueReadNodes;
+}
+
+std::vector<DFGNode*> DFG::getScalarArguments(DFGNode* baseNode){
+    
+    std::vector<DFGNode*> scalarArgs;
+    
+    if(dyn_cast<Argument>(baseNode->getValue()))
+    {
+        scalarArgs.push_back(baseNode);
+    }
+    
+    for(DFGNode* pred : baseNode->getPredecessors())
+    {
+        std::vector<DFGNode*> predScalarArgs = getScalarArguments(pred);
+        scalarArgs.insert(scalarArgs.end(),predScalarArgs.begin(),predScalarArgs.end());
+    }
+    return scalarArgs;
 }
 
 void DFG::printDFG(DFGNode* startingNode){

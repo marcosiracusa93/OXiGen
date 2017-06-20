@@ -112,6 +112,42 @@ std::string MaxJInstructionPrinter::getImputStreamsDeclarations(std::vector<DFGR
     return declarations;
 }
 
+std:: string MaxJInstructionPrinter::getScalarInputsDeclarations(std::vector<DFGNode*> scalarInputs){
+    
+    std::string declarations;
+    
+    for(DFGNode* n : scalarInputs)
+    {
+        Type* argType = n->getValue()->getType();
+        std::string nodeName = n->getName();
+        
+        if(argType->isFloatingPointTy())
+        {
+            int size = argType->getPrimitiveSizeInBits();
+            int mantissa = argType->getFPMantissaWidth();
+            
+            std::string decl = std::string("\t\tDFEVar ") + nodeName +
+                        std::string(" = io.scalarInput(\"") + nodeName + 
+                        std::string("\", dfeFloat(") + std::to_string(size-mantissa) +
+                        std::string(", ") + std::to_string(mantissa) + std::string("));\n");
+                        
+            declarations.append(decl);
+        }
+        if(argType->isIntegerTy())
+        {
+            int bitWidth = argType->getIntegerBitWidth();
+            
+            std::string decl = std::string("\t\tDFEVar ") + nodeName +
+                        std::string(" = io.scalarInput(\"") + nodeName + 
+                        std::string("\", dfeInt(") + std::to_string(bitWidth) + 
+                        std::string("));\n");
+                        
+            declarations.append(decl);
+        }
+    }
+    return declarations;
+}
+
 std::string MaxJInstructionPrinter::getOutputStreamsDeclarations(std::vector<DFGWriteNode*> outputs){
     
     std::string declarations;
@@ -201,7 +237,7 @@ void DFGManager::printDFGAsKernel(std::string kernelName, std::string packageNam
     }
 }
 
-void DFGManager::assignNodeNames(std::vector<DFGReadNode*> readNodes){
+void DFGManager::assignNodeNames(){
         
     int nodesCount = DFGManager::finalDFG->getNodesCount();
     
@@ -212,7 +248,7 @@ void DFGManager::assignNodeNames(std::vector<DFGReadNode*> readNodes){
         nodeNames.push_back(DFGManager::namesManager->getNewName());
     }
     
-    DFGManager::finalDFG->setNameVector(nodeNames,DFGManager::finalDFG->getEndNode(),readNodes);
+    DFGManager::finalDFG->setNameVector(nodeNames,DFGManager::finalDFG->getEndNode());
 }
 
 std::string DFGManager::generateKernelString(std::string kernelName,std::string packageName){
@@ -241,15 +277,19 @@ std::string DFGManager::generateKernelString(std::string kernelName,std::string 
     
     kernelAsString.append(kernelSignatureTmpl);
     
+    DFGManager::assignNodeNames();
+    
     std::vector<DFGReadNode*> readNodes = 
-        DFGManager::finalDFG->getReadNodes(DFGManager::finalDFG->getEndNode());
-        
-    DFGManager::assignNodeNames(readNodes);
+        DFGManager::finalDFG->getUniqueReadNodes(DFGManager::finalDFG->getEndNode());
     
     std::vector<DFGWriteNode*> writeNodes = 
         DFGManager::finalDFG->getWriteNodes(DFGManager::finalDFG->getEndNode());
     
+    std::vector<DFGNode*> argNodes = DFGManager::finalDFG->getScalarArguments(DFGManager::finalDFG->getEndNode());
+    
     kernelAsString.append(DFGManager::maxjPrinter->getImputStreamsDeclarations(readNodes));
+    
+    kernelAsString.append(DFGManager::maxjPrinter->getScalarInputsDeclarations(argNodes));
     
     kernelAsString.append(DFGManager::maxjPrinter->generateInstructionsString(DFGManager::finalDFG->getEndNode()));
     

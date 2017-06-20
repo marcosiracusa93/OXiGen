@@ -50,6 +50,29 @@ namespace simple_dfg {
         
         int countSubgraphNodes();
         
+        friend bool operator==(DFGNode &ln, DFGNode &rn) {
+            
+            bool hasPred = false;
+            
+            for(DFGNode* n_1 : ln.getPredecessors())
+            {
+                for(DFGNode* n_2 : rn.getPredecessors())
+                {
+                    if(n_1->getName() == n_2->getName())
+                        hasPred = true;
+                }
+                if(hasPred)
+                    hasPred = false;
+                else
+                    return false;
+            }
+            return (ln.getSuccessor()->getName() == rn.getSuccessor()->getName());
+        }
+
+        friend bool operator!=(DFGNode &ln, DFGNode &rn) {
+            return !(ln == rn);
+        }
+        
     };
 
     class DFGWriteNode : public DFGNode {
@@ -93,9 +116,13 @@ namespace simple_dfg {
         
         std::vector<DFGWriteNode*> getWriteNodes(DFGNode* baseNode);
         
+        std::vector<DFGReadNode*> getUniqueReadNodes(DFGNode* baseNode);
+        
+        std::vector<DFGNode*> getScalarArguments(DFGNode* baseNode);
+        
         int getNodesCount();
         
-        void setNameVector(std::vector<std::string> &nodeNames, DFGNode* node,std::vector<DFGReadNode*> &readNodes);
+        void setNameVector(std::vector<std::string> &nodeNames, DFGNode* node);
         
         void printDFG(DFGNode* startingNode);
         

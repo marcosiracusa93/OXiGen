@@ -38,6 +38,7 @@ namespace simple_dfg{
         
         std::string getImputStreamsDeclarations(std::vector<DFGReadNode*> inputs);
         std::string getOutputStreamsDeclarations(std::vector<DFGWriteNode*> outputs);
+        std::string getScalarInputsDeclarations(std::vector<DFGNode*> scalarInputs);
         std::string generateInstructionsString(DFGNode* node);
     };
     
@@ -68,7 +69,7 @@ namespace simple_dfg{
     
         std::string generateKernelString(std::string kernelName,std::string packageName);
         
-        void assignNodeNames(std::vector<DFGReadNode*> readNodes);
+        void assignNodeNames();
     };
 }
 
