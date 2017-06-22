@@ -4,7 +4,7 @@
 #include "llvm-c/Core.h"
 #include "llvm/IR/Function.h"
 
-namespace Utils{
+namespace utils{
     
     struct IOStreams{
     

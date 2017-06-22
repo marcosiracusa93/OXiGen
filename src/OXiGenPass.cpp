@@ -1,3 +1,12 @@
+/** --------------------- OXiGenPass.cpp ---------------------------- //
+ *
+ *  Implementation of the OXiGen llvm::FunctionPass as part of the LLVM
+ *  pass infarastructure. This pass processes the LLVM IR to generate
+ *  the source files for the supported HLS tools. See OXiGenPass.h
+ * 
+ *  @author Francesco Peverelli, Marco Siracusa
+ *  @see OXiGenPass.h
+ */
 
 #include <vector>
 #include <iostream>
@@ -5,13 +14,14 @@
 #include "DFG/DFGManager.h"
 
 using namespace oxigen;
-using namespace Utils;
+using namespace utils;
 
-OXiGenPass* oxigen::createTestWrapperPass(std::string functionName){ return new OXiGenPass::OXiGenPass(functionName); }
+OXiGenPass* oxigen::createOXiGenWrapperPass(std::string functionName){
+    return new OXiGenPass::OXiGenPass(functionName); 
+}
 
 OXiGenPass::OXiGenPass(std::string functionName) : FunctionPass(ID){ this->functionName = functionName; }
 
-///TODO add some doc
 bool OXiGenPass::runOnFunction(Function &F) {
         
         std::cout << "Running test pass on a function" << std::endl;
@@ -20,7 +30,7 @@ bool OXiGenPass::runOnFunction(Function &F) {
         OXiGenPass::SE = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();
         OXiGenPass::LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
         
-        //process every top level loops in the function
+        //process every top level loop in the function
         for(Loop* const loop : *LI){
             
             PHINode* indVar = loop->getCanonicalInductionVariable();
@@ -41,17 +51,15 @@ void OXiGenPass::getAnalysisUsage(AnalysisUsage &AU) const {
     AU.addRequiredTransitive<ScalarEvolutionWrapperPass>();
 }
 
-///Processes a loop which has a canonical induction variable
 void OXiGenPass::indVarBasedLoopProcessing(Loop* topLevelLoop, Function &F){
     
+    //checks whether the loop has a known taken back trip count 
     if(SE->hasLoopInvariantBackedgeTakenCount(topLevelLoop))
     {
-        errs() << "Processing with taken back trip count...\n"; 
-        
+        //checks for the presence of subloops within this loop
         if(topLevelLoop->getSubLoops().size() == 0)
         {
-            errs() << "Processing innermost loop...\n";
-            
+            //retrieves the IO streams 
             IOStreams* IOs = getIOStreamDependences(topLevelLoop,F);
             
             errs() << "Input Streams: \n";
@@ -64,11 +72,15 @@ void OXiGenPass::indVarBasedLoopProcessing(Loop* topLevelLoop, Function &F){
             for(Value* outStr : IOs->getOutputStreams())
                 outStr->dump();
             
+            //obtain a vector of DFGs involving the IO streams 
             std::vector<DFG*> dfgs = computeIOStreamBasedDFG(topLevelLoop,F,IOs);
             
             for(DFG* dfg : dfgs) dfg->printDFG();
 
+            //manager used to process DFGs
             simple_dfg::DFGManager* dfgManager = new simple_dfg::DFGManager(dfgs);
+            
+            //print the resulting maxj code in the console
             dfgManager->printDFGAsKernel(functionName + std::string("Kernel"),functionName);
         }
         else
@@ -84,9 +96,6 @@ void OXiGenPass::indVarBasedLoopProcessing(Loop* topLevelLoop, Function &F){
     }
 }
         
-///Returns an object containing the values of the streams used in the loop
-///If they appear in the function arguments, they are classified as input streams
-///If they are stored, they are classified as output streams
 IOStreams* OXiGenPass::getIOStreamDependences(Loop* topLevelLoop, Function &F){
     
     errs() << "Checking for IO streams dependences... \n";
@@ -94,7 +103,7 @@ IOStreams* OXiGenPass::getIOStreamDependences(Loop* topLevelLoop, Function &F){
     std::vector<Value*> inputStreams;
     std::vector<Value*> outputStreams;
     
-    //Iterate basic blocks of the loop body
+    //iterate basic blocks of the loop body
     for(BasicBlock *BB : topLevelLoop->blocks()){
         if(BB != topLevelLoop->getHeader() &&
             BB != topLevelLoop->getLoopLatch()){
@@ -103,10 +112,13 @@ IOStreams* OXiGenPass::getIOStreamDependences(Loop* topLevelLoop, Function &F){
             for(Instruction &instr : BB->getInstList()){
                 if(instr.getOpcodeName() == std::string("getelementptr"))
                     if(directlyUses(&instr,topLevelLoop->getCanonicalInductionVariable())){
-
+                        
+                        //if the base pointer used by the getelementptr is stored, it is considered an output stream
                         if(isStored(&instr))
                             outputStreams.push_back(instr.getOperand(0));
-                            
+                        
+                        //if the element pointed by the getelementptr is present in the function arguments
+                        //it is considered an input stream
                         for(Argument &arg : F.args()){
                             if(&arg == instr.getOperand(0)){
                                 inputStreams.push_back(instr.getOperand(0));
@@ -119,11 +131,11 @@ IOStreams* OXiGenPass::getIOStreamDependences(Loop* topLevelLoop, Function &F){
     return new IOStreams(inputStreams,outputStreams);
 }
 
-///TODO add some doc
 std::vector<DFG*> OXiGenPass::computeIOStreamBasedDFG(Loop* topLevelLoop,Function &F,IOStreams* IOs){
     
     std::vector<DFG*> computedDFGs;
     
+    //iterates over the loop body instructions
     for(Value* outStream : IOs->getOutputStreams()){
 
         for(BasicBlock *BB : topLevelLoop->blocks()){
@@ -132,6 +144,9 @@ std::vector<DFG*> OXiGenPass::computeIOStreamBasedDFG(Loop* topLevelLoop,Functio
                 
                 for(Instruction &instr : BB->getInstList()){
                     
+                    //if a store is found, and the store refers to an output stream,
+                    //a DFG is computed with the store as its base, and it is added 
+                    //to the DFG vector
                     if(instr.getOpcodeName() == std::string("store"))
                         if(Instruction* storeAddr = dyn_cast<Instruction>(instr.getOperand(1)))
                             if(storeAddr->getOperand(0) == outStream ){
@@ -146,7 +161,6 @@ std::vector<DFG*> OXiGenPass::computeIOStreamBasedDFG(Loop* topLevelLoop,Functio
     return computedDFGs;
 }
 
-///TODO add some doc
 void OXiGenPass::populateDFG(DFGNode* node,Loop* loop, IOStreams* IOs){
     
     Value* parentVal = node->getValue();
@@ -157,6 +171,9 @@ void OXiGenPass::populateDFG(DFGNode* node,Loop* loop, IOStreams* IOs){
             
             if(Instruction* operandAsInstr = dyn_cast<Instruction>(operandVal))
             {
+                //these checks identify a DFGReadNode which accesses a stream
+                //through the exact value of the canonical induction variable
+                //at any given iteration
                 if(operandAsInstr->getOpcodeName() == std::string("load"))
                 {
                     Instruction* getelemPtrInstr = getInstrFromOperand(
@@ -171,6 +188,7 @@ void OXiGenPass::populateDFG(DFGNode* node,Loop* loop, IOStreams* IOs){
                 }
                 else
                 {
+                    //Node initialization for a generic instruction
                     DFGNode* childNode = new DFGNode(operandVal);
                     node->linkPredecessor(childNode);
                         
@@ -180,6 +198,8 @@ void OXiGenPass::populateDFG(DFGNode* node,Loop* loop, IOStreams* IOs){
             }
             else
             {
+                //Node initializaton for a generic llvm::Value which is not an 
+                //instruction
                 DFGNode* childNode = new DFGNode(operandVal);
                 node->linkPredecessor(childNode);
             }
@@ -193,11 +213,11 @@ void OXiGenPass::populateDFG(DFGNode* node,Loop* loop, IOStreams* IOs){
     
 }
 
-///TODO add some doc
 DFG* OXiGenPass::computeDFGFromBase(DFGWriteNode* baseNode,Loop* loop, IOStreams* IOs){
         
+    //intializes a new DFG object 
     DFG* graph = new DFG(baseNode);
-    
+    //populates it from its base node
     populateDFG(shortcutSoreGetelementPtr(baseNode),loop,IOs);
     
     return graph;
@@ -232,12 +252,10 @@ bool OXiGenPass::hasSextOnIndvar(Instruction* instr,Loop* loop){
     }
     return false;
 }
-        
-///Checks if 'dependentValue' uses 'targetValue' directly
-///At present, uses through 'sext' instructions are considered direct 
-bool OXiGenPass::directlyUses(Value *dependentValue, Value* targetValue){
+         
+bool OXiGenPass::directlyUses(Value *userValue, Value* targetValue){
     
-    if(Instruction* instr = dyn_cast<Instruction>(dependentValue))
+    if(Instruction* instr = dyn_cast<Instruction>(userValue))
         for(Use &operand : instr->operands()){
 
             if(operand.get() == targetValue){
@@ -247,16 +265,15 @@ bool OXiGenPass::directlyUses(Value *dependentValue, Value* targetValue){
             if(Instruction* instrAsOperand = dyn_cast<Instruction>(operand.get()))
                 if(instrAsOperand != nullptr and
                     instrAsOperand->getOpcodeName()== std::string("sext")){
-                        
-                    return directlyUses(instrAsOperand,targetValue);//propagate as direct use
+                    
+                    //propagate as direct use if the use is mediated by a 
+                    //'sext' instruction
+                    return directlyUses(instrAsOperand,targetValue);
             }
         }
-        
     return false;
 }
 
-///Checks wether the value passed is used by a store instruction
-///TODO: verify/implement recursive behavior
 bool OXiGenPass::isStored(Value* value){
 
     for(User* user : value->users()){

@@ -33,7 +33,7 @@ void DFGNode::printNode(){
 
 ///DFGWriteNode methods implementation
 
-DFGWriteNode::DFGWriteNode(Value* value, Utils::IOStreams* loopStreams) : DFGNode(value) {
+DFGWriteNode::DFGWriteNode(Value* value, utils::IOStreams* loopStreams) : DFGNode(value) {
     
     for(Value* stream : loopStreams->getOutputStreams()){
         if(Instruction* instr = dyn_cast<Instruction>(value)){
@@ -47,7 +47,7 @@ DFGWriteNode::DFGWriteNode(Value* value, Utils::IOStreams* loopStreams) : DFGNod
 
 ///DFGReadNode methods implementation
 
-DFGReadNode::DFGReadNode(Value* value, Utils::IOStreams* loopStreams) : DFGNode(value) {
+DFGReadNode::DFGReadNode(Value* value, utils::IOStreams* loopStreams) : DFGNode(value) {
     
     for(Value* stream : loopStreams->getInputStreams()){
         if(Instruction* instr = dyn_cast<Instruction>(value))

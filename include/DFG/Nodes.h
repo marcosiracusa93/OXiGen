@@ -83,7 +83,7 @@ namespace simple_dfg {
         
     public:
         
-        DFGWriteNode(Value* value, Utils::IOStreams* loopStreams);
+        DFGWriteNode(Value* value, utils::IOStreams* loopStreams);
         
         Value* getWritingStream(){ return writingStream; }
     };
@@ -96,7 +96,7 @@ namespace simple_dfg {
         
     public:
         
-        DFGReadNode(Value* value, Utils::IOStreams* loopStreams);
+        DFGReadNode(Value* value, utils::IOStreams* loopStreams);
         
         Value* getReadingStream(){ return sourceStream; }
     };
