@@ -5,6 +5,8 @@
  * OXiGen pass is a llvm::FunctionPass which generates a translation
  * of the function as a .maxj kernel suitable to be compiled through
  * the MaxCompiler toolchain
+ * 
+ * @author Francesco Peverelli, Marco Siracusa
  */
 
 #ifndef OXIGENPASS_H
