@@ -85,8 +85,6 @@ int main(int argc, char**argv) {
     //The pass manager is used to run the preliminary LLVM passes on the .ll file,
     //and the OXiGen custom pass
     
-    functionPassManager->add(createBasicAAWrapperPass());                   // -basicaa
-    functionPassManager->add(createAAResultsWrapperPass());                 // -aa
     functionPassManager->add(createPromoteMemoryToRegisterPass());          // -mem2reg
     functionPassManager->add(loopInfoPassRef);                              // -loops
     functionPassManager->add(scevPassRef);                                  // -scalar-evolution

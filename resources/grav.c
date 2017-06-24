@@ -1,9 +1,7 @@
-#include <stdio.h>
-#include <stdlib.h>
 #define N 10
 #define M_1 20
 #define M_2 15
-#define G 9.81
+#define G 6.67e-11
 
 int gravitational_force(float* x1, float* x2,float m1,float m2,float g, float* f){
 
