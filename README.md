@@ -82,8 +82,11 @@ Clone this repository
 Step 4:
 
 4.1 Create the /build directory in this repository
+
 4.2 Move to the /build directory and run:
+
         cmake -DCMAKE_C_COMPILER=/usr/bin/clang -DCMAKE_CXX_COMPILER=/usr/bin/clang++
+
 4.3 Build the project
 
 Step 5:
