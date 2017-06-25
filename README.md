@@ -7,16 +7,23 @@ Date:
 Version of uploaded archive: 0.1
 
 University name: Politecnico di Milano
+
 Supervisor name: Marco Domenico Santambrogio
+
 Supervisor e-mail: marco.santambrogio@polimi.it
+
 Participant(s): Marco Siracusa, Francesco Peverelli, Enrico Reggiani
+
 Email: marco.siracusa@mail.polimi.it
+
 Email: francesco1.peverelli@mail.polimi.it
+
 Email: enrico2.reggiani@mail.polimi.it
 
 Board used: Virtex-5, Virtex-7
 
 Vivado Version:
+
 Brief description of project:
 
 In the field of High Performance Computing (HPC), a considerable effort has been put into the exploration of different solutions which address the ever-increasing need for high performance and power efficiency.
