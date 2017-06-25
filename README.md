@@ -40,12 +40,15 @@ include/      # contains header files
 DFG/     
 
 DFGManager.h
+
 Nodes.h
 
 OXiGen/
+
 OXiGenPass.h
     
 Utils/
+
 IOStreams.h
 
 resources/   #contains .ll files and the .c example
