@@ -1,21 +1,29 @@
+/** --------------------- DFGManager.cpp ---------------------------- //
+ *
+ * Contains the implementation of the methods declared in DFGManager.h
+ */
 
 #include "DFG/DFGManager.h" 
 
 using namespace simple_dfg;
 
-std::vector<std::string> DFGManager::imports = {
+//default imports for the maxj kernel
+std::vector<std::string> MaxJInstructionPrinter::imports = {
     "com.maxeler.maxcompiler.v2.kernelcompiler.Kernel",
     "com.maxeler.maxcompiler.v2.kernelcompiler.KernelParameters",
     "com.maxeler.maxcompiler.v2.kernelcompiler.types.base.DFEVar"
 };
 
-std::string DFGManager::kernelSignature = 
+//default kernel signature
+std::string MaxJInstructionPrinter::kernelSignature = 
     std::string("class <kernelName> extends Kernel {\n\n")            +
     std::string("\t<kernelName>(KernelParameters parameters) {\n")    +
     std::string("\t\tsuper(parameters);\n\n");
+   
+//default kernel signature closing 
+std::string MaxJInstructionPrinter::kernelSignatureClosing = std::string("\t}\n}\n");
     
-std::string DFGManager::kernelSignatureClosing = std::string("\t}\n}\n");
-    
+//opcode map for the MaxJInstructionPrinter, {LLVM opcode, maxj operaion}
 MaxJInstructionPrinter::OpcodeMap MaxJInstructionPrinter::opcodeMap = {
     
     {"fadd"," + "},
@@ -30,11 +38,14 @@ MaxJInstructionPrinter::OpcodeMap MaxJInstructionPrinter::opcodeMap = {
     
 };
 
+//SequentialNamesManager methods implementation
+
 std::string SequentialNamesManager::generateNextName(){
     
     char oldNameFirst = nextName.front();
     std::string newGenName;
         
+    //generates names starting from "a","b"..."aa","ab"...
     if(oldNameFirst != 'z')
     {
         char newFirst = oldNameFirst + 1;
@@ -73,6 +84,8 @@ bool SequentialNamesManager::isPresent(std::string varName){
     }
     return false; 
 } 
+
+//MaxJInstructionPrinter methods implementation
 
 std::string MaxJInstructionPrinter::getImputStreamsDeclarations(std::vector<DFGReadNode*> inputs){
 
@@ -221,6 +234,8 @@ std::string MaxJInstructionPrinter::generateInstructionsString(DFGNode* node){
     return instructionsString.append(currentInstr);
 }
 
+//DFGManager methods implementation
+
 void DFGManager::printDFGAsKernel(std::string kernelName, std::string packageName){
     
     if(DFGs.size() == 1)
@@ -256,18 +271,21 @@ std::string DFGManager::generateKernelString(std::string kernelName,std::string 
     std::string kernelAsString = "\n";
     std::string endl = std::string(";\n");
     std::string kernelNamePlaceholder = "<kernelName>";
-    std::string kernelSignatureTmpl = DFGManager::kernelSignature;
+    std::string kernelSignatureTmpl = MaxJInstructionPrinter::kernelSignature;
     
+    //append pakage
     kernelAsString.append(std::string("package ") + packageName + endl);
     kernelAsString.append("\n");
     
-    for(std::string import : DFGManager::imports)
+    //append imports
+    for(std::string import : MaxJInstructionPrinter::imports)
         kernelAsString.append(std::string("import ") + import + endl);
     
     kernelAsString.append("\n");
     
     std::string::size_type n = 0;
     
+    //replace kernel name in kernel signature
     while ( ( n = kernelSignatureTmpl.find(kernelNamePlaceholder,n)) 
         != std::string::npos )
     {
@@ -275,8 +293,10 @@ std::string DFGManager::generateKernelString(std::string kernelName,std::string 
         n += kernelName.size();
     }
     
+    //append kernel signature
     kernelAsString.append(kernelSignatureTmpl);
     
+    //identify inputs and outputs
     DFGManager::assignNodeNames();
     
     std::vector<DFGReadNode*> readNodes = 
@@ -287,15 +307,19 @@ std::string DFGManager::generateKernelString(std::string kernelName,std::string 
     
     std::vector<DFGNode*> argNodes = DFGManager::finalDFG->getScalarArguments(DFGManager::finalDFG->getEndNode());
     
+    //append input declarations
     kernelAsString.append(DFGManager::maxjPrinter->getImputStreamsDeclarations(readNodes));
     
     kernelAsString.append(DFGManager::maxjPrinter->getScalarInputsDeclarations(argNodes));
     
+    //append instructions
     kernelAsString.append(DFGManager::maxjPrinter->generateInstructionsString(DFGManager::finalDFG->getEndNode()));
     
+    //append output declarations
     kernelAsString.append(DFGManager::maxjPrinter->getOutputStreamsDeclarations(writeNodes));
     
-    kernelAsString.append(DFGManager::kernelSignatureClosing);
+    //append kernel signature closing
+    kernelAsString.append(MaxJInstructionPrinter::kernelSignatureClosing);
     
     return kernelAsString;
 }

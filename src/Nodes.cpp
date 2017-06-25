@@ -106,6 +106,7 @@ void DFG::setNameVector(std::vector<std::string> &nodeNames, DFGNode* node){
         return;
     }
     
+    //account for different llvm::Value subtypes
     
     if(dyn_cast<Instruction>(node->getValue()))
     {
@@ -178,13 +179,15 @@ std::vector<DFGReadNode*> DFG::getUniqueReadNodes(DFGNode* baseNode){
     for(DFGReadNode* node : readNodes){
         for(DFGReadNode* n : readNodes)
         {
-            if(node->getReadingStream() == n->getReadingStream() && (node->getName() != n->getName()))
+            if(node->getReadingStream() == n->getReadingStream() &&
+                (node->getName() != n->getName()))
             {
                 n->setName(node->getName());
             }
         }
     }
     
+    //fill the uniqueReadNodes vector
     for(DFGReadNode* node : readNodes)
     {
         bool isUnique = true;
@@ -204,6 +207,7 @@ std::vector<DFGNode*> DFG::getScalarArguments(DFGNode* baseNode){
     
     std::vector<DFGNode*> scalarArgs;
     
+    //if the llvm::Value is a function argument, add it to the vector
     if(dyn_cast<Argument>(baseNode->getValue()))
     {
         scalarArgs.push_back(baseNode);
