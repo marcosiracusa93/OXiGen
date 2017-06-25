@@ -52,19 +52,26 @@ Utils/
 IOStreams.h
 
 resources/   #contains .ll files and the .c example
+
 grav.c
+
 grav.ll
+
 loop_1.ll
+
 loop_2.ll
 
 src/          # contains the source .cpp files
 
 CMakeLists.txt   #used to build the project with CMake
-main.cpp         
-OXiGenPass.cpp
-Nodes.cpp
-DFGManager.cpp
 
+main.cpp         
+
+OXiGenPass.cpp
+
+Nodes.cpp
+
+DFGManager.cpp
 
 Instructions to build and test project
 
