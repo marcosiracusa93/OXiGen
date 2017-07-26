@@ -10,7 +10,7 @@ namespace oxigen{
 	
 	class DefaultScheduler{
 		public:
-			DefaultScheduler);
+			DefaultScheduler();
 	};
 		
 	class ProcessingScheduler{
