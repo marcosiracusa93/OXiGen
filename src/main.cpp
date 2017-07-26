@@ -53,7 +53,7 @@ int main(int argc, char**argv) {
     functionName = argv[3];                 // set the name of the function to process
     
     filePath = ::RESOURCES_DIR + fileName;  // set full path
-    filePathRef = filePath;                 // set a StringRef for the full path
+    filePathRef = filePath;                 // set a StringRef for the full path 
     
     try{
         //try to open the file to process
