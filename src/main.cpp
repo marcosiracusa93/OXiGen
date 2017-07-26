@@ -21,6 +21,13 @@
 #include "OXiGen/OXiGenPass.h"
 #include "DFG/DFGManager.h"
 
+
+#include "AnalysisManager.h"
+#include "DFGConstructor.h"
+#include "DFGTranslator.h"
+#include "ProcessingScheduler.h"
+#include "StreamsAnalyzer.h"
+
 using namespace llvm;
 
 //Directory used to access .ll files to process

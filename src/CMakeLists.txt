@@ -23,6 +23,7 @@ include_directories(${LLVM_INCLUDE_DIRS} ${INCLUDE_DIR})
 add_definitions(${LLVM_DEFINITIONS})
 
 file (GLOB SOURCES 
+        ${INCLUDE_DIR}/*.h
         ${INCLUDE_DIR}/*/*.h
         ${SOURCES_DIR}/*.cpp
         )

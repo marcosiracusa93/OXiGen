@@ -3,6 +3,7 @@
 
 #include "llvm-c/Core.h"
 #include "llvm/IR/Function.h"
+#include "ProcessingScheduler.h"
 
 namespace oxigen{
 	
@@ -41,24 +42,28 @@ namespace oxigen{
 	* @file StreamsAnalyzer.h
 	* @brief 
 	*/
-	class StreamsAnalyzer{
+	class StreamsAnalyzer : public ProcessingComponent{
 
 	public:
 
-		IOStreams getExactIndvarIOStreams(llvm::Function &F, llvm::Loop &L){
+		IOStreams* getExactIndvarIOStreams(llvm::Function &F, llvm::Loop &L){
 			//TODO: implement this stub class
+            return nullptr;
 		}
     
-		IOStreams getLinearIndvarIOStreams(llvm::Function &F, llvm::Loop &L){
+		IOStreams* getLinearIndvarIOStreams(llvm::Function &F, llvm::Loop &L){
 			//TODO: implement this stub class
+            return nullptr;
 		}
 
-		IOStreams getNonLinearIndvarIOStreasms(llvm::Function &F, llvm::Loop &L){
+		IOStreams* getNonLinearIndvarIOStreasms(llvm::Function &F, llvm::Loop &L){
 			//TODO: implement this stub class
+            return nullptr;
 		}
 		
-		IOStreams getNoIndvarIOStreams(llvm::Function &F, llvm::Loop &L){
+		IOStreams* getNoIndvarIOStreams(llvm::Function &F, llvm::Loop &L){
 			//TODO: implement this stub class
+            return nullptr;
 		}
 	};
 
