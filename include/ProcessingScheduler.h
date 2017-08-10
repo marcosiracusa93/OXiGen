@@ -8,6 +8,7 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Analysis/LoopInfo.h"
+#include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/IR/Value.h"
 
 namespace oxigen{
@@ -20,42 +21,50 @@ namespace oxigen{
     class DFG;
     class SubloopHandler;
     class DFGTranslator;
-    
     class ProcessingComponent;
-	
-	class DefaultScheduler{
-		public:
-			DefaultScheduler();
-	};
-	
+    
 	class ProcessingScheduler{
         
-        private:
+        protected:
         
-			std::vector<ProcessingComponent*> scheduledComponents;
+            std::vector<ProcessingComponent*> scheduledComponents;
 			FunctionAnalysisResult* analysisResult;
-			IOStreams* ioStreams; 
+			std::vector<IOStreams*> ioStreams; 
 			DFG* dataflowGraph;
 			std::string kernelCode;
 			
-		public:
-			ProcessingScheduler();
-			void schedule(ProcessingComponent &processingComponent);
-			void executeNextComponent();
-			void execute(AnalysisManager &analysisManager);
-			void execute(StreamsAnalyzer &streamAnalyzer);
-			void execute(DFGConstructor &DFGConstructor);
-			void execute(SubloopHandler &subloopHandler);
-			void execute(DFGTranslator &DFGTranslator);
-            
-	};	
-    
-    class ProcessingComponent{
         public:
-            void visit(ProcessingScheduler* scheduler){
-                llvm::errs() << "Generic visit\n";
-            }
-    };
+        
+            void schedule(ProcessingComponent* processingComponent);
+			void executeNextComponent();
+            void executeComponentsQueue();
+            
+			virtual void execute(AnalysisManager* analysisManager);
+			virtual void execute(StreamsAnalyzer* streamsAnalyzer);
+			virtual void execute(DFGConstructor* dfgConstructor);
+			virtual void execute(SubloopHandler* subloopHandler);
+			virtual void execute(DFGTranslator* dfgTranslator);
+            
+	};
+	
+	class DefaultScheduler : public ProcessingScheduler{
+    private:
+        
+        std::string functionName;
+        llvm::Function* F;
+        llvm::ScalarEvolution* SE;        
+        llvm::LoopInfo* LI;
+        
+		public:
+			DefaultScheduler(std::string functionName, llvm::Function* F,
+                                llvm::ScalarEvolution* SE, llvm::LoopInfo* LI);
+                                
+            void execute(AnalysisManager* analysisManager);
+            void execute(StreamsAnalyzer* streamsAnalyzer);
+            void execute(DFGConstructor* dfgConstructor);
+            void execute(DFGTranslator* dfgTranslator);
+
+	};
 	
 } // End OXiGen namespace
 

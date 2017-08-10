@@ -18,9 +18,7 @@
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/AsmParser/Parser.h"
 
-#include "OXiGen/OXiGenPass.h"
-#include "DFG/DFGManager.h"
-
+#include "OXiGenPass.h"
 
 #include "AnalysisManager.h"
 #include "DFGConstructor.h"
@@ -99,6 +97,6 @@ int main(int argc, char**argv) {
     
     //the scheduled passes are run on the specified function
     functionPassManager->run(*module->getFunction(StringRef(functionName)));
-
+    
     return 0;
 }

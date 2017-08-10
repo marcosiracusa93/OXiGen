@@ -3,12 +3,13 @@
 #define ANALYSISMANAGER_H
 
 #include "ProcessingScheduler.h"
+#include "ProcessingComponent.h"
 
 namespace oxigen {
 
     /**
      */
-    enum class IndVarAccess { Exact, Linear, NonLinear, Undefined };
+    enum class IndVarAccess { Exact = 1, Linear = 2, NonLinear = 3, Undefined = 0 };
 
     /**
      * @class LoopTripCount
@@ -42,29 +43,29 @@ namespace oxigen {
     };
 
     /**
-     * @class FunctionAnalysisResult
+     * @class LoopAnalysisResult
      * @author 
-     * @date 26/07/17
+     * @date 27/07/17
      * @file AnalysisManager.h
      * @brief 
      */
-    class FunctionAnalysisResult{
-            
+    class LoopAnalysisResult{
+        
         private:
             
             llvm::PHINode* indVar;
             IndVarAccess accessType;
-            std::vector<LoopTripCount*> outerLoopsTripCount;
-            int maxNestingDepth;
-
+            LoopTripCount* loopTripCount;
+            int nestingDepth;
+            
         public:
         
-            FunctionAnalysisResult(llvm::PHINode* indVar, IndVarAccess accessType,
-                                    std::vector<LoopTripCount*> outerLoopsTripCount, int maxNestingDepth){
+            LoopAnalysisResult(llvm::PHINode* indVar, IndVarAccess accessType,
+                                    LoopTripCount* loopTripCount, int nestingDepth){
                 this->indVar = indVar;
                 this->accessType = accessType;
-                this->outerLoopsTripCount = outerLoopsTripCount;
-                this->maxNestingDepth = maxNestingDepth;
+                this->loopTripCount = loopTripCount;
+                this->nestingDepth = nestingDepth;
             }
             
             llvm::PHINode* getIndVar(){
@@ -75,8 +76,35 @@ namespace oxigen {
                 return accessType;
             }
             
-            std::vector<LoopTripCount*> getOuterLoopsTripCount(){
-                return outerLoopsTripCount;
+            LoopTripCount* getLoopTripCount(){
+                return loopTripCount;
+            }
+            
+            int getNestingDepth(){
+                return nestingDepth;
+            }
+    };
+    
+    /**
+     * @class FunctionAnalysisResult
+     * @author 
+     * @date 26/07/17
+     * @file AnalysisManager.h
+     * @brief 
+     */
+    class FunctionAnalysisResult{
+            
+        private:
+            
+            std::vector<LoopAnalysisResult*> loopsInfo;
+            int maxNestingDepth;
+        
+        public:
+    
+            FunctionAnalysisResult(std::vector<LoopAnalysisResult*> loopsInfo);
+            
+            LoopAnalysisResult* getLoopInfo(int index){
+                return loopsInfo.at(index);
             }
             
             int getMaxNestingDepth(){
@@ -84,29 +112,21 @@ namespace oxigen {
             }
     };
 
-    class LoopAnalysisResult{
+    class DFGAnalysisResult{
         //TODO: implement this stub class
     };
 
-    class DFGAnalysisResult{
-        
-    private:
-        int stubAttr;
-        //TODO: implement this stub class
-    public:
-    
-        int get(){return stubAttr;}
-        void set(int i){this->stubAttr = i;}
-    }; 
 
     class AnalysisManager : public ProcessingComponent{
                 
         public:
-            
-            FunctionAnalysisResult* analyzeFunction(llvm::Function &F){
-                llvm::errs() << "Function analysis not implemented\n";
-                return nullptr;
-            }
+
+            FunctionAnalysisResult* analyzeFunction(llvm::Function* F, llvm::ScalarEvolution* SE,
+                                                        llvm::LoopInfo* LI);
+                                                        
+            void acceptExecutor(ProcessingScheduler* processingScheduler){
+                processingScheduler->execute(this);
+            } 
             
     };
 

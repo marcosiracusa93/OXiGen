@@ -4,6 +4,8 @@
 #include "llvm/Support/raw_ostream.h"
 #include "StreamsAnalyzer.h"
 #include "AnalysisManager.h"
+#include "ProcessingScheduler.h"
+#include "ProcessingComponent.h"
 
 namespace oxigen{
     
@@ -283,16 +285,8 @@ namespace oxigen{
          */
         void setNameVector(std::vector<std::string> &nodeNames, DFGNode* node);
         
-        /**
-         * @brief Prints a DataFlow graph starting from a DFGNode acting as root
-         * 
-         * @param startingNode - the DFGNode acting as root
-         */
         void printDFG(DFGNode* startingNode);
-        
-        /**
-         * @brief Prints this DFG object. It should only be used for debugging purposes
-         */
+
         void printDFG();
     
     private:
@@ -300,7 +294,7 @@ namespace oxigen{
         /**
          * @brief Recursive method used in the count of the nodes of a DFG
          */
-        int countChildren(DFGNode* parent,int count);
+        int countChildren(DFGNode* parent, int count);
         
         /**
          * @brief Set all the markedFlag fields of the nodes to false, starting
@@ -339,10 +333,24 @@ namespace oxigen{
     class DFGConstructor : public ProcessingComponent{
       
         public:
-            DFG* computeIOStreamBasedDFG(llvm::Loop* topLevelLoop, llvm::Function &F, IOStreams IOs){
-                llvm::errs() << "dfg computation not implemented \n";
-                return nullptr;
+    
+            void acceptExecutor(ProcessingScheduler* scheduler){
+                scheduler->execute(this);
             }
+            
+            DFG* computeIOStreamBasedDFG(llvm::Loop* topLevelLoop, llvm::Function* F, IOStreams* IOs);
+            
+        private:
+
+            void populateDFG(DFGNode* node,llvm::Loop* loop, IOStreams* IOs);
+
+            DFG* computeDFGFromBase(DFGWriteNode* baseNode,llvm::Loop* loop, IOStreams* IOs);
+
+            llvm::Instruction* getInstrFromOperand(llvm::Value* value, std::string opcodeName);
+
+            DFGNode* shortcutSoreGetelementPtr(DFGWriteNode* storeNode);
+
+            bool hasSextOnIndvar(llvm::Instruction* instr,llvm::Loop* loop);
     };
     
     /**

@@ -4,6 +4,7 @@
 #include "llvm-c/Core.h"
 #include "llvm/IR/Function.h"
 #include "ProcessingScheduler.h"
+#include "ProcessingComponent.h"
 
 namespace oxigen{
 	
@@ -46,25 +47,32 @@ namespace oxigen{
 
 	public:
 
-		IOStreams* getExactIndvarIOStreams(llvm::Function &F, llvm::Loop &L){
-			//TODO: implement this stub class
-            return nullptr;
-		}
+        void acceptExecutor(ProcessingScheduler* scheduler){
+            scheduler->execute(this);
+        }
+        
+		IOStreams* getExactIndvarIOStreams(llvm::Function* F, llvm::Loop* L);
     
-		IOStreams* getLinearIndvarIOStreams(llvm::Function &F, llvm::Loop &L){
-			//TODO: implement this stub class
+		IOStreams* getLinearIndvarIOStreams(llvm::Function* F, llvm::Loop* L){
+			llvm::errs() << "Indvar access type not supported...\n";
             return nullptr;
 		}
 
-		IOStreams* getNonLinearIndvarIOStreasms(llvm::Function &F, llvm::Loop &L){
-			//TODO: implement this stub class
+		IOStreams* getNonLinearIndvarIOStreasms(llvm::Function* F, llvm::Loop* L){
+			llvm::errs() << "Indvar access type not supported...\n";
             return nullptr;
 		}
 		
-		IOStreams* getNoIndvarIOStreams(llvm::Function &F, llvm::Loop &L){
-			//TODO: implement this stub class
+		IOStreams* getNoIndvarIOStreams(llvm::Function* F, llvm::Loop* L){
+			llvm::errs() << "Indvar access type not supported...\n";
             return nullptr;
 		}
+        
+    private:
+        
+        bool directlyUses(llvm::Value *userValue, llvm::Value* targetValue);
+
+        bool isStored(llvm::Value* value);
 	};
 
 } // End OXiGen namespace

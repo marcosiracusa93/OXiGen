@@ -1,8 +1,9 @@
 #ifndef DFGTRANSLATOR_H
 #define DFGTRANSLATOR_H
 
-#include "llvm-c/Core.h"
+#include "DFGConstructor.h"
 #include "ProcessingScheduler.h"
+#include "ProcessingComponent.h"
 
 namespace oxigen{
 
@@ -28,7 +29,7 @@ namespace oxigen{
          * @brief Constructor for the class, initializes the nextName
          *        attribute to "a".
          */
-        SequentialNamesManager(){ this->nextName = std::string("a"); }
+       SequentialNamesManager(){ this->nextName = std::string("a"); }
         
         /**
          * @brief This method offers a way to obtain a unique new name from
@@ -39,12 +40,7 @@ namespace oxigen{
          * 
          * @return the new name as a std::string
          */
-        std::string getNewName(){
-            std::string newName = nextName;
-            varNames.push_back(newName);
-            nextName = generateNextName();
-            return newName;
-        }
+        std::string getNewName();
         
         /**
          * @brief Checks if the std::string passed as a parameters is identical to
@@ -53,7 +49,14 @@ namespace oxigen{
          * 
          * @return true if the string is present in the currently used names
          */
-        bool isPresent(std::string varName);
+        bool isPresent(std::string varName){
+    
+            for(std::string var : varNames){
+                if(var == varName)
+                    return true;
+            }
+            return false; 
+        }
             
     private:
         
@@ -124,7 +127,7 @@ namespace oxigen{
          */
         std::string generateInstructionsString(DFGNode* node);
     };
-    
+
     /**
      * @class DFGTranslator
      * @author 
@@ -134,10 +137,23 @@ namespace oxigen{
      */
     class DFGTranslator : public ProcessingComponent{
         
-    public:
-        void printDFGAsKernel(DFG* dfg, std::string kernelName, std::string functionName){
-            llvm::errs() << "DFG print not yet implemented\n";
-        }
+        public:
+        
+            void acceptExecutor(ProcessingScheduler* scheduler){
+                scheduler->execute(this);
+            }
+            
+            void printDFGAsKernel(DFG* dfg, std::string kernelName, std::string packageName);
+            
+        protected:
+            
+            DFG* dfg;
+            
+        private:
+        
+            void assignNodeNames();
+            
+            std::string generateKernelString(std::string kernelName,std::string packageName);
     };
 } // End OXiGen namespace
 
