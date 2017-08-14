@@ -51,7 +51,7 @@ bool StreamsAnalyzer::directlyUses(llvm::Value *userValue, llvm::Value* targetVa
 
             if(llvm::Instruction* instrAsOperand = llvm::dyn_cast<llvm::Instruction>(operand.get()))
                 if(instrAsOperand != nullptr and
-                    instrAsOperand->getOpcodeName()== std::string("sext")){
+                    instrAsOperand->isCast()){
                     
                     return directlyUses(instrAsOperand,targetValue);
             }
