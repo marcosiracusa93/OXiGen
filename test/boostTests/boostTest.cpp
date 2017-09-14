@@ -19,16 +19,28 @@
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/AsmParser/Parser.h"
 
+#include "llvm/IR/LegacyPassManager.h"
+#include "llvm/Analysis/ScalarEvolution.h"
+#include "llvm/Analysis/LoopInfo.h"
+#include "llvm/Transforms/Scalar.h"
+
+#include "ProcessingScheduler.h"
+
 using namespace boost;
 using namespace llvm;
 
-Module* acquireModule() {
+static std::string functionName = "gravitational_force";
+
+ScalarEvolution const* SE;
+LoopInfo* LI;
+
+std::unique_ptr<Module> acquireModule() {
     
     int status = -1;
 	    
     static LLVMContext context;             // LLVMContext variable
     SMDiagnostic error;                     // error message
-    Module* module = nullptr;                         // module to process
+    //Module* module = nullptr;                         // module to process
     
     std::string filePath = "./../../resources/grav.ll";
     StringRef filePathRef = filePath;                  // StringRef for the file to process                // set the name of the function to process
@@ -53,16 +65,44 @@ Module* acquireModule() {
         return nullptr;
     }
     
-    module = (Module*)modPtr.get();
+    //module = (Module*)modPtr.get();
     
-    return module;
+    return modPtr;
 }
+
+int preprocessModule(std::unique_ptr<Module> const &modPtr){
+    
+    Module* module = (Module*)modPtr.get();
+
+    legacy::FunctionPassManager* functionPassManager = new legacy::FunctionPassManager(module);
+    
+    ScalarEvolutionWrapperPass* scevPassRef = new ScalarEvolutionWrapperPass();
+    LoopInfoWrapperPass* loopInfoPassRef = new LoopInfoWrapperPass();
+
+    //The pass manager is used to run the preliminary LLVM passes on the .ll file,
+    //and the OXiGen custom pass
+    
+    functionPassManager->add(createPromoteMemoryToRegisterPass());          // -mem2reg
+    functionPassManager->add(loopInfoPassRef);                              // -loops
+    functionPassManager->add(scevPassRef);                                  // -scalar-evolution
+    
+    functionPassManager->run(*module->getFunction(StringRef(functionName)));
+    ScalarEvolution const &se = scevPassRef->getSE();
+    
+    
+
+    SE = &se;
+    LI = &(loopInfoPassRef->getLoopInfo());
+    
+    return 1;
+}
+
 
 int constructDFGFromModule(){
     
-    Module* module = acquireModule();
+    std::unique_ptr<Module> modPtr = acquireModule();
     
-    Function* F = module->getFunction(StringRef("gravitational_force"));
+    //Function* F = module->getFunction(StringRef(functionName));
     
    /*for( BasicBlock &BB : F.getBasicBlockList())
         for( Instruction &instr : BB.getInstList()){
@@ -74,5 +114,18 @@ int constructDFGFromModule(){
 }
 
 TEST_CASE("Execution", "[constructDFG]"){
-    REQUIRE( acquireModule() != nullptr );
+    
+    std::unique_ptr<Module> modPtr;
+    
+    modPtr = acquireModule();
+    
+    REQUIRE( modPtr != nullptr );
+    REQUIRE( preprocessModule(modPtr) != -1 );
+    REQUIRE( SE != nullptr); 
+    REQUIRE( LI != nullptr);
+    
+    Module* module = (Module*)modPtr.get();
+    module->dump();
+    
+    
 }
