@@ -29,13 +29,13 @@ file (GLOB SOURCES
         ${SOURCES_DIR}/*.cpp
         )
         
-file(GLOB BOOST_TEST ${TEST_DIR}/boostTests/boostTest.cpp)
+file(GLOB DFG_CONSTRUCTOR_TEST ${TEST_DIR}/dfgConstructorTests/dfgConstructorTestSample.cpp)
 file(GLOB STREAM_ANALYSIS_TEST ${TEST_DIR}/streamAnalyzerTests/streamsAnalyzerTest.cpp)
 
 list( REMOVE_ITEM SOURCES ${SOURCES_DIR}/main.cpp)
 
 # The executable to build
-add_executable(boostTest ${SOURCES} ${BOOST_TEST})
+add_executable(dfgConstructorTest ${SOURCES} ${DFG_CONSTRUCTOR_TEST})
 add_executable(streamAnalysisTest ${SOURCES} ${STREAM_ANALYSIS_TEST})
 
 # Set the path for binaries
@@ -51,5 +51,5 @@ llvm_map_components_to_libnames(llvm_libs support core passes)
 message(STATUS "LLVM Libraries: ${llvm_libs}")
 
 # Link against LLVM libraries
-target_link_libraries(boostTest ${llvm_libs})
+target_link_libraries(dfgConstructorTest ${llvm_libs})
 target_link_libraries(streamAnalysisTest ${llvm_libs})

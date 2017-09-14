@@ -237,7 +237,7 @@ int DFG::countChildren(DFGNode* parent, int count){
 //DFGConstructor methods implementation
 
 DFG* DFGConstructor::computeIOStreamBasedDFG(llvm::Loop* topLevelLoop, llvm::Function* F, IOStreams* IOs){
-    
+
     std::vector<DFG*> computedDFGs;
     
     //iterates over the loop body instructions
@@ -263,8 +263,17 @@ DFG* DFGConstructor::computeIOStreamBasedDFG(llvm::Loop* topLevelLoop, llvm::Fun
             }
         }
     }
-    llvm::errs() << "Assumed single DFG during loop dfg construction...\n";
-    return computedDFGs.at(0);
+    
+    if(computedDFGs.size() > 1){
+        DFGConstructor::scheduler->schedule(new DFGLinker(computedDFGs));
+        DFGConstructor::scheduler->executeNextComponent();
+        
+        return DFGConstructor::scheduler->dataflowGraph;
+        
+    }else{
+        llvm::errs() << "Single DFG during loop dfg construction...\n";
+        return computedDFGs.at(0);
+    }
 }
 
 void DFGConstructor::populateDFG(DFGNode* node,llvm::Loop* loop, IOStreams* IOs){

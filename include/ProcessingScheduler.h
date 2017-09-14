@@ -18,6 +18,7 @@ namespace oxigen{
     class AnalysisManager;
     class StreamsAnalyzer;
     class DFGConstructor;
+    class DFGLinker;
     class DFG;
     class SubloopHandler;
     class DFGTranslator;
@@ -28,12 +29,13 @@ namespace oxigen{
         protected:
         
             std::vector<ProcessingComponent*> scheduledComponents;
-			FunctionAnalysisResult* analysisResult;
+			
+        public:
+        
+            FunctionAnalysisResult* analysisResult;
 			std::vector<IOStreams*> ioStreams; 
 			DFG* dataflowGraph;
 			std::string kernelCode;
-			
-        public:
         
             void schedule(ProcessingComponent* processingComponent);
 			void executeNextComponent();
@@ -42,8 +44,14 @@ namespace oxigen{
 			virtual void execute(AnalysisManager* analysisManager);
 			virtual void execute(StreamsAnalyzer* streamsAnalyzer);
 			virtual void execute(DFGConstructor* dfgConstructor);
+            virtual void execute(DFGLinker* dfgLinker);
 			virtual void execute(SubloopHandler* subloopHandler);
 			virtual void execute(DFGTranslator* dfgTranslator);
+            
+            FunctionAnalysisResult* getAnalysisResult(){ return analysisResult; }
+            std::vector<IOStreams*> getIOStreams() { return ioStreams; }
+            DFG* getDFG(){ return dataflowGraph; }
+            std::string getKernelCode(){ return kernelCode; }
             
 	};
 	
@@ -62,8 +70,9 @@ namespace oxigen{
             void execute(AnalysisManager* analysisManager);
             void execute(StreamsAnalyzer* streamsAnalyzer);
             void execute(DFGConstructor* dfgConstructor);
+            void execute(DFGLinker* dfgLinker);
             void execute(DFGTranslator* dfgTranslator);
-
+            
 	};
 	
 } // End OXiGen namespace

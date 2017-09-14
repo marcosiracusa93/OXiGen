@@ -7,7 +7,7 @@
 
 using namespace oxigen;
 
-void ProcessingScheduler:: schedule(ProcessingComponent* processingComponent){
+void ProcessingScheduler::schedule(ProcessingComponent* processingComponent){
     scheduledComponents.push_back(processingComponent);
 }
 
@@ -51,6 +51,10 @@ void ProcessingScheduler::execute(StreamsAnalyzer* streamsAnalyzer){
 
 void ProcessingScheduler::execute(DFGConstructor* dfgConstructor){
     llvm::errs() << "DFGConstructor executing\n";
+}
+
+void ProcessingScheduler::execute(DFGLinker* dfgLinker){
+    llvm::errs() << "DFGLinker executing\n";
 }
 
 void ProcessingScheduler::execute(SubloopHandler* subloopHandler){
@@ -99,6 +103,19 @@ void DefaultScheduler::execute(StreamsAnalyzer* streamsAnalyzer){
         }
         
         ioStreams.push_back(IOs);
+        
+    }
+    
+    for(IOStreams* IOs : ioStreams){
+        std::vector<llvm::Value*> ins = IOs->getInputStreams();
+        std::vector<llvm::Value*> outs = IOs->getOutputStreams();
+        
+        llvm::errs() << "Ins\n";
+        for(llvm::Value* v : ins)
+            v->dump();
+        llvm::errs() << "Outs\n";
+        for(llvm::Value* v : outs)
+            v->dump();
     }
 }
 
@@ -116,6 +133,13 @@ void DefaultScheduler::execute(DFGConstructor* dfgConstructor){
     llvm::errs() << "DFG linkage skipped, assumed only one graph...\n";
     DefaultScheduler::dataflowGraph = dfgs.at(0); 
     
+}
+
+void DefaultScheduler::execute(DFGLinker* dfgl){
+    llvm::errs() << "Executing default linker\n";
+    
+    
+    DefaultScheduler::dataflowGraph = dfgl->linkDFG(LI,SE);
 }
 
 void DefaultScheduler::execute(DFGTranslator* dfgTranslator){

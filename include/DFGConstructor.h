@@ -313,13 +313,27 @@ namespace oxigen{
      * @file DFGConstructor.h
      * @brief 
      */
-    class DFGLinker{
+    class DFGLinker : public ProcessingComponent{
+        
+    private:
+        std::vector<DFG*> dfgs;
     
     public:
+    
+        DFGLinker(std::vector<DFG*> dfgs){ this->dfgs = dfgs; }
         
-        DFG* linkDFG(std::vector<DFG*> dfgs){
+        void acceptExecutor(ProcessingScheduler* scheduler){
+            scheduler->execute(this);
+        }
+        
+        DFG* linkDFG(llvm::LoopInfo* LI, llvm::ScalarEvolution* SE ){
             llvm::errs() << "DFG linkage not implemented \n";
-            return nullptr;
+            
+            for(DFG* dfg : dfgs){
+                dfg->printDFG();
+            }
+            
+            return dfgs.at(0);
         }
     };
     
@@ -331,10 +345,15 @@ namespace oxigen{
      * @brief 
      */
     class DFGConstructor : public ProcessingComponent{
+        
+        protected:
+        
+            ProcessingScheduler* scheduler;
       
         public:
     
             void acceptExecutor(ProcessingScheduler* scheduler){
+                this->scheduler = scheduler;
                 scheduler->execute(this);
             }
             
