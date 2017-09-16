@@ -69,7 +69,7 @@ namespace oxigen{
          * @param pred - the DFGNode to link to this node
          */
         void linkPredecessor(DFGNode* pred){
-            predecessors.push_back(pred);
+            predecessors.insert(predecessors.begin(),pred);
             pred->setSuccessor(this);
         }
         
@@ -326,15 +326,86 @@ namespace oxigen{
             scheduler->execute(this);
         }
         
-        DFG* linkDFG(llvm::LoopInfo* LI, llvm::ScalarEvolution* SE ){
-            llvm::errs() << "DFG linkage not implemented \n";
+        DFG* linkDFG(llvm::LoopInfo* LI, 
+                        llvm::ScalarEvolution* SE,
+                        std::vector<IOStreams*> ioStreams){
             
-            for(DFG* dfg : dfgs){
-                dfg->printDFG();
+            std::map<int,DFGNode*> nodesOrder;
+            std::vector<DFGReadNode*> readNodes;
+            std::vector<DFGWriteNode*> writeNodes;
+            int baseSize = 0;
+            
+            for(DFG* dfg : dfgs)
+            {
+                int graphSize = dfg->getNodesCount();
+                DFGNode* base = dfg->getEndNode();
+                std::vector<DFGReadNode*> rNodes = dfg->getReadNodes(base);
+                std::vector<DFGWriteNode*> wNodes = dfg->getWriteNodes(base);
+                llvm::errs() << "Read nodes single graph\n";
+                for(DFGNode* n : rNodes){ n->getValue()->dump();}
+                llvm::errs() << "Write nodes single graph\n";
+                for(DFGNode* n : wNodes){ n->getValue()->dump();}
+                
+                mapNode(nodesOrder,dfg->getEndNode(),baseSize+graphSize-1);
+                
+                baseSize += graphSize;
+                
+                readNodes.insert(readNodes.end(),rNodes.begin(),rNodes.end());
+                writeNodes.insert(writeNodes.end(),wNodes.begin(),wNodes.end());
+            }
+            llvm::errs() << "Read nodes\n";
+            for(DFGNode* n : readNodes){ n->getValue()->dump();}
+            
+            for(int i = 0; i < nodesOrder.size(); i++)
+            {
+                if(std::find(readNodes.begin(), readNodes.end(), nodesOrder.at(i)) != readNodes.end())
+                {
+                    DFGReadNode* readNode = (DFGReadNode*)(nodesOrder.at(i));
+                    llvm::errs() << "Considering "; readNode->getValue()->dump();
+                    
+                    for(int j = i-1; j >= 0; j--)
+                    {
+                        
+                        if(std::find(writeNodes.begin(), writeNodes.end(), nodesOrder.at(j)) != writeNodes.end())
+                        {
+                            DFGWriteNode* writeNode = (DFGWriteNode*)nodesOrder.at(j);
+                            
+                            if(readNode->getReadingStream() == writeNode->getWritingStream()){
+                                
+                                DFGNode * readSucc = readNode->getSuccessor();
+                                readSucc->linkPredecessor(writeNode->getPredecessors().at(0));
+                                
+                                std::vector<DFGNode*> linkedNodes = readSucc->getPredecessors();
+                                
+                                int pos = std::find(linkedNodes.begin(),linkedNodes.end(),readNode)-linkedNodes.begin();
+                                llvm::errs() << "Node to remove: "; linkedNodes.at(pos)->getValue()->dump();
+                                linkedNodes.erase(linkedNodes.begin() + pos);
+                                readNode->setSuccessor(nullptr);
+                                j = 0;
+                            }
+                        }
+                    }
+                }
             }
             
+            dfgs.back()->printDFG();
+
             return dfgs.at(0);
         }
+        
+    private:
+         
+        void mapNode(std::map<int,DFGNode*> &nodeMap, DFGNode* node,int pos)
+        {
+            
+            nodeMap.insert(std::pair<int,DFGNode*>(pos,node));
+            
+            for(int i = 0; i < node->getPredecessors().size(); i++)
+            {
+                mapNode(nodeMap,node->getPredecessors().at(i),pos-i-1);
+            }
+        }
+            
     };
     
     /**

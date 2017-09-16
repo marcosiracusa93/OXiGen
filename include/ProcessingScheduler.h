@@ -9,6 +9,8 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/ScalarEvolution.h"
+#include "llvm/Analysis/ScalarEvolutionAliasAnalysis.h"
+#include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/IR/Value.h"
 
 namespace oxigen{
@@ -62,10 +64,13 @@ namespace oxigen{
         llvm::Function* F;
         llvm::ScalarEvolution* SE;        
         llvm::LoopInfo* LI;
+        llvm::SCEVAAResult* SEAA;
         
 		public:
 			DefaultScheduler(std::string functionName, llvm::Function* F,
-                                llvm::ScalarEvolution* SE, llvm::LoopInfo* LI);
+                                                       llvm::ScalarEvolution* SE,
+                                                       llvm::LoopInfo* LI,
+                                                       llvm::SCEVAAResult* SEAA);
                                 
             void execute(AnalysisManager* analysisManager);
             void execute(StreamsAnalyzer* streamsAnalyzer);

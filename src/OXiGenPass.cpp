@@ -29,8 +29,9 @@ bool OXiGenPass::runOnFunction(Function &F) {
         //get scalar evolution and loop analysis
         ScalarEvolution* SE = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();
         LoopInfo* LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
+        SCEVAAResult* SEAA = &getAnalysis<SCEVAAWrapperPass>().getResult();
         
-        DefaultScheduler* scheduler = new DefaultScheduler(functionName, &F, SE ,LI);
+        DefaultScheduler* scheduler = new DefaultScheduler(functionName, &F, SE ,LI, SEAA);
         
         scheduler->executeComponentsQueue();
         
@@ -41,4 +42,5 @@ void OXiGenPass::getAnalysisUsage(AnalysisUsage &AU) const {
     AU.setPreservesAll();
     AU.addRequiredTransitive<LoopInfoWrapperPass>();
     AU.addRequiredTransitive<ScalarEvolutionWrapperPass>();
+    AU.addRequiredTransitive<SCEVAAWrapperPass>();
 }

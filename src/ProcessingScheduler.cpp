@@ -12,12 +12,15 @@ void ProcessingScheduler::schedule(ProcessingComponent* processingComponent){
 }
 
 DefaultScheduler::DefaultScheduler(std::string functionName, llvm::Function* F, 
-                                    llvm::ScalarEvolution* SE, llvm::LoopInfo* LI){
+                                                             llvm::ScalarEvolution* SE,
+                                                             llvm::LoopInfo* LI,
+                                                             llvm::SCEVAAResult* SEAA){
 
     this->functionName = functionName;
     this->F = F;
     this->SE = SE;
     this->LI = LI;
+    this->SEAA = SEAA;
     
     AnalysisManager* am = new AnalysisManager();
     StreamsAnalyzer* sa = new StreamsAnalyzer();
@@ -138,8 +141,7 @@ void DefaultScheduler::execute(DFGConstructor* dfgConstructor){
 void DefaultScheduler::execute(DFGLinker* dfgl){
     llvm::errs() << "Executing default linker\n";
     
-    
-    DefaultScheduler::dataflowGraph = dfgl->linkDFG(LI,SE);
+    DefaultScheduler::dataflowGraph = dfgl->linkDFG(LI,SE,this->getIOStreams());
 }
 
 void DefaultScheduler::execute(DFGTranslator* dfgTranslator){

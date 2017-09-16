@@ -93,6 +93,7 @@ int main(int argc, char**argv) {
     functionPassManager->add(createPromoteMemoryToRegisterPass());          // -mem2reg
     functionPassManager->add(loopInfoPassRef);                              // -loops
     functionPassManager->add(scevPassRef);                                  // -scalar-evolution
+    functionPassManager->add(createSCEVAAWrapperPass());                    // -scev-aa
     functionPassManager->add(oxigen::createOXiGenWrapperPass(functionName));// -OXiGen custom pass
     
     //the scheduled passes are run on the specified function
