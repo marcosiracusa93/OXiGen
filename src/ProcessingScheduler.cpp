@@ -141,7 +141,7 @@ void DefaultScheduler::execute(DFGConstructor* dfgConstructor){
 void DefaultScheduler::execute(DFGLinker* dfgl){
     llvm::errs() << "Executing default linker\n";
     
-    DefaultScheduler::dataflowGraph = dfgl->linkDFG(LI,SE,this->getIOStreams());
+    DefaultScheduler::dataflowGraph = dfgl->linkDFG();
 }
 
 void DefaultScheduler::execute(DFGTranslator* dfgTranslator){

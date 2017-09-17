@@ -24,7 +24,7 @@ namespace oxigen{
     private:
         llvm::Value* node;
         std::vector<DFGNode*> predecessors;
-        DFGNode* successor;
+        std::vector<DFGNode*> successors;
         
         std::string name;
         bool markedFlag;
@@ -45,9 +45,9 @@ namespace oxigen{
         
         llvm::Value* getValue(){ return node; }
 
-        std::vector<DFGNode*> getPredecessors(){ return predecessors; }
+        std::vector<DFGNode*> &getPredecessors(){ return predecessors; }
         
-        DFGNode* getSuccessor(){ return successor; }
+        std::vector<DFGNode*> getSuccessors(){ return successors; }
         
         std::string getName() { return name; }
         
@@ -59,7 +59,7 @@ namespace oxigen{
         
         void setFlag(bool value){ this->markedFlag = value; }
 
-        void setSuccessor(DFGNode* succ){ successor = succ; }
+        void setSuccessor(DFGNode* succ){ successors.push_back(succ); }
         
         /**
          * @brief Method used to set a predecessor to this DFGNode,
@@ -87,51 +87,6 @@ namespace oxigen{
          * @return the number of nodes in the subgraph
          */
         int countSubgraphNodes();
-        
-        /**
-         * @brief Implementation of the '==' operator for the class.
-         *        Equality is evaluated on the node names of
-         *        its predecessors and successor. Therefore it should
-         *        only be used after node names in the graph have been
-         *        properely initialized
-         * 
-         * @param ln - lefthand side operand
-         * @param rn - righthand side operand
-         * @return true if equality is verified, false otherwise
-         */
-        friend bool operator==(DFGNode &ln, DFGNode &rn) {
-            
-            bool hasPred = false;
-            
-            for(DFGNode* n_1 : ln.getPredecessors())
-            {
-                for(DFGNode* n_2 : rn.getPredecessors())
-                {
-                    if(n_1->getName() == n_2->getName())
-                        hasPred = true;
-                }
-                if(hasPred)
-                    hasPred = false;
-                else
-                    return false;
-            }
-            return (ln.getSuccessor()->getName() == rn.getSuccessor()->getName());
-        }
-        
-        /**
-         * @brief Implementation of the '!=' operator for the class.
-         *        Inequality is evaluated on the node names of
-         *        its predecessors and successor. Therefore it should
-         *        only be used after node names in the graph have been
-         *        properely initialized
-         * 
-         * @param ln - lefthand side operand
-         * @param rn - righthand side operand
-         * @return true if inequality is verified, false otherwise
-         */
-        friend bool operator!=(DFGNode &ln, DFGNode &rn) {
-            return !(ln == rn);
-        }
         
     };
     
@@ -230,10 +185,8 @@ namespace oxigen{
          *        it is safe to do so.
          * 
          * @param baseNode - the base node of this graph
-         * @return a std::vector containing pointers to the DFGReadNodes
-         *         of this graph
          */
-        std::vector<DFGReadNode*> getReadNodes(DFGNode* baseNode);
+        void getReadNodes(DFGNode* baseNode,std::vector<DFGReadNode*> &readNodes);
         
         /**
          * @brief Used to retrieve the DFGWriteNode in this graph. It
@@ -243,10 +196,8 @@ namespace oxigen{
          *        it is safe to do so.
          * 
          * @param baseNode - the base node of this graph
-         * @return a std::vector containing pointers to the DFGWriteNode
-         *         of this graph
          */
-        std::vector<DFGWriteNode*> getWriteNodes(DFGNode* baseNode);
+        void getWriteNodes(DFGNode* baseNode,std::vector<DFGWriteNode*> &writeNodes);
         
         /**
          * @brief This method used the DFG::getReadNodes method to retrieve
@@ -288,6 +239,8 @@ namespace oxigen{
         void printDFG(DFGNode* startingNode);
 
         void printDFG();
+        
+        void descendAndPrint(DFGNode* node);
     
     private:
         
@@ -295,6 +248,8 @@ namespace oxigen{
          * @brief Recursive method used in the count of the nodes of a DFG
          */
         int countChildren(DFGNode* parent, int count);
+
+        int descendAndCount(DFGNode* node, int count);
         
         /**
          * @brief Set all the markedFlag fields of the nodes to false, starting
@@ -303,6 +258,20 @@ namespace oxigen{
          * @param node - the DFGNode acting as root
          */
         void resetFlags(DFGNode* node);
+        
+        void descendAndReset(DFGNode* node);
+        
+        void collectReadNodes(DFGNode* baseNode,std::vector<DFGReadNode*> &readNodes);
+        
+        void descendAndCollectReads(DFGNode* node, std::vector<DFGReadNode*> &readNodes);
+        
+        void collectWriteNodes(DFGNode* baseNode,std::vector<DFGWriteNode*> &writeNodes);
+        
+        void descendAndCollectWrites(DFGNode* node, std::vector<DFGWriteNode*> &writeNodes);
+        
+        void setNames(std::vector<std::string> &nodeNames, DFGNode* node);
+        
+        void descendAndSetNames(std::vector<std::string> &nodeNames, DFGNode* node);
         
     };
     
@@ -315,7 +284,7 @@ namespace oxigen{
      */
     class DFGLinker : public ProcessingComponent{
         
-    private:
+    protected:
         std::vector<DFG*> dfgs;
     
     public:
@@ -326,85 +295,11 @@ namespace oxigen{
             scheduler->execute(this);
         }
         
-        DFG* linkDFG(llvm::LoopInfo* LI, 
-                        llvm::ScalarEvolution* SE,
-                        std::vector<IOStreams*> ioStreams){
-            
-            std::map<int,DFGNode*> nodesOrder;
-            std::vector<DFGReadNode*> readNodes;
-            std::vector<DFGWriteNode*> writeNodes;
-            int baseSize = 0;
-            
-            for(DFG* dfg : dfgs)
-            {
-                int graphSize = dfg->getNodesCount();
-                DFGNode* base = dfg->getEndNode();
-                std::vector<DFGReadNode*> rNodes = dfg->getReadNodes(base);
-                std::vector<DFGWriteNode*> wNodes = dfg->getWriteNodes(base);
-                llvm::errs() << "Read nodes single graph\n";
-                for(DFGNode* n : rNodes){ n->getValue()->dump();}
-                llvm::errs() << "Write nodes single graph\n";
-                for(DFGNode* n : wNodes){ n->getValue()->dump();}
-                
-                mapNode(nodesOrder,dfg->getEndNode(),baseSize+graphSize-1);
-                
-                baseSize += graphSize;
-                
-                readNodes.insert(readNodes.end(),rNodes.begin(),rNodes.end());
-                writeNodes.insert(writeNodes.end(),wNodes.begin(),wNodes.end());
-            }
-            llvm::errs() << "Read nodes\n";
-            for(DFGNode* n : readNodes){ n->getValue()->dump();}
-            
-            for(int i = 0; i < nodesOrder.size(); i++)
-            {
-                if(std::find(readNodes.begin(), readNodes.end(), nodesOrder.at(i)) != readNodes.end())
-                {
-                    DFGReadNode* readNode = (DFGReadNode*)(nodesOrder.at(i));
-                    llvm::errs() << "Considering "; readNode->getValue()->dump();
-                    
-                    for(int j = i-1; j >= 0; j--)
-                    {
-                        
-                        if(std::find(writeNodes.begin(), writeNodes.end(), nodesOrder.at(j)) != writeNodes.end())
-                        {
-                            DFGWriteNode* writeNode = (DFGWriteNode*)nodesOrder.at(j);
-                            
-                            if(readNode->getReadingStream() == writeNode->getWritingStream()){
-                                
-                                DFGNode * readSucc = readNode->getSuccessor();
-                                readSucc->linkPredecessor(writeNode->getPredecessors().at(0));
-                                
-                                std::vector<DFGNode*> linkedNodes = readSucc->getPredecessors();
-                                
-                                int pos = std::find(linkedNodes.begin(),linkedNodes.end(),readNode)-linkedNodes.begin();
-                                llvm::errs() << "Node to remove: "; linkedNodes.at(pos)->getValue()->dump();
-                                linkedNodes.erase(linkedNodes.begin() + pos);
-                                readNode->setSuccessor(nullptr);
-                                j = 0;
-                            }
-                        }
-                    }
-                }
-            }
-            
-            dfgs.back()->printDFG();
-
-            return dfgs.at(0);
-        }
+        DFG* linkDFG();
         
     private:
          
-        void mapNode(std::map<int,DFGNode*> &nodeMap, DFGNode* node,int pos)
-        {
-            
-            nodeMap.insert(std::pair<int,DFGNode*>(pos,node));
-            
-            for(int i = 0; i < node->getPredecessors().size(); i++)
-            {
-                mapNode(nodeMap,node->getPredecessors().at(i),pos-i-1);
-            }
-        }
+        void mapNode(std::map<int,DFGNode*> &nodeMap, DFGNode* node,int pos);
             
     };
     

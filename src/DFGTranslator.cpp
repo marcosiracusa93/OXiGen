@@ -100,8 +100,9 @@ std::string MaxJInstructionPrinter::getImputStreamsDeclarations(std::vector<DFGR
                         std::string(" = io.input(\"") + nodeName + 
                         std::string("\", dfeFloat(") + std::to_string(size-mantissa) +
                         std::string(", ") + std::to_string(mantissa) + std::string("));\n");
-                        
-            declarations.append(decl);
+            
+            decl.append(declarations);
+            declarations = decl;
         }
         if(inputStreamType->isIntegerTy())
         {
@@ -112,7 +113,8 @@ std::string MaxJInstructionPrinter::getImputStreamsDeclarations(std::vector<DFGR
                         std::string("\", dfeInt(") + std::to_string(bitWidth) + 
                         std::string("));\n");
                         
-            declarations.append(decl);
+            decl.append(declarations);
+            declarations = decl;
         }
     }
     
@@ -140,7 +142,8 @@ std::string MaxJInstructionPrinter::getOutputStreamsDeclarations(std::vector<DFG
                         std::to_string(size-mantissa) + std::string(", ") +
                         std::to_string(mantissa) + std::string("));\n");
                         
-            declarations.append(decl);
+            decl.append(declarations);
+            declarations = decl;
         }
         if(outputStreamType->isIntegerTy())
         {
@@ -150,7 +153,8 @@ std::string MaxJInstructionPrinter::getOutputStreamsDeclarations(std::vector<DFG
                         std::string("\", ") + resultName + std::string(", dfeInt(") + 
                         std::to_string(bitWidth) + std::string("));\n");
                         
-            declarations.append(decl);
+            decl.append(declarations);
+            declarations = decl;
         }
         
     }
@@ -177,7 +181,8 @@ std::string MaxJInstructionPrinter::getScalarInputsDeclarations(std::vector<DFGN
                         std::string("\", dfeFloat(") + std::to_string(size-mantissa) +
                         std::string(", ") + std::to_string(mantissa) + std::string("));\n");
                         
-            declarations.append(decl);
+            decl.append(declarations);
+            declarations = decl;
         }
         if(argType->isIntegerTy())
         {
@@ -188,7 +193,8 @@ std::string MaxJInstructionPrinter::getScalarInputsDeclarations(std::vector<DFGN
                         std::string("\", dfeInt(") + std::to_string(bitWidth) + 
                         std::string("));\n");
                         
-            declarations.append(decl);
+            decl.append(declarations);
+            declarations = decl;
         }
     }
     return declarations;
@@ -239,7 +245,8 @@ void DFGTranslator::printDFGAsKernel(DFG* dfg, std::string kernelName, std::stri
 
 void DFGTranslator::assignNodeNames(){
     
-    int nodesCount = dfg->getNodesCount();    
+    int nodesCount = dfg->getNodesCount();
+
     SequentialNamesManager* namesManager = new SequentialNamesManager();
 
     std::vector<std::string> nodeNames;
@@ -290,8 +297,8 @@ std::string DFGTranslator::generateKernelString(std::string kernelName,std::stri
     std::vector<DFGReadNode*> readNodes = 
         dfg->getUniqueReadNodes(dfg->getEndNode());
     
-    std::vector<DFGWriteNode*> writeNodes = 
-        dfg->getWriteNodes(dfg->getEndNode());
+    std::vector<DFGWriteNode*> writeNodes;
+    dfg->getWriteNodes(dfg->getEndNode(),writeNodes);
     
     std::vector<DFGNode*> argNodes = dfg->getScalarArguments(dfg->getEndNode());
     
