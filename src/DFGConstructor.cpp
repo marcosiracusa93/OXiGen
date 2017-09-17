@@ -31,14 +31,16 @@ void DFGNode::printNode(){
 ///DFGWriteNode methods implementation
 
 DFGWriteNode::DFGWriteNode(llvm::Value* value, IOStreams* loopStreams) : DFGNode(value) {
-    
-    for(llvm::Value* stream : loopStreams->getOutputStreams()){
-        if(llvm::Instruction* instr = llvm::dyn_cast<llvm::Instruction>(value)){
+
+    if(llvm::Instruction* instr = llvm::dyn_cast<llvm::Instruction>(value)){
+        for(llvm::Value* stream : loopStreams->getOutputStreams()){
             if(((llvm::Instruction*)(instr->getOperand(1)))->getOperand(0) == stream)
             {
                 writingStream = stream;
+                return;
             }   
         }
+            writingStream = ((llvm::Instruction*)(instr->getOperand(1)))->getOperand(0);
     }
 }
 
@@ -47,12 +49,16 @@ DFGWriteNode::DFGWriteNode(llvm::Value* value, IOStreams* loopStreams) : DFGNode
 
 DFGReadNode::DFGReadNode(llvm::Value* value, IOStreams* loopStreams) : DFGNode(value) {
     
-    for(llvm::Value* stream : loopStreams->getInputStreams()){
-        if(llvm::Instruction* instr = llvm::dyn_cast<llvm::Instruction>(value))
+
+    if(llvm::Instruction* instr = llvm::dyn_cast<llvm::Instruction>(value)){
+        for(llvm::Value* stream : loopStreams->getInputStreams()){
             if(((llvm::Instruction*)(instr->getOperand(0)))->getOperand(0) == stream)
             {
                 sourceStream = stream;
+                return;
             }
+        }
+        sourceStream = ((llvm::Instruction*)(instr->getOperand(0)))->getOperand(0);
     }
 }
 
@@ -251,7 +257,7 @@ void DFG::setNameVector(std::vector<std::string> &nodeNames, DFGNode* node){
 }
 
 void DFG::setNames(std::vector<std::string> &nodeNames, DFGNode* node){
-    llvm::errs() << "Setting name of "; node->getValue()->dump();
+
     if(nodeNames.size() < 1)
     {
         llvm::errs() << "Not enough node names...\n";
@@ -314,7 +320,6 @@ void DFG::descendAndSetNames(std::vector<std::string> &nodeNames, DFGNode* node)
         setNames(nodeNames, nodeToSet);
     else
         if(!nodeToSet->getFlag()){
-            llvm::errs() << "Setting name of "; node->getValue()->dump();
             
             if(llvm::dyn_cast<llvm::Instruction>(node->getValue()))
             {
@@ -429,7 +434,6 @@ DFG* DFGConstructor::computeIOStreamBasedDFG(llvm::Loop* topLevelLoop, llvm::Fun
     std::vector<DFG*> computedDFGs;
     
     //iterates over the loop body instructions
-    for(llvm::Value* outStream : IOs->getOutputStreams()){
 
         for(llvm::BasicBlock *BB : topLevelLoop->blocks()){
             if(BB != topLevelLoop->getHeader() &&
@@ -440,17 +444,18 @@ DFG* DFGConstructor::computeIOStreamBasedDFG(llvm::Loop* topLevelLoop, llvm::Fun
                     //if a store is found, and the store refers to an output stream,
                     //a DFG is computed with the store as its base, and it is added 
                     //to the DFG vector
-                    if(instr.getOpcodeName() == std::string("store"))
+                    if(instr.getOpcodeName() == std::string("store")){
                         if(llvm::Instruction* storeAddr = llvm::dyn_cast<llvm::Instruction>(instr.getOperand(1)))
-                            if(storeAddr->getOperand(0) == outStream ){
-                                
-                                llvm::errs() << "Computing DFG\n";
-                                computedDFGs.push_back(computeDFGFromBase(new DFGWriteNode(&instr,IOs),topLevelLoop, IOs));
+                            for(llvm::Value* outStream : IOs->getOutputStreams()){
+                                if(storeAddr->getOperand(0) == outStream ||
+                                    llvm::dyn_cast<llvm::Instruction>(storeAddr->getOperand(0))->getOpcodeName() == std::string("alloca")){
+                                    computedDFGs.push_back(computeDFGFromBase(new DFGWriteNode(&instr,IOs),topLevelLoop, IOs));
+                                }
                             }
+                    }
                 }
             }
         }
-    }
     
     if(computedDFGs.size() > 1){
         DFGConstructor::scheduler->schedule(new DFGLinker(computedDFGs));
@@ -460,6 +465,7 @@ DFG* DFGConstructor::computeIOStreamBasedDFG(llvm::Loop* topLevelLoop, llvm::Fun
         
     }else{
         llvm::errs() << "Single DFG during loop dfg construction...\n";
+        computedDFGs.at(0)->printDFG();
         return computedDFGs.at(0);
     }
 }
@@ -522,6 +528,8 @@ DFG* DFGConstructor::computeDFGFromBase(DFGWriteNode* baseNode,llvm::Loop* loop,
     DFG* graph = new DFG(baseNode);
     //populates it from its base node
     populateDFG(shortcutSoreGetelementPtr(baseNode),loop,IOs);
+    
+    llvm::errs() << "Computed dfg frag\n"; graph->printDFG();
 
     return graph;
 }
@@ -538,7 +546,6 @@ DFGNode* DFGConstructor::shortcutSoreGetelementPtr(DFGWriteNode* storeNode){
             
             llvm::Instruction* storeInstr = (llvm::Instruction*) storeNode->getValue();
             DFGNode* startingNode = new DFGNode(storeInstr->getOperand(0));
-            
             storeNode->linkPredecessor(startingNode);
             return startingNode;
 }

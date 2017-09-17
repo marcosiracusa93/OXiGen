@@ -23,9 +23,11 @@ IOStreams* StreamsAnalyzer::getExactIndvarIOStreams(llvm::Function* F, llvm::Loo
                     if(directlyUses(&instr,L->getCanonicalInductionVariable())){
                         
                         //if the base pointer used by the getelementptr is stored, it is considered an output stream
-                        if(isStored(&instr))
-                            outputStreams.push_back(instr.getOperand(0));
-                        
+                        for(llvm::Argument &arg : F->args()){
+                            if(&arg == instr.getOperand(0) && isStored(&instr)){
+                                outputStreams.push_back(instr.getOperand(0));
+                            }
+                        }
                         //if the element pointed by the getelementptr is present in the function arguments
                         //it is considered an input stream
                         for(llvm::Argument &arg : F->args()){
@@ -64,8 +66,10 @@ bool StreamsAnalyzer::isStored(llvm::Value* value){
     for(llvm::User* user : value->users()){
         if(llvm::Instruction* userAsInstr = llvm::dyn_cast<llvm::Instruction>(user)) 
             if(userAsInstr->getOpcodeName() == std::string("store") &&
-                user->getOperand(1) == value)
+                user->getOperand(1) == value){
+                llvm::errs() << "Stored:  "; value->dump(); userAsInstr->dump();
                 return true;
+                }
     }
 
     return false;
