@@ -28,6 +28,7 @@ namespace oxigen{
         
         std::string name;
         bool markedFlag;
+        int position;
         
     public:
         
@@ -53,9 +54,13 @@ namespace oxigen{
         
         bool getFlag() { return markedFlag; }
         
+        int getPosition() { return position; }
+        
         //setter methods for the class
         
         void setName(std::string name){ this->name = name; }
+        
+        void setPosition(int pos) { this->position = pos; }
         
         void setFlag(bool value){ this->markedFlag = value; }
 
@@ -70,6 +75,11 @@ namespace oxigen{
          */
         void linkPredecessor(DFGNode* pred){
             predecessors.insert(predecessors.begin(),pred);
+            pred->setSuccessor(this);
+        }
+        
+        void linkPredecessor(DFGNode* pred, int pos){
+            predecessors.insert(predecessors.begin()+pos,pred);
             pred->setSuccessor(this);
         }
         
@@ -212,12 +222,16 @@ namespace oxigen{
          */
         std::vector<DFGReadNode*> getUniqueReadNodes(DFGNode* baseNode);
         
+        std::vector<DFGWriteNode*> getUniqueWriteNodes(DFGNode* baseNode);
+        
         /**
          * @brief Returns the DFGNodes containing llvm::Arguments as values
          * @param baseNode - the base node for this graph
          * @return a srd::vector of DFGNodes containing llvm::Arguments as values
          */
         std::vector<DFGNode*> getScalarArguments(DFGNode* baseNode);
+        
+        std::vector<DFGNode*> getUniqueScalarArguments(DFGNode* baseNode);
         
         /**
          * @brief Counts the number of nodes in this graph
@@ -241,6 +255,16 @@ namespace oxigen{
         void printDFG();
         
         void descendAndPrint(DFGNode* node);
+        
+        /**
+         * @brief Set all the markedFlag fields of the nodes to false, starting
+         *        from the DFGNode passed as a parameter, whihch acts as root
+         *
+         * @param node - the DFGNode acting as root
+         */
+        void resetFlags(DFGNode* node);
+        
+        void orderNodes(DFGNode* n, int &pos, std::vector<DFGNode*> &sorted, int baseSize=0);
     
     private:
         
@@ -250,14 +274,6 @@ namespace oxigen{
         int countChildren(DFGNode* parent, int count);
 
         int descendAndCount(DFGNode* node, int count);
-        
-        /**
-         * @brief Set all the markedFlag fields of the nodes to false, starting
-         *        from the DFGNode passed as a parameter, whihch acts as root
-         *
-         * @param node - the DFGNode acting as root
-         */
-        void resetFlags(DFGNode* node);
         
         void descendAndReset(DFGNode* node);
         
@@ -296,11 +312,7 @@ namespace oxigen{
         }
         
         DFG* linkDFG();
-        
-    private:
-         
-        void mapNode(std::map<int,DFGNode*> &nodeMap, DFGNode* node,int pos);
-            
+           
     };
     
     /**

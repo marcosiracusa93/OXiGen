@@ -81,7 +81,7 @@ std::string SequentialNamesManager::generateNextName(){
 
 //MaxJInstructionPrinter methods implementation
 
-std::string MaxJInstructionPrinter::getImputStreamsDeclarations(std::vector<DFGReadNode*> inputs){
+std::string MaxJInstructionPrinter::getInputStreamsDeclarations(std::vector<DFGReadNode*> inputs){
     
     std::string declarations;
 
@@ -101,8 +101,7 @@ std::string MaxJInstructionPrinter::getImputStreamsDeclarations(std::vector<DFGR
                         std::string("\", dfeFloat(") + std::to_string(size-mantissa) +
                         std::string(", ") + std::to_string(mantissa) + std::string("));\n");
             
-            decl.append(declarations);
-            declarations = decl;
+            declarations.append(decl);
         }
         if(inputStreamType->isIntegerTy())
         {
@@ -113,8 +112,7 @@ std::string MaxJInstructionPrinter::getImputStreamsDeclarations(std::vector<DFGR
                         std::string("\", dfeInt(") + std::to_string(bitWidth) + 
                         std::string("));\n");
                         
-            decl.append(declarations);
-            declarations = decl;
+            declarations.append(decl);
         }
     }
     
@@ -142,8 +140,7 @@ std::string MaxJInstructionPrinter::getOutputStreamsDeclarations(std::vector<DFG
                         std::to_string(size-mantissa) + std::string(", ") +
                         std::to_string(mantissa) + std::string("));\n");
                         
-            decl.append(declarations);
-            declarations = decl;
+            declarations.append(decl);
         }
         if(outputStreamType->isIntegerTy())
         {
@@ -153,8 +150,7 @@ std::string MaxJInstructionPrinter::getOutputStreamsDeclarations(std::vector<DFG
                         std::string("\", ") + resultName + std::string(", dfeInt(") + 
                         std::to_string(bitWidth) + std::string("));\n");
                         
-            decl.append(declarations);
-            declarations = decl;
+            declarations.append(decl);
         }
         
     }
@@ -181,8 +177,7 @@ std::string MaxJInstructionPrinter::getScalarInputsDeclarations(std::vector<DFGN
                         std::string("\", dfeFloat(") + std::to_string(size-mantissa) +
                         std::string(", ") + std::to_string(mantissa) + std::string("));\n");
                         
-            decl.append(declarations);
-            declarations = decl;
+            declarations.append(decl);
         }
         if(argType->isIntegerTy())
         {
@@ -193,16 +188,27 @@ std::string MaxJInstructionPrinter::getScalarInputsDeclarations(std::vector<DFGN
                         std::string("\", dfeInt(") + std::to_string(bitWidth) + 
                         std::string("));\n");
                         
-            decl.append(declarations);
-            declarations = decl;
+            declarations.append(decl);
         }
     }
     return declarations;
 }
 
-std::string MaxJInstructionPrinter::generateInstructionsString(DFGNode* node){
+std::string MaxJInstructionPrinter::generateInstructionsString(std::vector<DFGNode*> sortedNodes){
     
-    std::string instructionsString;
+    std::string instructionsString = "";
+    
+    for(DFGNode* n : sortedNodes)
+    {
+        instructionsString = instructionsString.append(appendInstruction(n));
+    }
+        
+    
+    return instructionsString;
+
+}
+
+std::string MaxJInstructionPrinter::appendInstruction(DFGNode* node){
     
     std::string currentInstr = "";
     
@@ -210,11 +216,13 @@ std::string MaxJInstructionPrinter::generateInstructionsString(DFGNode* node){
     {
         if(instr->getOpcodeName() != std::string("load") &&
             instr->getOpcodeName() != std::string("store"))
-        {
+        {   
             std::string opcode = MaxJInstructionPrinter::opcodeMap[instr->getOpcodeName()];
             
             currentInstr = std::string("\t\tDFEVar ") + node->getName() +
                 std::string(" = ");
+                
+            std::reverse(node->getPredecessors().begin(),node->getPredecessors().end());
             
             for(DFGNode* pred : node->getPredecessors())
             {
@@ -225,13 +233,8 @@ std::string MaxJInstructionPrinter::generateInstructionsString(DFGNode* node){
             currentInstr.append(";\n");
         }
     }
-    
-    for(DFGNode* pred : node->getPredecessors())
-    {
-        instructionsString.append(generateInstructionsString(pred));
-    }
-    
-    return instructionsString.append(currentInstr);
+
+    return currentInstr;
 }
 
 //DFGTranslator methods implementation
@@ -294,21 +297,31 @@ std::string DFGTranslator::generateKernelString(std::string kernelName,std::stri
     //identify inputs and outputs
     assignNodeNames();
     
+    DFGNode* endNode = dfg->getEndNode();
+    
     std::vector<DFGReadNode*> readNodes = 
-        dfg->getUniqueReadNodes(dfg->getEndNode());
+        dfg->getUniqueReadNodes(endNode);
     
-    std::vector<DFGWriteNode*> writeNodes;
-    dfg->getWriteNodes(dfg->getEndNode(),writeNodes);
+    std::vector<DFGWriteNode*> writeNodes =
+        dfg->getUniqueWriteNodes(endNode);
     
-    std::vector<DFGNode*> argNodes = dfg->getScalarArguments(dfg->getEndNode());
+    std::vector<DFGNode*> sortedNodes(dfg->getNodesCount());
+
+    std::vector<DFGNode*> argNodes = dfg->getUniqueScalarArguments(endNode);
     
     //append input declarations
-    kernelAsString.append(maxjPrinter->getImputStreamsDeclarations(readNodes));
+    kernelAsString.append(maxjPrinter->getInputStreamsDeclarations(readNodes));
     
     kernelAsString.append(maxjPrinter->getScalarInputsDeclarations(argNodes));
     
+    int startingPos = 0;
+    
+    dfg->resetFlags(endNode);
+ 
+    dfg->orderNodes(endNode,startingPos,sortedNodes);
+    
     //append instructions
-    kernelAsString.append(maxjPrinter->generateInstructionsString(dfg->getEndNode()));
+    kernelAsString.append(maxjPrinter->generateInstructionsString(sortedNodes));
     
     //append output declarations
     kernelAsString.append(maxjPrinter->getOutputStreamsDeclarations(writeNodes));

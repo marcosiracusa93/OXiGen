@@ -67,7 +67,6 @@ bool StreamsAnalyzer::isStored(llvm::Value* value){
         if(llvm::Instruction* userAsInstr = llvm::dyn_cast<llvm::Instruction>(user)) 
             if(userAsInstr->getOpcodeName() == std::string("store") &&
                 user->getOperand(1) == value){
-                llvm::errs() << "Stored:  "; value->dump(); userAsInstr->dump();
                 return true;
                 }
     }

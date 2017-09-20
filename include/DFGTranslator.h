@@ -97,7 +97,7 @@ namespace oxigen{
          * @return a std::string containing the input streams declarations for the
          *         maxj kernel.
          */
-        std::string getImputStreamsDeclarations(std::vector<DFGReadNode*> inputs);
+        std::string getInputStreamsDeclarations(std::vector<DFGReadNode*> inputs);
         
         /**
          * @param outputs - a std::vector of DFGWriteNode pointers, corresponding to
@@ -125,7 +125,10 @@ namespace oxigen{
          * 
          * @return a std::string containing a series of maxj arithmetic instructions
          */
-        std::string generateInstructionsString(DFGNode* node);
+        std::string generateInstructionsString(std::vector<DFGNode*> sortedNodes);
+        
+        std::string appendInstruction(DFGNode* node);
+        
     };
 
     /**

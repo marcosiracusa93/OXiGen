@@ -189,22 +189,92 @@ std::vector<DFGReadNode*> DFG::getUniqueReadNodes(DFGNode* baseNode){
     return uniqueReadNodes;
 }
 
+std::vector<DFGWriteNode*> DFG::getUniqueWriteNodes(DFGNode* baseNode){
+    
+    std::vector<DFGWriteNode*> writeNodes;
+    std::vector<DFGWriteNode*> uniqueWriteNodes;
+    
+    getWriteNodes(baseNode,writeNodes);
+    
+    for(DFGWriteNode* node : writeNodes){
+        for(DFGWriteNode* n : writeNodes)
+        {
+            if(node->getWritingStream() == n->getWritingStream() &&
+                (node->getName() != n->getName()))
+            {
+                n->setName(node->getName());
+            }
+        }
+    }
+    
+    //fill the uniqueReadNodes vector
+    for(DFGWriteNode* node : writeNodes)
+    {
+        bool isUnique = true;
+        
+        for(DFGWriteNode* n : uniqueWriteNodes)
+            if(node->getName() == n->getName())
+                isUnique = false;
+                
+        if(isUnique)
+            uniqueWriteNodes.push_back(node);
+    }
+
+    return uniqueWriteNodes;
+}
+
 std::vector<DFGNode*> DFG::getScalarArguments(DFGNode* baseNode){
     
+    int startingPos = 0;
+    std::vector<DFGNode*> sortedNodes(getNodesCount());
     std::vector<DFGNode*> scalarArgs;
     
-    //if the llvm::Value is a function argument, add it to the vector
-    if(llvm::dyn_cast<llvm::Argument>(baseNode->getValue()))
+    resetFlags(baseNode);
+    orderNodes(baseNode,startingPos,sortedNodes);
+    
+    for(DFGNode* n : sortedNodes)
     {
-        scalarArgs.push_back(baseNode);
+        if(llvm::dyn_cast<llvm::Argument>(n->getValue()))
+        {
+            scalarArgs.push_back(n);
+        }
     }
     
-    for(DFGNode* pred : baseNode->getPredecessors())
-    {
-        std::vector<DFGNode*> predScalarArgs = getScalarArguments(pred);
-        scalarArgs.insert(scalarArgs.end(),predScalarArgs.begin(),predScalarArgs.end());
-    }
     return scalarArgs;
+}
+
+std::vector<DFGNode*> DFG::getUniqueScalarArguments(DFGNode* baseNode){
+    
+    std::vector<DFGNode*> scalarArguments;
+    std::vector<DFGNode*> uniqueScalarArguments;
+    
+    scalarArguments = getScalarArguments(baseNode);
+    
+    for(DFGNode* node : scalarArguments){
+        for(DFGNode* n : scalarArguments)
+        {
+            if(node->getValue() == n->getValue() &&
+                (node->getName() != n->getName()))
+            {
+                n->setName(node->getName());
+            }
+        }
+    }
+    
+    //fill the uniqueReadNodes vector
+    for(DFGNode* node : scalarArguments)
+    {
+        bool isUnique = true;
+        
+        for(DFGNode* n : uniqueScalarArguments)
+            if(node->getName() == n->getName())
+                isUnique = false;
+                
+        if(isUnique)
+            uniqueScalarArguments.push_back(node);
+    }
+
+    return uniqueScalarArguments;
 }
 
 int DFG::getNodesCount(){
@@ -298,8 +368,12 @@ void DFG::setNames(std::vector<std::string> &nodeNames, DFGNode* node){
     for(DFGNode* succ : node->getSuccessors())
         if(!succ->getFlag())
             descendAndSetNames(nodeNames,node);
+            
+    std::vector<DFGNode*> pred = node->getPredecessors();
+    std::vector<DFGNode*> revPred(pred.size()); 
+    std::reverse_copy(std::begin(pred),std::end(pred),std::begin(revPred));
     
-    for(DFGNode* pred : node->getPredecessors())
+    for(DFGNode* pred : revPred)
         if(!pred->getFlag())
             setNames(nodeNames,pred);
 }
@@ -465,7 +539,6 @@ DFG* DFGConstructor::computeIOStreamBasedDFG(llvm::Loop* topLevelLoop, llvm::Fun
         
     }else{
         llvm::errs() << "Single DFG during loop dfg construction...\n";
-        computedDFGs.at(0)->printDFG();
         return computedDFGs.at(0);
     }
 }
@@ -529,8 +602,6 @@ DFG* DFGConstructor::computeDFGFromBase(DFGWriteNode* baseNode,llvm::Loop* loop,
     //populates it from its base node
     populateDFG(shortcutSoreGetelementPtr(baseNode),loop,IOs);
     
-    llvm::errs() << "Computed dfg frag\n"; graph->printDFG();
-
     return graph;
 }
 
@@ -567,7 +638,7 @@ bool DFGConstructor::hasSextOnIndvar(llvm::Instruction* instr,llvm::Loop* loop){
 
 DFG* DFGLinker::linkDFG(){
     
-    std::map<int,DFGNode*> nodesOrder;
+    std::vector<DFGNode*>  nodesOrder;
     std::vector<DFGReadNode*> readNodes;
     std::vector<DFGWriteNode*> writeNodes;
     int baseSize = 0;
@@ -578,18 +649,23 @@ DFG* DFGLinker::linkDFG(){
         DFGNode* base = dfg->getEndNode();
         std::vector<DFGReadNode*> rNodes;
         std::vector<DFGWriteNode*> wNodes;
+        std::vector<DFGNode*> sortedNodes(graphSize);
         
         dfg->getWriteNodes(base,wNodes);
         dfg->getReadNodes(base,rNodes);
         
-        mapNode(nodesOrder,dfg->getEndNode(),baseSize+graphSize-1);
+        dfg->resetFlags(dfg->getEndNode());
+
+        dfg->orderNodes(dfg->getEndNode(),baseSize,sortedNodes,baseSize);
         
+        nodesOrder.insert(nodesOrder.end(),sortedNodes.begin(),sortedNodes.end());
+
         baseSize += graphSize;
         
         readNodes.insert(readNodes.end(),rNodes.begin(),rNodes.end());
         writeNodes.insert(writeNodes.end(),wNodes.begin(),wNodes.end());
     }
-    
+
     for(int i = 0; i < nodesOrder.size(); i++)
     {
         if(std::find(readNodes.begin(), readNodes.end(), nodesOrder.at(i)) != readNodes.end())
@@ -598,39 +674,58 @@ DFG* DFGLinker::linkDFG(){
             
             for(int j = i-1; j >= 0; j--)
             {
-                
                 if(std::find(writeNodes.begin(), writeNodes.end(), nodesOrder.at(j)) != writeNodes.end())
-                {
+                {  
                     DFGWriteNode* writeNode = (DFGWriteNode*)nodesOrder.at(j);
                     
                     if(readNode->getReadingStream() == writeNode->getWritingStream()){
                         
                         DFGNode * readSucc = readNode->getSuccessors().at(0);   //assumes that reads have one successor
-                        readSucc->linkPredecessor(writeNode->getPredecessors().at(0));
-                        
                         std::vector<DFGNode*> &linkedNodes = readSucc->getPredecessors();
                         
                         int pos = std::find(linkedNodes.begin(),linkedNodes.end(),readNode)-linkedNodes.begin();
-                        linkedNodes.erase(linkedNodes.begin() + pos);
+                        
+                        readSucc->linkPredecessor(writeNode->getPredecessors().at(0),pos);
+                        linkedNodes.erase(linkedNodes.begin() + pos+1);
                         j = 0;
                     }
                 }
             }
         }
     }
-    
+    llvm::errs() << "Linked graph: \n";
+
     DFGLinker::dfgs.back()->printDFG();
 
     return DFGLinker::dfgs.back();
 }
 
-void DFGLinker::mapNode(std::map<int,DFGNode*> &nodeMap, DFGNode* node,int pos)
-{
+void DFG::orderNodes(DFGNode* n, int &pos, std::vector<DFGNode*> &sorted,int baseSize){
     
-    nodeMap.insert(std::pair<int,DFGNode*>(pos,node));
+    bool hasPred = false;
     
-    for(int i = 0; i < node->getPredecessors().size(); i++)
-    {
-        mapNode(nodeMap,node->getPredecessors().at(i),pos-i-1);
+    for(DFGNode* pred : n->getPredecessors())
+        if(!pred->getFlag())
+            hasPred = true;
+            
+    if(!n->getFlag() && !hasPred){
+        n->setPosition(pos);
+        sorted.at(pos-baseSize) = n;
+        n->setFlag(true);
+        pos++;
+
+    }else{
+        for(DFGNode* pred : n->getPredecessors()){
+            if(!pred->getFlag()){
+                orderNodes(pred,pos,sorted,baseSize);
+            }
+        }
     }
-}
+    
+    for(DFGNode* succ : n->getSuccessors()){
+        if(!succ->getFlag()){
+            orderNodes(succ,pos,sorted,baseSize);
+        }
+    }
+    
+} 

@@ -80,7 +80,6 @@ void DefaultScheduler::execute(StreamsAnalyzer* streamsAnalyzer){
     
     for(llvm::Loop* loop : *LI){
         
-        
         LoopAnalysisResult* loopInfo = analysisResult->getLoopInfo(infoIndex);
         infoIndex++;
         
@@ -133,9 +132,16 @@ void DefaultScheduler::execute(DFGConstructor* dfgConstructor){
         loopIndex++;
     }
 
-    llvm::errs() << "DFG linkage skipped, assumed only one graph...\n";
-    DefaultScheduler::dataflowGraph = dfgs.at(0); 
-    
+    if(dfgs.size() > 1){
+        std::vector<DFG*> revDfgs(dfgs.size());
+        std::reverse_copy(std::begin(dfgs),std::end(dfgs),std::begin(revDfgs));
+        schedule(new DFGLinker(revDfgs));
+        executeNextComponent();
+        
+    }else{
+        llvm::errs() << "DFG linkage skipped, assumed only one graph...\n";
+        DefaultScheduler::dataflowGraph = dfgs.at(0); 
+    }
 }
 
 void DefaultScheduler::execute(DFGLinker* dfgl){
