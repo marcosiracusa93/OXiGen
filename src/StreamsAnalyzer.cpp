@@ -1,5 +1,6 @@
 
-#import "StreamsAnalyzer.h"
+#include "StreamsAnalyzer.h"
+#include <set>
 
 using namespace oxigen;
 
@@ -39,6 +40,10 @@ IOStreams* StreamsAnalyzer::getExactIndvarIOStreams(llvm::Function* F, llvm::Loo
             }
         }
     }
+    
+    std::set<llvm::Value*> uniqueOuts(outputStreams.begin(),outputStreams.end());
+    outputStreams.assign(uniqueOuts.begin(),uniqueOuts.end());
+    
     return new IOStreams(inputStreams,outputStreams);
 }
 

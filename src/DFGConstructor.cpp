@@ -664,6 +664,7 @@ DFG* DFGLinker::linkDFG(){
         
         readNodes.insert(readNodes.end(),rNodes.begin(),rNodes.end());
         writeNodes.insert(writeNodes.end(),wNodes.begin(),wNodes.end());
+        
     }
 
     for(int i = 0; i < nodesOrder.size(); i++)

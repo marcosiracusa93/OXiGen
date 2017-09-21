@@ -5,6 +5,7 @@ int f_loop(int* s1,int* s2,int* o1,int sc){
 	
 	int t_1[N];
 	int t_2[N];
+    int a = 103;
  
 	for(int i = 0; i < N; i++){
 		t_1[i] = s1[i]+s2[i];
@@ -12,8 +13,10 @@ int f_loop(int* s1,int* s2,int* o1,int sc){
 		o1[i] = t_2[i]/o1[i];
 	}
 
-	for(int i = 0; i < N/2; i++)
+	for(int i = 0; i < N; i++){
 		o1[i] = s1[i] + t_1[i];
+        o1[i] = o1[i] / a;
+    }
 	return 0;
 }
 
