@@ -1,3 +1,4 @@
+#[[
 #in BUILD:     cmake -DCMAKE_C_COMPILER=/usr/bin/clang -DCMAKE_CXX_COMPILER=/usr/bin/clang++ -DCMAKE_CXX_STANDARD=11 ../src
 
 
@@ -16,8 +17,12 @@ message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
 message(STATUS "LLVM include dirs: ${LLVM_INCLUDE_DIRS}")
 message(STATUS "LLVM Definitions: ${LLVM_DEFINITIONS}")
 
-set( INCLUDE_DIR "${PROJECT_SOURCE_DIR}/../include" )
-set( SOURCES_DIR "${PROJECT_SOURCE_DIR}/../src")
+set(INCLUDE_DIR "${PROJECT_SOURCE_DIR}/../include")
+set(SOURCES_DIR "${PROJECT_SOURCE_DIR}/../src")
+
+set(CMAKE_C_COMPILER "/usr/bin/clang")
+set(CMAKE_CXX_COMPILER "/usr/bin/clang++")
+set(CMAKE_CXX_STANDARD "11")
 
 include_directories(${LLVM_INCLUDE_DIRS} ${INCLUDE_DIR})
 add_definitions(${LLVM_DEFINITIONS})
@@ -57,3 +62,4 @@ target_link_libraries(main ${llvm_libs})
 # Link Clang/LLVM dynamic libraries
 #target_link_libraries(full_visitor ${CLANG_LIBS})
 #target_link_libraries(bb_toposort_sccs ${CLANG_LIBS} )
+]]
