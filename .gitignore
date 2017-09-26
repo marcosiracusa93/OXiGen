@@ -48,6 +48,7 @@ CMakeCache.txt
 *.project
 *.workspace
 bin/*
+.idea/*
 
 #gitignore copy#
 .gitignore.swp
