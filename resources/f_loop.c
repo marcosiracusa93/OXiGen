@@ -17,6 +17,12 @@ int f_loop(int* s1,int* s2,int* o1,int sc){
 		o1[i] = s1[i] + t_1[i];
         o1[i] = o1[i] / a;
     }
+	
+	for(int i = 0; i < N; i++){
+		s1[i] = s1[i] + t_2[i];
+		o1[i] = o1[i] / s1[i];
+    }
+	
 	return 0;
 }
 

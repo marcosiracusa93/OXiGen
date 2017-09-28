@@ -521,8 +521,13 @@ DFG* DFGConstructor::computeIOStreamBasedDFG(llvm::Loop* topLevelLoop, llvm::Fun
                     if(instr.getOpcodeName() == std::string("store")){
                         if(llvm::Instruction* storeAddr = llvm::dyn_cast<llvm::Instruction>(instr.getOperand(1)))
                             for(llvm::Value* outStream : IOs->getOutputStreams()){
-                                if(storeAddr->getOperand(0) == outStream ||
-                                    llvm::dyn_cast<llvm::Instruction>(storeAddr->getOperand(0))->getOpcodeName() == std::string("alloca")){
+                                llvm::Instruction *allocaInstr;
+                                if(llvm::Instruction *i = llvm::dyn_cast<llvm::Instruction>(storeAddr->getOperand(0))) {
+                                    allocaInstr=i;
+                                }
+
+                                if(storeAddr->getOperand(0) == outStream || ( allocaInstr!=nullptr &&
+                                    allocaInstr->getOpcodeName() == std::string("alloca") )){
                                     computedDFGs.push_back(computeDFGFromBase(new DFGWriteNode(&instr,IOs),topLevelLoop, IOs));
                                 }
                             }
