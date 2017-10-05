@@ -265,6 +265,8 @@ namespace oxigen{
         void resetFlags(DFGNode* node);
         
         void orderNodes(DFGNode* n, int &pos, std::vector<DFGNode*> &sorted, int baseSize=0);
+
+        void setDFGFlags();
     
     private:
         
@@ -288,6 +290,10 @@ namespace oxigen{
         void setNames(std::vector<std::string> &nodeNames, DFGNode* node);
         
         void descendAndSetNames(std::vector<std::string> &nodeNames, DFGNode* node);
+
+        void setFlags(DFGNode *node);
+
+        void descendAndSet(DFGNode* node);
         
     };
     
@@ -305,13 +311,17 @@ namespace oxigen{
     
     public:
     
-        DFGLinker(std::vector<DFG*> dfgs){ this->dfgs = dfgs; }
+        DFGLinker(std::vector<DFG*> dfgs){ this->dfgs = dfgs;
+            llvm::errs() << "graphs to link:\n";
+        for(DFG* d : dfgs )
+            d->printDFG();
+        }
         
         void acceptExecutor(ProcessingScheduler* scheduler){
             scheduler->execute(this);
         }
         
-        DFG* linkDFG();
+        std::vector<DFG*> linkDFG();
            
     };
     
@@ -335,7 +345,7 @@ namespace oxigen{
                 scheduler->execute(this);
             }
             
-            DFG* computeIOStreamBasedDFG(llvm::Loop* topLevelLoop, llvm::Function* F, IOStreams* IOs);
+            std::vector<DFG*> computeIOStreamBasedDFG(llvm::Loop* topLevelLoop, llvm::Function* F, IOStreams* IOs);
             
         private:
 
@@ -345,7 +355,7 @@ namespace oxigen{
 
             llvm::Instruction* getInstrFromOperand(llvm::Value* value, std::string opcodeName);
 
-            DFGNode* shortcutSoreGetelementPtr(DFGWriteNode* storeNode);
+            DFGNode* shortcutSoreGetelementPtr(DFGWriteNode* storeNode,IOStreams* IOs);
 
             bool hasSextOnIndvar(llvm::Instruction* instr,llvm::Loop* loop);
     };

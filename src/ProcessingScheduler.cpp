@@ -127,8 +127,10 @@ void DefaultScheduler::execute(DFGConstructor* dfgConstructor){
     std::vector<DFG*> dfgs;
     
     for(llvm::Loop* loop : *LI){
-        dfgs.push_back(dfgConstructor->computeIOStreamBasedDFG(
-                                        loop,F,ioStreams.at(loopIndex)));
+        std::vector<DFG*> graphs = dfgConstructor->computeIOStreamBasedDFG(
+                                                     loop,F,ioStreams.at(loopIndex));
+
+        dfgs.insert(dfgs.end(), graphs.begin(), graphs.end());
         loopIndex++;
     }
 
@@ -140,14 +142,19 @@ void DefaultScheduler::execute(DFGConstructor* dfgConstructor){
         
     }else{
         llvm::errs() << "DFG linkage skipped, assumed only one graph...\n";
-        DefaultScheduler::dataflowGraph = dfgs.at(0); 
+        DefaultScheduler::dataflowGraph = dfgs;
     }
 }
 
 void DefaultScheduler::execute(DFGLinker* dfgl){
-    llvm::errs() << "Executing default linker\n";
-    
+
     DefaultScheduler::dataflowGraph = dfgl->linkDFG();
+
+    if(dataflowGraph.size() > 1){
+        std::vector<DFG*> tmp(dataflowGraph.size());
+        std::reverse_copy(std::begin(dataflowGraph),std::end(dataflowGraph),std::begin(tmp));
+        dataflowGraph = tmp;
+    }
 }
 
 void DefaultScheduler::execute(DFGTranslator* dfgTranslator){

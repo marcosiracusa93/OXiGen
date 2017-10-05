@@ -26,7 +26,12 @@ FunctionAnalysisResult* AnalysisManager::analyzeFunction(llvm::Function* F, llvm
             llvm::PHINode* indVar = loop->getCanonicalInductionVariable();
             int loopDepth = loop->getLoopDepth();
             int backedgeTakenCount = -1;
-            
+
+            if(indVar == nullptr){
+                llvm::errs() << "\nCanonical induction variable not found, terminating...\n";
+                exit(EXIT_FAILURE);
+            }
+
             llvm::errs() << "Recursive trip count analysis not implemented...\n";
             
             if(SE->hasLoopInvariantBackedgeTakenCount(loop)){

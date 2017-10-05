@@ -32,6 +32,7 @@ IOStreams* StreamsAnalyzer::getExactIndvarIOStreams(llvm::Function* F, llvm::Loo
                         //if the element pointed by the getelementptr is present in the function arguments
                         //it is considered an input stream
                         for(llvm::Argument &arg : F->args()){
+                            instr.getOperand(0)->dump();
                             if(&arg == instr.getOperand(0)){
                                 inputStreams.push_back(instr.getOperand(0));
                             }

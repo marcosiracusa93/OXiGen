@@ -36,7 +36,7 @@ namespace oxigen{
         
             FunctionAnalysisResult* analysisResult;
 			std::vector<IOStreams*> ioStreams; 
-			DFG* dataflowGraph;
+			std::vector<DFG*> dataflowGraph;
 			std::string kernelCode;
         
             void schedule(ProcessingComponent* processingComponent);
@@ -52,7 +52,7 @@ namespace oxigen{
             
             FunctionAnalysisResult* getAnalysisResult(){ return analysisResult; }
             std::vector<IOStreams*> getIOStreams() { return ioStreams; }
-            DFG* getDFG(){ return dataflowGraph; }
+            std::vector<DFG*> getDFG(){ return dataflowGraph; }
             std::string getKernelCode(){ return kernelCode; }
             
 	};

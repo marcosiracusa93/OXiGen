@@ -146,11 +146,11 @@ namespace oxigen{
                 scheduler->execute(this);
             }
             
-            void printDFGAsKernel(DFG* dfg, std::string kernelName, std::string packageName);
+            void printDFGAsKernel(std::vector<DFG*> dfg, std::string kernelName, std::string packageName);
             
         protected:
             
-            DFG* dfg;
+            std::vector<DFG*> dfgs;
             
         private:
         

@@ -84,6 +84,21 @@ std::string SequentialNamesManager::generateNextName(){
 std::string MaxJInstructionPrinter::getInputStreamsDeclarations(std::vector<DFGReadNode*> inputs){
     
     std::string declarations;
+    std::vector<DFGReadNode*> tmp;
+
+    for(auto it_r = inputs.rbegin(); it_r != inputs.rend(); ++it_r){
+
+        tmp.push_back(*it_r);
+
+        for(DFGReadNode* n : tmp){
+            if(n->getReadingStream() == (*it_r)->getReadingStream() && n != (*it_r)){
+                (*it_r)->setName(n->getName());
+                tmp.pop_back();
+            }
+        }
+    }
+
+    inputs = tmp;
 
     for(DFGReadNode* inputNode : inputs)
     {
@@ -122,6 +137,21 @@ std::string MaxJInstructionPrinter::getInputStreamsDeclarations(std::vector<DFGR
 std::string MaxJInstructionPrinter::getOutputStreamsDeclarations(std::vector<DFGWriteNode*> outputs){
     
     std::string declarations;
+    std::vector<DFGWriteNode*> tmp;
+
+    for(auto it_r = outputs.rbegin(); it_r != outputs.rend(); ++it_r){
+
+        tmp.push_back(*it_r);
+
+        for(DFGWriteNode* n : tmp){
+            if(n->getWritingStream() == (*it_r)->getWritingStream() && n != (*it_r)){
+                (*it_r)->setName(n->getName());
+                tmp.pop_back();
+            }
+        }
+    }
+
+    outputs = tmp;
     
     for(DFGWriteNode* outputNode :outputs)
     {
@@ -161,6 +191,22 @@ std::string MaxJInstructionPrinter::getOutputStreamsDeclarations(std::vector<DFG
 std::string MaxJInstructionPrinter::getScalarInputsDeclarations(std::vector<DFGNode*> scalarInputs){
     
     std::string declarations;
+
+    std::vector<DFGNode*> tmp;
+
+    for(auto it_r = scalarInputs.rbegin(); it_r != scalarInputs.rend(); ++it_r){
+
+        tmp.push_back(*it_r);
+
+        for(DFGNode* n : tmp){
+            if(n->getValue() == (*it_r)->getValue() && n != (*it_r)){
+                (*it_r)->setName(n->getName());
+                tmp.pop_back();
+            }
+        }
+    }
+
+    scalarInputs = tmp;
     
     for(DFGNode* n : scalarInputs)
     {
@@ -239,27 +285,28 @@ std::string MaxJInstructionPrinter::appendInstruction(DFGNode* node){
 
 //DFGTranslator methods implementation
 
-void DFGTranslator::printDFGAsKernel(DFG* dfg, std::string kernelName, std::string packageName){
+void DFGTranslator::printDFGAsKernel(std::vector<DFG*> dfg, std::string kernelName, std::string packageName){
     
-        DFGTranslator::dfg = dfg;
+        DFGTranslator::dfgs = dfg;
         std::string kernelString = generateKernelString(kernelName,packageName);
         llvm::errs() << kernelString;
 }
 
 void DFGTranslator::assignNodeNames(){
     
-    int nodesCount = dfg->getNodesCount();
-
     SequentialNamesManager* namesManager = new SequentialNamesManager();
 
-    std::vector<std::string> nodeNames;
-    
-    for(int i = 0; i < nodesCount; i++)
-    {
-        nodeNames.push_back(namesManager->getNewName());
+    for(DFG* dfg : dfgs){
+
+        int nodesCount = dfg->getNodesCount();
+        std::vector<std::string> nodeNames;
+
+        for(int i = 0; i < nodesCount; i++)
+            nodeNames.push_back(namesManager->getNewName());
+
+        dfg->setNameVector(nodeNames,dfg->getEndNode());
+
     }
-    
-    dfg->setNameVector(nodeNames,dfg->getEndNode());
 }
 
 std::string DFGTranslator::generateKernelString(std::string kernelName,std::string packageName){
@@ -296,33 +343,51 @@ std::string DFGTranslator::generateKernelString(std::string kernelName,std::stri
     
     //identify inputs and outputs
     assignNodeNames();
-    
-    DFGNode* endNode = dfg->getEndNode();
-    
-    std::vector<DFGReadNode*> readNodes = 
-        dfg->getUniqueReadNodes(endNode);
-    
-    std::vector<DFGWriteNode*> writeNodes =
-        dfg->getUniqueWriteNodes(endNode);
-    
-    std::vector<DFGNode*> sortedNodes(dfg->getNodesCount());
 
-    std::vector<DFGNode*> argNodes = dfg->getUniqueScalarArguments(endNode);
-    
+    std::vector<DFGReadNode*> readNodes;
+    std::vector<DFGWriteNode*> writeNodes;
+    std::vector<DFGNode*> argNodes;
+
+    for(DFG* dfg : dfgs){
+
+        DFGNode *endNode = dfg->getEndNode();
+        std::vector<DFGReadNode*> rNodes = dfg->getUniqueReadNodes(endNode);
+        std::vector<DFGWriteNode*> wNodes = dfg->getUniqueWriteNodes(endNode);
+        std::vector<DFGNode*> aNodes = dfg->getUniqueScalarArguments(endNode);
+
+        readNodes.insert(readNodes.end(),rNodes.begin(),rNodes.end());
+        writeNodes.insert(writeNodes.end(),wNodes.begin(),wNodes.end());
+        argNodes.insert(argNodes.end(),aNodes.begin(),aNodes.end());
+
+        dfg->printDFG();
+    }
+
     //append input declarations
     kernelAsString.append(maxjPrinter->getInputStreamsDeclarations(readNodes));
-    
+
     kernelAsString.append(maxjPrinter->getScalarInputsDeclarations(argNodes));
-    
-    int startingPos = 0;
-    
-    dfg->resetFlags(endNode);
- 
-    dfg->orderNodes(endNode,startingPos,sortedNodes);
-    
-    //append instructions
-    kernelAsString.append(maxjPrinter->generateInstructionsString(sortedNodes));
-    
+
+    kernelAsString.append("\n");
+
+    //print instructions
+    for(DFG* dfg : dfgs) {
+
+        DFGNode *endNode = dfg->getEndNode();
+        std::vector<DFGNode*> sortedNodes(dfg->getNodesCount());
+
+        int startingPos = 0;
+
+        dfg->resetFlags(endNode);
+
+        dfg->orderNodes(endNode, startingPos, sortedNodes);
+
+        //append instructions
+        kernelAsString.append(maxjPrinter->generateInstructionsString(sortedNodes));
+
+        kernelAsString.append("\n");
+
+    }
+
     //append output declarations
     kernelAsString.append(maxjPrinter->getOutputStreamsDeclarations(writeNodes));
     
