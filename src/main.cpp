@@ -12,8 +12,6 @@
 #include <algorithm>
 
 #include "llvm/IR/Module.h"
-#include "llvm/IR/LLVMContext.h"
-#include "llvm-c/Core.h"
 
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/AsmParser/Parser.h"
@@ -23,8 +21,6 @@
 #include "AnalysisManager.h"
 #include "DFGConstructor.h"
 #include "DFGTranslator.h"
-#include "ProcessingScheduler.h"
-#include "StreamsAnalyzer.h"
 
 using namespace llvm;
 

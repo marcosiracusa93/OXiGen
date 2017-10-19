@@ -5,6 +5,7 @@
 #include "llvm/IR/Function.h"
 #include "ProcessingScheduler.h"
 #include "ProcessingComponent.h"
+#include "AnalysisManager.h"
 
 namespace oxigen{
 	
@@ -53,10 +54,7 @@ namespace oxigen{
         
 		IOStreams* getExactIndvarIOStreams(llvm::Function* F, llvm::Loop* L);
     
-		IOStreams* getLinearIndvarIOStreams(llvm::Function* F, llvm::Loop* L){
-			llvm::errs() << "Indvar access type not supported...\n";
-            return nullptr;
-		}
+		IOStreams* getLinearIndvarIOStreams(llvm::Function* F,llvm::ScalarEvolution* SE, llvm::Loop* L, LoopAnalysisResult* loopInfo);
 
 		IOStreams* getNonLinearIndvarIOStreasms(llvm::Function* F, llvm::Loop* L){
 			llvm::errs() << "Indvar access type not supported...\n";

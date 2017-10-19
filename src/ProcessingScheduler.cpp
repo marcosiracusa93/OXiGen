@@ -77,7 +77,7 @@ void DefaultScheduler::execute(AnalysisManager* analysisManager){
 void DefaultScheduler::execute(StreamsAnalyzer* streamsAnalyzer){
     
     int infoIndex = 0;
-    
+
     for(llvm::Loop* loop : *LI){
         
         LoopAnalysisResult* loopInfo = analysisResult->getLoopInfo(infoIndex);
@@ -92,7 +92,7 @@ void DefaultScheduler::execute(StreamsAnalyzer* streamsAnalyzer){
                 IOs = streamsAnalyzer->getExactIndvarIOStreams(F,loop);
                 break;
             case(IndVarAccess::Linear):
-                IOs = streamsAnalyzer->getLinearIndvarIOStreams(F,loop);
+                IOs = streamsAnalyzer->getLinearIndvarIOStreams(F,SE,loop,loopInfo);
                 break;
             case(IndVarAccess::NonLinear):
                 IOs = streamsAnalyzer->getNonLinearIndvarIOStreasms(F,loop);

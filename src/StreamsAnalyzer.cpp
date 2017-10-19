@@ -1,6 +1,7 @@
 
 #include "StreamsAnalyzer.h"
 #include <set>
+#include <AnalysisManager.h>
 
 using namespace oxigen;
 
@@ -46,6 +47,56 @@ IOStreams* StreamsAnalyzer::getExactIndvarIOStreams(llvm::Function* F, llvm::Loo
     outputStreams.assign(uniqueOuts.begin(),uniqueOuts.end());
     
     return new IOStreams(inputStreams,outputStreams);
+}
+
+IOStreams* StreamsAnalyzer::getLinearIndvarIOStreams(llvm::Function* F, llvm::ScalarEvolution* SE, llvm::Loop* L, LoopAnalysisResult* loopInfo) {
+
+    llvm::errs() << "Checking for IO streams dependences... \n";
+
+    llvm::PHINode* indVar = loopInfo->getIndVar();
+    llvm::errs() << "PHI: "; indVar->dump();
+
+    std::vector<llvm::Value *> inputStreams;
+    std::vector<llvm::Value *> outputStreams;
+
+    //iterate basic blocks of the loop body
+    for (llvm::BasicBlock *BB : L->blocks()) {
+        if (BB != L->getHeader() &&
+            BB != L->getLoopLatch()) {
+
+            //for each getelementptr, check if uses an IO stream
+            for (llvm::Instruction &instr : BB->getInstList()) {
+                if (instr.getOpcodeName() == std::string("getelementptr"))
+                    if (directlyUses(&instr, indVar)) {
+                        llvm::errs() << "Direct use\n";
+
+                        //if the base pointer used by the getelementptr is stored, it is considered an output stream
+                        for (llvm::Argument &arg : F->args()) {
+                            if (&arg == instr.getOperand(0) && isStored(&instr)) {
+                                outputStreams.push_back(instr.getOperand(0));
+                            }
+                        }
+                        //if the element pointed by the getelementptr is present in the function arguments
+                        //it is considered an input stream
+                        for (llvm::Argument &arg : F->args()) {
+                            if (&arg == instr.getOperand(0)) {
+                                inputStreams.push_back(instr.getOperand(0));
+                            }
+                        }
+                    }
+            }
+        }
+
+    }
+
+    llvm::errs() << "\nIns:\n";
+    for(llvm::Value* in : inputStreams)
+        in->dump();
+    llvm::errs() << "\nOuts:\n";
+    for(llvm::Value* o : outputStreams)
+        o->dump();
+    
+    exit(EXIT_FAILURE);
 }
 
 bool StreamsAnalyzer::directlyUses(llvm::Value *userValue, llvm::Value* targetValue){
