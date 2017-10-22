@@ -55,4 +55,12 @@ void test_4(int* in,int* out){
         tmp2[i] = tmp[i];
         out[i] = tmp2[i]*5;
     }
+
+}
+
+void test_5(int* in, int* out){
+
+    for(int i = 0; i < N-1; i++){
+        out[i] = in[i+1] + 5;
+    }
 }

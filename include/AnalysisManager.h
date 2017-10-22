@@ -9,7 +9,7 @@ namespace oxigen {
 
     /**
      */
-    enum class IndVarAccess { Exact = 1, Linear = 2, NonLinear = 3, Undefined = 0 };
+    enum class IndVarAccess { Exact = 1, Linear = 2, NonLinear = 3, Constant = 4, Undefined = 0 };
 
     /**
      * @class LoopTripCount
@@ -126,7 +126,11 @@ namespace oxigen {
                                                         
             void acceptExecutor(ProcessingScheduler* processingScheduler){
                 processingScheduler->execute(this);
-            } 
+            }
+
+        private:
+
+            IndVarAccess identifyAccessType(llvm::Function* F, llvm::ScalarEvolution* SE,llvm::Loop* loop);
             
     };
 

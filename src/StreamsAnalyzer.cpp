@@ -49,7 +49,8 @@ IOStreams* StreamsAnalyzer::getExactIndvarIOStreams(llvm::Function* F, llvm::Loo
     return new IOStreams(inputStreams,outputStreams);
 }
 
-IOStreams* StreamsAnalyzer::getLinearIndvarIOStreams(llvm::Function* F, llvm::ScalarEvolution* SE, llvm::Loop* L, LoopAnalysisResult* loopInfo) {
+IOStreams* StreamsAnalyzer::getConstantIndvarIOStreams(llvm::Function *F, llvm::ScalarEvolution *SE, llvm::Loop *L,
+                                                       LoopAnalysisResult *loopInfo) {
 
     llvm::errs() << "Checking for IO streams dependences... \n";
 

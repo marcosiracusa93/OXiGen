@@ -91,8 +91,8 @@ void DefaultScheduler::execute(StreamsAnalyzer* streamsAnalyzer){
             case(IndVarAccess::Exact) :
                 IOs = streamsAnalyzer->getExactIndvarIOStreams(F,loop);
                 break;
-            case(IndVarAccess::Linear):
-                IOs = streamsAnalyzer->getLinearIndvarIOStreams(F,SE,loop,loopInfo);
+            case(IndVarAccess::Constant):
+                IOs = streamsAnalyzer->getConstantIndvarIOStreams(F, SE, loop, loopInfo);
                 break;
             case(IndVarAccess::NonLinear):
                 IOs = streamsAnalyzer->getNonLinearIndvarIOStreasms(F,loop);

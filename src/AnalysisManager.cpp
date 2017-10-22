@@ -16,6 +16,53 @@ FunctionAnalysisResult::FunctionAnalysisResult(std::vector<LoopAnalysisResult*> 
     }
 }
 
+IndVarAccess AnalysisManager::identifyAccessType(llvm::Function *F, llvm::ScalarEvolution *SE, llvm::Loop *L) {
+
+    IndVarAccess accessType = IndVarAccess::Exact;
+    llvm::errs() << "Exact indVar access attributed by default...\n";
+
+    //iterate basic blocks of the loop body
+    for (llvm::BasicBlock *BB : L->blocks()) {
+        if (BB != L->getHeader() &&
+            BB != L->getLoopLatch()) {
+            for (llvm::Instruction &instr : BB->getInstList()) {
+
+                if(llvm::GetElementPtrInst* gep = llvm::dyn_cast<llvm::GetElementPtrInst>(&instr)){
+                    for(auto idx = gep->idx_begin(); idx != gep->idx_end(); ++idx){
+                        if(*idx != L->getCanonicalInductionVariable()){
+
+                            const llvm::SCEV* scev_access = SE->getSCEV(*idx);
+
+                            if(const llvm::SCEVAddRecExpr* addRec = llvm::dyn_cast<llvm::SCEVAddRecExpr>(scev_access)){
+                                if(addRec->getStepRecurrence(*SE)->isOne()){
+                                    auto valuesVector = SE->getSCEVValues(addRec->getStart());
+                                    llvm::Value* start = (valuesVector->begin())->first;
+                                    if(llvm::dyn_cast<llvm::Constant>(start)){
+                                        llvm::errs() << "Attributed constant access... ";
+                                        accessType = IndVarAccess::Constant;
+                                    } else{
+                                        llvm::errs() << "Non constant access... ";
+                                        exit(EXIT_FAILURE);
+                                    }
+                                } else{
+                                    llvm::errs() << "Non constant access... ";
+                                    exit(EXIT_FAILURE);
+                                }
+                            }else{
+                                llvm::errs() << "Non add-rec based access... ";
+                                exit(EXIT_FAILURE);
+                            }
+                        }
+                    }
+                }
+            }
+
+        }
+    }
+
+    return accessType;
+}
+
 FunctionAnalysisResult* AnalysisManager::analyzeFunction(llvm::Function* F, llvm::ScalarEvolution* SE,
                                             llvm::LoopInfo* LI){
                                                 
@@ -27,8 +74,7 @@ FunctionAnalysisResult* AnalysisManager::analyzeFunction(llvm::Function* F, llvm
             int loopDepth = loop->getLoopDepth();
             int backedgeTakenCount = -1;
 
-            llvm::errs() << "Exact indVar access attributed by default...\n";
-            IndVarAccess accessType = IndVarAccess::Exact;
+            IndVarAccess accessType = identifyAccessType(F,SE,loop);
 
             if(indVar == nullptr){
                 llvm::errs() << "\nCanonical induction variable not found...\n";
