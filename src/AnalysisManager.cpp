@@ -29,15 +29,26 @@ IndVarAccess AnalysisManager::identifyAccessType(llvm::Function *F, llvm::Scalar
 
                 if(llvm::GetElementPtrInst* gep = llvm::dyn_cast<llvm::GetElementPtrInst>(&instr)){
                     for(auto idx = gep->idx_begin(); idx != gep->idx_end(); ++idx){
-                        if(*idx != L->getCanonicalInductionVariable()){
 
+                        bool isOffset = true;
+
+                        if(llvm::Instruction* inst = llvm::dyn_cast<llvm::Instruction>(*idx)){
+                            if((inst->isCast() && inst->getOperand(0) == L->getCanonicalInductionVariable())
+                                    || L->getCanonicalInductionVariable() == *idx)
+                                isOffset = false;
+                        }else if(llvm::Constant* c = llvm::dyn_cast<llvm::Constant>(*idx)){
+                            isOffset = !(c->isZeroValue());
+                        }
+                        if(isOffset){
+                            idx->get()->dump();
                             const llvm::SCEV* scev_access = SE->getSCEV(*idx);
 
                             if(const llvm::SCEVAddRecExpr* addRec = llvm::dyn_cast<llvm::SCEVAddRecExpr>(scev_access)){
                                 if(addRec->getStepRecurrence(*SE)->isOne()){
-                                    auto valuesVector = SE->getSCEVValues(addRec->getStart());
-                                    llvm::Value* start = (valuesVector->begin())->first;
-                                    if(llvm::dyn_cast<llvm::Constant>(start)){
+
+                                    const llvm::SCEV* start = addRec->getStart();
+
+                                    if(llvm::dyn_cast<llvm::SCEVConstant>(start)){
                                         llvm::errs() << "Attributed constant access... ";
                                         accessType = IndVarAccess::Constant;
                                     } else{
@@ -90,22 +101,6 @@ FunctionAnalysisResult* AnalysisManager::analyzeFunction(llvm::Function* F, llvm
 
                             if(llvm::PHINode* exitPhi = llvm::dyn_cast<llvm::PHINode>(exitPred_1)){
                                 indVar = exitPhi;
-                                const llvm::SCEV* indVar_scev = SE->getSCEV(indVar);
-                                if(const llvm::SCEVAddRecExpr* add_rec = llvm::dyn_cast<llvm::SCEVAddRecExpr>(indVar_scev)){
-                                    llvm::Value* start_value = &(*(SE->getSCEVValues(add_rec->getStart())->begin())->first);
-                                    llvm::Value* inc_value = &(*(SE->getSCEVValues(add_rec->getStepRecurrence(*SE))->begin())->first);
-
-                                    if(llvm::dyn_cast<llvm::Constant>(start_value) && llvm::dyn_cast<llvm::Constant>(inc_value)){
-                                        accessType = IndVarAccess::Linear;
-                                        llvm::errs() << "Linear access attributed to non canonical phinode...\n";
-                                    }else{
-                                        llvm::errs() << "Non linear access not supported...\n";
-                                        llvm::errs() << "Increment: "; inc_value->dump();
-                                        llvm::errs() << "Start: "; start_value->dump();
-                                        exit(EXIT_FAILURE);
-                                    }
-                                }
-
 
                             }else{
                                 llvm::errs() << "Non PHI cond pred...\n";
@@ -134,8 +129,9 @@ FunctionAnalysisResult* AnalysisManager::analyzeFunction(llvm::Function* F, llvm
             loopAnalysisResults.push_back(
                 new LoopAnalysisResult(indVar,accessType,loopTripCount,loopDepth));
         }
-        
-   return new FunctionAnalysisResult(loopAnalysisResults); 
+    llvm::errs() << "Analysis phase terminated..\n";
+
+    return new FunctionAnalysisResult(loopAnalysisResults);
 
 }
 

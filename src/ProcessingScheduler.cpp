@@ -75,6 +75,7 @@ void DefaultScheduler::execute(AnalysisManager* analysisManager){
 }
 
 void DefaultScheduler::execute(StreamsAnalyzer* streamsAnalyzer){
+    llvm::errs() << "Initializing streams...\n";
     
     int infoIndex = 0;
 
@@ -82,11 +83,11 @@ void DefaultScheduler::execute(StreamsAnalyzer* streamsAnalyzer){
         
         LoopAnalysisResult* loopInfo = analysisResult->getLoopInfo(infoIndex);
         infoIndex++;
-        
+
         IndVarAccess accessType = loopInfo->getAccessType();
         
         IOStreams* IOs;
-        
+
         switch(accessType){
             case(IndVarAccess::Exact) :
                 IOs = streamsAnalyzer->getExactIndvarIOStreams(F,loop);

@@ -6,6 +6,7 @@
 #include "ProcessingScheduler.h"
 #include "ProcessingComponent.h"
 #include "AnalysisManager.h"
+#include <set>
 
 namespace oxigen{
 	
@@ -21,13 +22,18 @@ namespace oxigen{
     
 		std::vector<llvm::Value*> inputStreams;
 		std::vector<llvm::Value*> outputStreams;
+        std::vector<llvm::SCEV*> inputOffsets;
+        std::vector<llvm::SCEV*> outputOffsets;
 		
 	public:
-    
-		IOStreams(std::vector<llvm::Value*> inStr, std::vector<llvm::Value*> outStr) {
-			this->inputStreams = inStr;
-			this->outputStreams = outStr;
-		}
+
+
+        IOStreams(std::vector<llvm::Value*> inStr,std::vector<llvm::Value*> outStr,
+                  std::vector<llvm::SCEV*> inOfs = std::vector<llvm::SCEV*>(), std::vector<llvm::SCEV*> outOfs = std::vector<llvm::SCEV*>()) :
+            inputStreams(inStr),
+            outputStreams(outStr),
+            inputOffsets(inOfs),
+            outputOffsets(outOfs) {}
     
 		//getter methods for this struct
     
@@ -35,6 +41,43 @@ namespace oxigen{
     
 		std::vector<llvm::Value*> getOutputStreams(){ return this->outputStreams; }
 
+        std::vector<llvm::SCEV*> getInputOffsets(){ return this->inputOffsets; }
+
+        std::vector<llvm::SCEV*> getOutputOffsets(){ return this->outputOffsets; }
+
+		std::vector<std::pair<llvm::Value*,llvm::SCEV*>> getUniqueOutPairs(){
+
+			std::pair<llvm::Value*,llvm::SCEV*> valOffsetPair;
+			std::set<std::pair<llvm::Value*,llvm::SCEV*>> pairSet;
+
+			for(int i = 0; i < outputStreams.size() && i < outputOffsets.size(); i++){
+				valOffsetPair = std::pair(outputStreams.at(i),outputOffsets.at(i));
+				pairSet.insert(valOffsetPair);
+			}
+			std::vector<std::pair<llvm::Value*,llvm::SCEV*>> pairsVector;
+			for(std::pair<llvm::Value*,llvm::SCEV*> pair : pairSet){
+				pairsVector.push_back(pair);
+			}
+
+			return pairsVector;
+		}
+
+		std::vector<std::pair<llvm::Value*,llvm::SCEV*>> getUniqueInPairs(){
+
+			std::pair<llvm::Value*,llvm::SCEV*> valOffsetPair;
+			std::set<std::pair<llvm::Value*,llvm::SCEV*>> pairSet;
+
+			for(int i = 0; i < inputStreams.size() && i < inputOffsets.size(); i++){
+				valOffsetPair = std::pair(inputStreams.at(i),inputOffsets.at(i));
+				pairSet.insert(valOffsetPair);
+			}
+			std::vector<std::pair<llvm::Value*,llvm::SCEV*>> pairsVector;
+			for(std::pair<llvm::Value*,llvm::SCEV*> pair : pairSet){
+				pairsVector.push_back(pair);
+			}
+
+			return pairsVector;
+		}
 	};
 
 	/**

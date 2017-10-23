@@ -13,7 +13,7 @@ IOStreams* StreamsAnalyzer::getExactIndvarIOStreams(llvm::Function* F, llvm::Loo
     
     std::vector<llvm::Value*> inputStreams;
     std::vector<llvm::Value*> outputStreams;
-    
+
     //iterate basic blocks of the loop body
     for(llvm::BasicBlock *BB : L->blocks()){
         if(BB != L->getHeader() &&
@@ -38,7 +38,7 @@ IOStreams* StreamsAnalyzer::getExactIndvarIOStreams(llvm::Function* F, llvm::Loo
                                 inputStreams.push_back(instr.getOperand(0));
                             }
                         }
-                    }       
+                    }
             }
         }
     }
@@ -59,6 +59,8 @@ IOStreams* StreamsAnalyzer::getConstantIndvarIOStreams(llvm::Function *F, llvm::
 
     std::vector<llvm::Value *> inputStreams;
     std::vector<llvm::Value *> outputStreams;
+    std::vector<const llvm::SCEV*> inOffsets;
+    std::vector<const llvm::SCEV*> outOffsets;
 
     //iterate basic blocks of the loop body
     for (llvm::BasicBlock *BB : L->blocks()) {
@@ -67,28 +69,37 @@ IOStreams* StreamsAnalyzer::getConstantIndvarIOStreams(llvm::Function *F, llvm::
 
             //for each getelementptr, check if uses an IO stream
             for (llvm::Instruction &instr : BB->getInstList()) {
-                if (instr.getOpcodeName() == std::string("getelementptr"))
-                    if (directlyUses(&instr, indVar)) {
-                        llvm::errs() << "Direct use\n";
+                if (instr.getOpcodeName() == std::string("getelementptr"))instr.dump();
 
-                        //if the base pointer used by the getelementptr is stored, it is considered an output stream
-                        for (llvm::Argument &arg : F->args()) {
-                            if (&arg == instr.getOperand(0) && isStored(&instr)) {
-                                outputStreams.push_back(instr.getOperand(0));
+                    //if the base pointer used by the getelementptr is stored, it is considered an output stream
+                    for (llvm::Argument &arg : F->args()) {
+                        if (&arg == instr.getOperand(0) && isStored(&instr)) {
+                            outputStreams.push_back(instr.getOperand(0));
+                            if(const llvm::SCEVAddRecExpr* offset = llvm::dyn_cast<llvm::SCEVAddRecExpr>(SE->getSCEV(instr.getOperand(1)))){
+                                const llvm::SCEV* offset_start = offset->getStart();
+                                outOffsets.push_back(offset_start);
                             }
                         }
-                        //if the element pointed by the getelementptr is present in the function arguments
-                        //it is considered an input stream
-                        for (llvm::Argument &arg : F->args()) {
-                            if (&arg == instr.getOperand(0)) {
-                                inputStreams.push_back(instr.getOperand(0));
+                    }
+
+                    //if the element pointed by the getelementptr is present in the function arguments
+                    //it is considered an input stream
+                    for (llvm::Argument &arg : F->args()) {
+                        if (&arg == instr.getOperand(0)) {
+                            inputStreams.push_back(instr.getOperand(0));
+                            if(const llvm::SCEVAddRecExpr* offset = llvm::dyn_cast<llvm::SCEVAddRecExpr>(SE->getSCEV(instr.getOperand(1)))){
+                                const llvm::SCEV* offset_start = offset->getStart();
+                                inOffsets.push_back(offset_start);
                             }
                         }
                     }
             }
+
         }
 
     }
+
+
 
     llvm::errs() << "\nIns:\n";
     for(llvm::Value* in : inputStreams)
@@ -96,7 +107,13 @@ IOStreams* StreamsAnalyzer::getConstantIndvarIOStreams(llvm::Function *F, llvm::
     llvm::errs() << "\nOuts:\n";
     for(llvm::Value* o : outputStreams)
         o->dump();
-    
+    llvm::errs() << "\nofIns:\n";
+    for(const llvm::SCEV* in : inOffsets)
+        in->dump();
+    llvm::errs() << "\nofOuts:\n";
+    for(const llvm::SCEV* o : outOffsets)
+        o->dump();
+
     exit(EXIT_FAILURE);
 }
 
