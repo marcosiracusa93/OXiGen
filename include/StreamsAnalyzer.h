@@ -9,6 +9,8 @@
 #include <set>
 
 namespace oxigen{
+
+    typedef std::pair<llvm::Value*,const llvm::SCEV*> StreamPair;
 	
 	/**
 	* @class IOStreams
@@ -20,64 +22,140 @@ namespace oxigen{
 
 	private:
     
-		std::vector<llvm::Value*> inputStreams;
-		std::vector<llvm::Value*> outputStreams;
-        std::vector<llvm::SCEV*> inputOffsets;
-        std::vector<llvm::SCEV*> outputOffsets;
+		std::vector<StreamPair> inputStreams;
+		std::vector<StreamPair> outputStreams;
+        llvm::ScalarEvolution* SE;
 		
 	public:
 
 
         IOStreams(std::vector<llvm::Value*> inStr,std::vector<llvm::Value*> outStr,
-                  std::vector<llvm::SCEV*> inOfs = std::vector<llvm::SCEV*>(), std::vector<llvm::SCEV*> outOfs = std::vector<llvm::SCEV*>()) :
-            inputStreams(inStr),
-            outputStreams(outStr),
-            inputOffsets(inOfs),
-            outputOffsets(outOfs) {}
+                  llvm::ScalarEvolution* SE,
+                  std::vector<const llvm::SCEV*> inOfs = std::vector<const llvm::SCEV*>(),
+                  std::vector<const llvm::SCEV*> outOfs = std::vector<const llvm::SCEV*>()){
+
+            this->SE = SE;
+
+            if(inOfs.size() == 0){
+                for(int i = 0; i < inStr.size(); i++){
+                    inOfs.push_back(nullptr);
+                }
+            }
+
+            if(outOfs.size() == 0){
+                for(int i = 0; i < outStr.size(); i++){
+                    outOfs.push_back(nullptr);
+                }
+            }
+
+            inputStreams = std::vector<StreamPair>();
+
+            for(int i = 0; i < inStr.size(); i++){
+                StreamPair p = StreamPair(inStr.at(i),inOfs.at(i));
+                inputStreams.push_back(p);
+            }
+
+            outputStreams = std::vector<StreamPair>();
+
+            for(int i = 0; i < outStr.size(); i++){
+                StreamPair p = StreamPair(outStr.at(i),outOfs.at(i));
+                outputStreams.push_back(p);
+            }
+        }
     
 		//getter methods for this struct
     
-		std::vector<llvm::Value*> getInputStreams(){ return this->inputStreams; }
+		std::vector<StreamPair> getInputStreams(){ return this->inputStreams; }
     
-		std::vector<llvm::Value*> getOutputStreams(){ return this->outputStreams; }
+		std::vector<StreamPair> getOutputStreams(){ return this->outputStreams; }
 
-        std::vector<llvm::SCEV*> getInputOffsets(){ return this->inputOffsets; }
+        StreamPair getInStreamFromGEP(llvm::GetElementPtrInst* gep){
 
-        std::vector<llvm::SCEV*> getOutputOffsets(){ return this->outputOffsets; }
+            const llvm::SCEV* idx = SE->getSCEV(*(gep->idx_begin()));
 
-		std::vector<std::pair<llvm::Value*,llvm::SCEV*>> getUniqueOutPairs(){
+            const llvm::SCEVAddRecExpr* addRec = llvm::dyn_cast<llvm::SCEVAddRecExpr>(idx);
 
-			std::pair<llvm::Value*,llvm::SCEV*> valOffsetPair;
-			std::set<std::pair<llvm::Value*,llvm::SCEV*>> pairSet;
+            if(addRec == nullptr){
+                llvm::errs() << "Non AddRec index, terminating...";
+                exit(EXIT_FAILURE);
+            }
 
-			for(int i = 0; i < outputStreams.size() && i < outputOffsets.size(); i++){
-				valOffsetPair = std::pair(outputStreams.at(i),outputOffsets.at(i));
-				pairSet.insert(valOffsetPair);
-			}
-			std::vector<std::pair<llvm::Value*,llvm::SCEV*>> pairsVector;
-			for(std::pair<llvm::Value*,llvm::SCEV*> pair : pairSet){
-				pairsVector.push_back(pair);
-			}
+            const llvm::SCEV* scev_offset = addRec->getStart();
+            llvm::Value* ptr = gep->getPointerOperand();
 
-			return pairsVector;
+            for(StreamPair p : inputStreams){
+                if(p.first == ptr && p.second == scev_offset )
+                    return p;
+            }
+
+            return StreamPair(nullptr, nullptr);
+        }
+
+        void printStreams(){
+
+            llvm::errs() << "\nIO STREAMS\n";
+
+            llvm::errs() << "Inputs: \n";
+            for(StreamPair p : inputStreams){
+                llvm::errs() << "\tStream: ";
+                p.first->dump();
+                llvm::errs() << "\tOffset: ";
+                if(p.second != nullptr)
+                    p.second->dump();
+                else
+                    llvm::errs() << " 0\n";
+            }
+
+            llvm::errs() << "Outputs: \n";
+            for(StreamPair p : outputStreams){
+                llvm::errs() << "\tStream: ";
+                p.first->dump();
+                llvm::errs() << "\tOffset: ";
+                if(p.second != nullptr)
+                    p.second->dump();
+                else
+                    llvm::errs() << " 0\n";
+            }
+        }
+
+		void makeOutPairsUnique(){
+
+            std::set<StreamPair> pairsSet;
+
+			for(StreamPair p : outputStreams){
+                pairsSet.insert(p);
+            }
+
+            std::vector<StreamPair> uniquePairs = std::vector<StreamPair>();
+
+            for(StreamPair up : pairsSet){
+                uniquePairs.push_back(up);
+            }
+
+            outputStreams = uniquePairs;
+
+			return;
 		}
 
-		std::vector<std::pair<llvm::Value*,llvm::SCEV*>> getUniqueInPairs(){
+        void makeInPairsUnique(){
 
-			std::pair<llvm::Value*,llvm::SCEV*> valOffsetPair;
-			std::set<std::pair<llvm::Value*,llvm::SCEV*>> pairSet;
+            std::set<StreamPair> pairsSet;
 
-			for(int i = 0; i < inputStreams.size() && i < inputOffsets.size(); i++){
-				valOffsetPair = std::pair(inputStreams.at(i),inputOffsets.at(i));
-				pairSet.insert(valOffsetPair);
-			}
-			std::vector<std::pair<llvm::Value*,llvm::SCEV*>> pairsVector;
-			for(std::pair<llvm::Value*,llvm::SCEV*> pair : pairSet){
-				pairsVector.push_back(pair);
-			}
+            for(StreamPair p : inputStreams){
+                pairsSet.insert(p);
+            }
 
-			return pairsVector;
-		}
+            std::vector<StreamPair> uniquePairs = std::vector<StreamPair>();
+
+            for(StreamPair up : pairsSet){
+                uniquePairs.push_back(up);
+            }
+
+            inputStreams = uniquePairs;
+
+            return;
+        }
+
 	};
 
 	/**
@@ -95,17 +173,17 @@ namespace oxigen{
             scheduler->execute(this);
         }
         
-		IOStreams* getExactIndvarIOStreams(llvm::Function* F, llvm::Loop* L);
+		IOStreams* getExactIndvarIOStreams(llvm::Function* F, llvm::Loop* L,llvm::ScalarEvolution *SE);
     
 		IOStreams* getConstantIndvarIOStreams(llvm::Function *F, llvm::ScalarEvolution *SE, llvm::Loop *L,
                                               LoopAnalysisResult *loopInfo);
 
-		IOStreams* getNonLinearIndvarIOStreasms(llvm::Function* F, llvm::Loop* L){
+		IOStreams* getNonLinearIndvarIOStreasms(llvm::Function* F, llvm::Loop* L,llvm::ScalarEvolution *SE){
 			llvm::errs() << "Indvar access type not supported...\n";
             return nullptr;
 		}
 		
-		IOStreams* getNoIndvarIOStreams(llvm::Function* F, llvm::Loop* L){
+		IOStreams* getNoIndvarIOStreams(llvm::Function* F, llvm::Loop* L,llvm::ScalarEvolution *SE){
 			llvm::errs() << "Indvar access type not supported...\n";
             return nullptr;
 		}

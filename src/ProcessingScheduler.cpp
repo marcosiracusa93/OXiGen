@@ -25,7 +25,7 @@ DefaultScheduler::DefaultScheduler(std::string functionName, llvm::Function* F,
     AnalysisManager* am = new AnalysisManager();
     StreamsAnalyzer* sa = new StreamsAnalyzer();
     DFGConstructor* dfgc = new DFGConstructor();
-    DFGTranslator* dfgt = new DFGTranslator();
+    DFGTranslator* dfgt = new DFGTranslator(SE);
     
     schedule(dfgt);
     schedule(dfgc);
@@ -90,16 +90,16 @@ void DefaultScheduler::execute(StreamsAnalyzer* streamsAnalyzer){
 
         switch(accessType){
             case(IndVarAccess::Exact) :
-                IOs = streamsAnalyzer->getExactIndvarIOStreams(F,loop);
+                IOs = streamsAnalyzer->getExactIndvarIOStreams(F,loop,SE);
                 break;
             case(IndVarAccess::Constant):
                 IOs = streamsAnalyzer->getConstantIndvarIOStreams(F, SE, loop, loopInfo);
                 break;
             case(IndVarAccess::NonLinear):
-                IOs = streamsAnalyzer->getNonLinearIndvarIOStreasms(F,loop);
+                IOs = streamsAnalyzer->getNonLinearIndvarIOStreasms(F,loop,SE);
                 break;
             case(IndVarAccess::Undefined):
-                IOs = streamsAnalyzer->getNoIndvarIOStreams(F,loop);
+                IOs = streamsAnalyzer->getNoIndvarIOStreams(F,loop,SE);
                 break;
             default:
                 break;
@@ -108,18 +108,7 @@ void DefaultScheduler::execute(StreamsAnalyzer* streamsAnalyzer){
         ioStreams.push_back(IOs);
         
     }
-    
-    for(IOStreams* IOs : ioStreams){
-        std::vector<llvm::Value*> ins = IOs->getInputStreams();
-        std::vector<llvm::Value*> outs = IOs->getOutputStreams();
-        
-        llvm::errs() << "Ins\n";
-        for(llvm::Value* v : ins)
-            v->dump();
-        llvm::errs() << "Outs\n";
-        for(llvm::Value* v : outs)
-            v->dump();
-    }
+
 }
 
 void DefaultScheduler::execute(DFGConstructor* dfgConstructor){
@@ -129,7 +118,7 @@ void DefaultScheduler::execute(DFGConstructor* dfgConstructor){
     
     for(llvm::Loop* loop : *LI){
         std::vector<DFG*> graphs = dfgConstructor->computeIOStreamBasedDFG(
-                                                     loop,F,ioStreams.at(loopIndex));
+                                                     loop,F,ioStreams.at(loopIndex),SE);
 
         dfgs.insert(dfgs.end(), graphs.begin(), graphs.end());
         loopIndex++;

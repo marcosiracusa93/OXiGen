@@ -91,7 +91,7 @@ std::string MaxJInstructionPrinter::getInputStreamsDeclarations(std::vector<DFGR
         tmp.push_back(*it_r);
 
         for(DFGReadNode* n : tmp){
-            if(n->getReadingStream() == (*it_r)->getReadingStream() && n != (*it_r)){
+            if(n->getReadingStream().first == (*it_r)->getReadingStream().first && n != (*it_r)){
                 (*it_r)->setName(n->getName());
                 tmp.pop_back();
             }
@@ -102,8 +102,9 @@ std::string MaxJInstructionPrinter::getInputStreamsDeclarations(std::vector<DFGR
 
     for(DFGReadNode* inputNode : inputs)
     {
-        llvm::Value* inputStream = inputNode->getReadingStream();
-        llvm::Type* inputStreamType = inputStream->getType()->getPointerElementType();
+        //TODO : check correctness
+        auto inputStream = inputNode->getReadingStream();
+        llvm::Type* inputStreamType = inputStream.first->getType()->getPointerElementType();
         std::string nodeName = inputNode->getName();
         
         if(inputStreamType->isFloatingPointTy())
@@ -134,6 +135,111 @@ std::string MaxJInstructionPrinter::getInputStreamsDeclarations(std::vector<DFGR
     return declarations;
 }
 
+std::string MaxJInstructionPrinter::getConstantOutputOffsetsDeclarations(std::vector<DFGOffsetWriteNode*> offsetWrites){
+
+    SequentialNamesManager* offsetsNamesManager = new SequentialNamesManager();
+    std::vector<std::string> offsetsNames;
+    std::string offsetsStreamsDeclarations = "";
+
+    for(int i = 0; i < offsetWrites.size(); i++){
+        offsetsNames.push_back(offsetsNamesManager->getNewName());
+    }
+
+    for(DFGOffsetWriteNode* n : offsetWrites) {
+
+        llvm::errs() << "\nNODE:\n";
+        n->printNode();
+
+        std::string sourceName = n->getPredecessors().front()->getName();
+        n->getPredecessors().front()->setName(std::string("w_off_") + offsetsNames.back());
+        offsetsNames.pop_back();
+        std::string ofsStreamName = n->getPredecessors().front()->getName();
+
+        const llvm::SCEV *offset_scev = n->getWritingStream().second;
+
+        if(offset_scev->getSCEVType() == llvm::SCEVTypes::scConstant) {
+            const llvm::SCEVConstant *const_offset_scev = (llvm::SCEVConstant *) offset_scev;
+
+            llvm::ConstantInt* intOfs = const_offset_scev->getValue();
+
+            int offset = 0;
+
+            offset = intOfs->getSExtValue();
+            intOfs->dump();
+
+            if(offset > 0){
+
+                int reversed_offset = -offset;
+
+                std::string offsetDeclaration = std::string("\t\tDFEVar ") + ofsStreamName +
+                                                std::string(" = stream.offset(") + sourceName +
+                                                std::string(", ") + std::to_string(reversed_offset) +
+                                                std::string(");\n");
+
+                offsetsStreamsDeclarations.append(offsetDeclaration);
+            }else{
+                llvm::errs() << "Negative offset not supported:" << offset;
+                exit(EXIT_FAILURE);
+            }
+        }else{
+            llvm::errs() << "Non-constant offset not supported...";
+            exit(EXIT_FAILURE);
+        }
+    }
+    return offsetsStreamsDeclarations;
+}
+
+std::string MaxJInstructionPrinter::getConstantInputOffsetsDeclarations(std::vector<DFGOffsetReadNode*> offsetReads){
+
+    SequentialNamesManager* offsetsNamesManager = new SequentialNamesManager();
+    std::vector<std::string> offsetsNames;
+    std::string offsetsStreamsDeclarations = "";
+
+    for(int i = 0; i < offsetReads.size(); i++){
+        offsetsNames.push_back(offsetsNamesManager->getNewName());
+    }
+
+    for(DFGOffsetReadNode* n : offsetReads){
+
+        llvm::errs() << "\nNODE:\n";    n->printNode();
+
+        std::string sourceName = n->getName();
+        n->setName(std::string("r_off_") + offsetsNames.back());
+        offsetsNames.pop_back();
+        std::string ofsStreamName = n->getName();
+
+        const llvm::SCEV* offset_scev = n->getReadingStream().second;
+
+        if(offset_scev->getSCEVType() == llvm::SCEVTypes::scConstant) {
+            const llvm::SCEVConstant *const_offset_scev = (llvm::SCEVConstant *) offset_scev;
+
+            llvm::ConstantInt* intOfs = const_offset_scev->getValue();
+
+            int offset = 0;
+
+            offset = intOfs->getSExtValue();
+            intOfs->dump();
+
+            if(offset > 0 ){
+                std::string offsetDeclaration = std::string("\t\tDFEVar ") + ofsStreamName +
+                                                std::string(" = stream.offset(") + sourceName +
+                                                std::string(", ") + std::to_string(offset) +
+                                                std::string(");\n");
+
+                offsetsStreamsDeclarations.append(offsetDeclaration);
+            }else{
+                llvm::errs() << "Negative offset not supported:" << offset;
+                exit(EXIT_FAILURE);
+            }
+        }else{
+            llvm::errs() << "Non-constant offset not supported...";
+            exit(EXIT_FAILURE);
+        }
+    }
+
+    return offsetsStreamsDeclarations;
+}
+
 std::string MaxJInstructionPrinter::getOutputStreamsDeclarations(std::vector<DFGWriteNode*> outputs){
     
     std::string declarations;
@@ -155,8 +261,9 @@ std::string MaxJInstructionPrinter::getOutputStreamsDeclarations(std::vector<DFG
     
     for(DFGWriteNode* outputNode :outputs)
     {
-        llvm::Value* outputStream = outputNode->getWritingStream();
-        llvm::Type* outputStreamType = outputStream->getType()->getPointerElementType();
+        //TODO : check correcntess
+        auto outputStream = outputNode->getWritingStream();
+        llvm::Type* outputStreamType = outputStream.first->getType()->getPointerElementType();
         std::string nodeName = outputNode->getName();
         std::string resultName = outputNode->getPredecessors().front()->getName();
         
@@ -316,7 +423,7 @@ std::string DFGTranslator::generateKernelString(std::string kernelName,std::stri
     std::string kernelNamePlaceholder = "<kernelName>";
     std::string kernelSignatureTmpl = MaxJInstructionPrinter::kernelSignature;
     
-    MaxJInstructionPrinter* maxjPrinter = new MaxJInstructionPrinter();
+    MaxJInstructionPrinter* maxjPrinter = new MaxJInstructionPrinter(SE);
     
     //append pakage
     kernelAsString.append(std::string("package ") + packageName + endl);
@@ -347,6 +454,8 @@ std::string DFGTranslator::generateKernelString(std::string kernelName,std::stri
     std::vector<DFGReadNode*> readNodes;
     std::vector<DFGWriteNode*> writeNodes;
     std::vector<DFGNode*> argNodes;
+    std::vector<DFGOffsetReadNode*> offsetReadNodes;
+    std::vector<DFGOffsetWriteNode*> offsetWriteNodes;
 
     for(DFG* dfg : dfgs){
 
@@ -362,10 +471,26 @@ std::string DFGTranslator::generateKernelString(std::string kernelName,std::stri
         dfg->printDFG();
     }
 
+    for(DFGReadNode* rn : readNodes){
+        if(rn->getType() == NodeType::OffsetRead){
+            llvm::errs() << "Offset read found: "; rn->printNode();
+            offsetReadNodes.push_back((DFGOffsetReadNode*)rn);
+        }
+    }
+
+    for(DFGWriteNode* wn : writeNodes){
+        if(wn->getType() == NodeType::OffsetWrite){
+            llvm::errs() << "Write read found: "; wn->printNode();
+            offsetWriteNodes.push_back((DFGOffsetWriteNode*)wn);
+        }
+    }
+
     //append input declarations
     kernelAsString.append(maxjPrinter->getInputStreamsDeclarations(readNodes));
 
     kernelAsString.append(maxjPrinter->getScalarInputsDeclarations(argNodes));
+
+    kernelAsString.append(maxjPrinter->getConstantInputOffsetsDeclarations(offsetReadNodes));
 
     kernelAsString.append("\n");
 
@@ -387,6 +512,8 @@ std::string DFGTranslator::generateKernelString(std::string kernelName,std::stri
         kernelAsString.append("\n");
 
     }
+
+    kernelAsString.append(maxjPrinter->getConstantOutputOffsetsDeclarations(offsetWriteNodes));
 
     //append output declarations
     kernelAsString.append(maxjPrinter->getOutputStreamsDeclarations(writeNodes));

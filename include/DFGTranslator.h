@@ -82,6 +82,7 @@ namespace oxigen{
     private:
         typedef std::map<std::string,std::string> OpcodeMap;
         static OpcodeMap opcodeMap;
+        llvm::ScalarEvolution* SE;
         
     public:
     
@@ -89,7 +90,7 @@ namespace oxigen{
         static std::string kernelSignature;
         static std::string kernelSignatureClosing;
         
-        MaxJInstructionPrinter(){}
+        MaxJInstructionPrinter(llvm::ScalarEvolution* SE){ this->SE = SE; }
         
         /**
          * @param inputs - a std::vector of DFGReadNode pointers, corresponding to
@@ -114,6 +115,10 @@ namespace oxigen{
          *         maxj kernel.
          */
         std::string getScalarInputsDeclarations(std::vector<DFGNode*> scalarInputs);
+
+        std::string getConstantInputOffsetsDeclarations(std::vector<DFGOffsetReadNode*> offsetReads);
+
+        std::string getConstantOutputOffsetsDeclarations(std::vector<DFGOffsetWriteNode*> offsetWrites);
         
         /**
          * @brief This method traverses the graph from a parent node and
@@ -141,6 +146,10 @@ namespace oxigen{
     class DFGTranslator : public ProcessingComponent{
         
         public:
+
+            DFGTranslator(llvm::ScalarEvolution* SE){
+                this->SE = SE;
+            }
         
             void acceptExecutor(ProcessingScheduler* scheduler){
                 scheduler->execute(this);
@@ -151,6 +160,7 @@ namespace oxigen{
         protected:
             
             std::vector<DFG*> dfgs;
+            llvm::ScalarEvolution* SE;
             
         private:
         

@@ -1,13 +1,11 @@
 
 #include "StreamsAnalyzer.h"
-#include <set>
-#include <AnalysisManager.h>
 
 using namespace oxigen;
 
 //StreamsAnalyzer methods implementation
 
-IOStreams* StreamsAnalyzer::getExactIndvarIOStreams(llvm::Function* F, llvm::Loop* L){
+IOStreams* StreamsAnalyzer::getExactIndvarIOStreams(llvm::Function* F, llvm::Loop* L,llvm::ScalarEvolution *SE){
 
     llvm::errs() << "Checking for IO streams dependences... \n";
     
@@ -33,7 +31,6 @@ IOStreams* StreamsAnalyzer::getExactIndvarIOStreams(llvm::Function* F, llvm::Loo
                         //if the element pointed by the getelementptr is present in the function arguments
                         //it is considered an input stream
                         for(llvm::Argument &arg : F->args()){
-                            instr.getOperand(0)->dump();
                             if(&arg == instr.getOperand(0)){
                                 inputStreams.push_back(instr.getOperand(0));
                             }
@@ -43,10 +40,13 @@ IOStreams* StreamsAnalyzer::getExactIndvarIOStreams(llvm::Function* F, llvm::Loo
         }
     }
     
-    std::set<llvm::Value*> uniqueOuts(outputStreams.begin(),outputStreams.end());
-    outputStreams.assign(uniqueOuts.begin(),uniqueOuts.end());
-    
-    return new IOStreams(inputStreams,outputStreams);
+    IOStreams* IOs = new IOStreams(inputStreams,outputStreams,SE);
+
+    IOs->makeOutPairsUnique();
+
+    IOs->printStreams();
+
+    return IOs;
 }
 
 IOStreams* StreamsAnalyzer::getConstantIndvarIOStreams(llvm::Function *F, llvm::ScalarEvolution *SE, llvm::Loop *L,
@@ -63,58 +63,71 @@ IOStreams* StreamsAnalyzer::getConstantIndvarIOStreams(llvm::Function *F, llvm::
     std::vector<const llvm::SCEV*> outOffsets;
 
     //iterate basic blocks of the loop body
-    for (llvm::BasicBlock *BB : L->blocks()) {
-        if (BB != L->getHeader() &&
-            BB != L->getLoopLatch()) {
+    for(llvm::BasicBlock *BB : L->blocks()){
+        if(BB != L->getHeader() &&
+           BB != L->getLoopLatch()){
 
             //for each getelementptr, check if uses an IO stream
-            for (llvm::Instruction &instr : BB->getInstList()) {
-                if (instr.getOpcodeName() == std::string("getelementptr"))instr.dump();
+            for(llvm::Instruction &instr : BB->getInstList()){
+                if(llvm::GetElementPtrInst* gep = llvm::dyn_cast<llvm::GetElementPtrInst>(&instr)){
 
                     //if the base pointer used by the getelementptr is stored, it is considered an output stream
                     for (llvm::Argument &arg : F->args()) {
                         if (&arg == instr.getOperand(0) && isStored(&instr)) {
+
                             outputStreams.push_back(instr.getOperand(0));
-                            if(const llvm::SCEVAddRecExpr* offset = llvm::dyn_cast<llvm::SCEVAddRecExpr>(SE->getSCEV(instr.getOperand(1)))){
-                                const llvm::SCEV* offset_start = offset->getStart();
-                                outOffsets.push_back(offset_start);
+
+                            if (directlyUses(&instr, indVar)) {
+                                outOffsets.push_back(nullptr);
+                            } else {
+
+                                //Store offset as llvm::SCEV*
+                                llvm::Value* index = *(gep->idx_begin());
+
+                                if(const llvm::SCEVAddRecExpr* scev_index = llvm::dyn_cast<const llvm::SCEVAddRecExpr>(SE->getSCEV(index))){
+                                    const llvm::SCEV* scev_offset = scev_index->getStart();
+                                    outOffsets.push_back(scev_offset);
+                                }else{
+                                    llvm::errs() << "Unable to compute offset...";
+                                    outOffsets.push_back(nullptr);
+                                }
                             }
                         }
                     }
-
                     //if the element pointed by the getelementptr is present in the function arguments
                     //it is considered an input stream
                     for (llvm::Argument &arg : F->args()) {
                         if (&arg == instr.getOperand(0)) {
                             inputStreams.push_back(instr.getOperand(0));
-                            if(const llvm::SCEVAddRecExpr* offset = llvm::dyn_cast<llvm::SCEVAddRecExpr>(SE->getSCEV(instr.getOperand(1)))){
-                                const llvm::SCEV* offset_start = offset->getStart();
-                                inOffsets.push_back(offset_start);
+
+                            if (directlyUses(&instr, indVar) || isStored(&instr)) {
+                                inOffsets.push_back(nullptr);
+                            }else{
+
+                                //Store offset as llvm::SCEV*
+                                llvm::Value* index = *(gep->idx_begin());
+
+                                if(const llvm::SCEVAddRecExpr* scev_index = llvm::dyn_cast<const llvm::SCEVAddRecExpr>(SE->getSCEV(index))){
+                                    const llvm::SCEV* scev_offset = scev_index->getStart();
+                                    inOffsets.push_back(scev_offset);
+                                }else{
+                                    llvm::errs() << "Unable to compute offset...";
+                                    outOffsets.push_back(nullptr);
+                                }
                             }
+
                         }
                     }
+                }
             }
-
         }
-
     }
 
+    IOStreams* IOs = new IOStreams(inputStreams,outputStreams,SE,inOffsets,outOffsets);
 
+    IOs->printStreams();
 
-    llvm::errs() << "\nIns:\n";
-    for(llvm::Value* in : inputStreams)
-        in->dump();
-    llvm::errs() << "\nOuts:\n";
-    for(llvm::Value* o : outputStreams)
-        o->dump();
-    llvm::errs() << "\nofIns:\n";
-    for(const llvm::SCEV* in : inOffsets)
-        in->dump();
-    llvm::errs() << "\nofOuts:\n";
-    for(const llvm::SCEV* o : outOffsets)
-        o->dump();
-
-    exit(EXIT_FAILURE);
+    return IOs;
 }
 
 bool StreamsAnalyzer::directlyUses(llvm::Value *userValue, llvm::Value* targetValue){

@@ -8,6 +8,8 @@
 #include "ProcessingComponent.h"
 
 namespace oxigen{
+
+    enum NodeType { Node = 1, WriteNode = 2, ReadNode = 3, OffsetRead = 4, OffsetWrite = 5};
     
     /**
      * @class DFGNode
@@ -20,8 +22,13 @@ namespace oxigen{
      *        argorithms whithin the program
      */
     class DFGNode{
+
+    protected:
+
+        NodeType typeID;
     
     private:
+
         llvm::Value* node;
         std::vector<DFGNode*> predecessors;
         std::vector<DFGNode*> successors;
@@ -31,6 +38,8 @@ namespace oxigen{
         int position;
         
     public:
+
+        NodeType getType(){ return this->typeID; }
         
         /**
          * @brief Constructor for the DFGNode class. 
@@ -40,6 +49,7 @@ namespace oxigen{
             this->node = value;
             this->markedFlag = false;
             this->name = "unnamed";
+            this->typeID = NodeType::Node;
         } 
         
         //getter methods for the class
@@ -97,7 +107,17 @@ namespace oxigen{
          * @return the number of nodes in the subgraph
          */
         int countSubgraphNodes();
-        
+
+        bool equals(DFGNode* n_2){
+
+            if(typeID != n_2->getType())
+                return false;
+
+            if(node == n_2->getValue())
+                return true;
+
+            return false;
+        }
     };
     
     /**
@@ -109,9 +129,9 @@ namespace oxigen{
      */
     class DFGWriteNode : public DFGNode {
     
-    private:
+    protected:
         
-        llvm::Value* writingStream;
+        StreamPair writingStream;
         
     public:
         
@@ -129,8 +149,58 @@ namespace oxigen{
         DFGWriteNode(llvm::Value* value, IOStreams* loopStreams);
         
         //getter for the writingStream of this node
-        llvm::Value* getWritingStream(){ return writingStream; }
+        StreamPair getWritingStream(){ return writingStream; }
+
+        bool equals(DFGNode* n_2){
+
+            if(!DFGNode::equals(n_2))
+                return false;
+
+            DFGWriteNode* w_2 = (DFGWriteNode*)n_2;
+
+            if(w_2->getWritingStream().first == writingStream.first)
+                    return true;
+
+            return false;
+        }
+
+        void printNode(){
+
+            DFGNode::printNode();
+            llvm::errs() << " \nWriting stream: ";
+            writingStream.first->dump();
+
+        }
     };
+
+    class DFGOffsetWriteNode : public DFGWriteNode {
+
+    public:
+
+        DFGOffsetWriteNode(llvm::Value* value,IOStreams* IOs,const llvm::SCEV* offset);
+
+        bool equals(DFGNode* n_2){
+
+            if(!DFGWriteNode::equals(n_2))
+                return false;
+
+            DFGOffsetWriteNode* ow_2 = (DFGOffsetWriteNode*)n_2;
+
+            if(ow_2->getWritingStream().second == writingStream.second)
+                return true;
+
+            return false;
+        }
+
+        void printNode(){
+
+            DFGWriteNode::printNode();
+            llvm::errs() << "Offset: ";
+            writingStream.second->dump();
+        }
+
+    };
+
     
     /**
      * @class DFGReadNode
@@ -141,9 +211,9 @@ namespace oxigen{
      */
     class DFGReadNode : public DFGNode {
     
-    private:
+    protected:
         
-        llvm::Value* sourceStream;
+        StreamPair sourceStream;
         
     public:
         
@@ -161,7 +231,56 @@ namespace oxigen{
         DFGReadNode(llvm::Value* value, IOStreams* loopStreams);
         
         //getter for the sourceStream of this node
-        llvm::Value* getReadingStream(){ return sourceStream; }
+        StreamPair getReadingStream(){ return sourceStream; }
+
+        bool equals(DFGNode* n_2){
+
+            if(!DFGNode::equals(n_2))
+                return false;
+
+            DFGReadNode* w_2 = (DFGReadNode*)n_2;
+
+            if(w_2->getReadingStream().first == sourceStream.first)
+                return true;
+
+            return false;
+        }
+
+        void printNode(){
+
+            DFGNode::printNode();
+            llvm::errs() << "\nSource stream: ";
+            sourceStream.first->dump();
+
+        }
+    };
+
+
+    class DFGOffsetReadNode : public DFGReadNode {
+
+    public:
+
+        DFGOffsetReadNode(llvm::Value* value,IOStreams* IOs,const llvm::SCEV* offset);
+
+        bool equals(DFGNode* n_2){
+
+            if(!DFGReadNode::equals(n_2))
+                return false;
+
+            DFGOffsetWriteNode* ow_2 = (DFGOffsetWriteNode*)n_2;
+
+            if(ow_2->getWritingStream().second == sourceStream.second)
+                return true;
+
+            return false;
+        }
+
+        void printNode(){
+
+            DFGReadNode::printNode();
+            llvm::errs() << "Offset: ";
+            sourceStream.second->dump();
+        }
     };
       
     /**
@@ -345,7 +464,8 @@ namespace oxigen{
                 scheduler->execute(this);
             }
             
-            std::vector<DFG*> computeIOStreamBasedDFG(llvm::Loop* topLevelLoop, llvm::Function* F, IOStreams* IOs);
+            std::vector<DFG*> computeIOStreamBasedDFG(llvm::Loop* topLevelLoop, llvm::Function* F,
+                                                      IOStreams* IOs,llvm::ScalarEvolution* SE);
             
         private:
 
@@ -358,6 +478,8 @@ namespace oxigen{
             DFGNode* shortcutSoreGetelementPtr(DFGWriteNode* storeNode,IOStreams* IOs);
 
             bool hasSextOnIndvar(llvm::Instruction* instr,llvm::Loop* loop);
+
+            StreamPair storedOutputStream(llvm::StoreInst* store, IOStreams* IOs, llvm::ScalarEvolution* SE);
     };
     
     /**

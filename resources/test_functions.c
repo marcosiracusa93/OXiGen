@@ -61,6 +61,13 @@ void test_4(int* in,int* out){
 void test_5(int* in, int* out){
 
     for(int i = 0; i < N-1; i++){
-        out[i] = in[i+1] + 5;
+        out[i+1] = in[i] + 5;
+    }
+}
+
+void test_6(int* in, int* out){
+
+    for(int i = 0; i < N-2; i++){
+        out[i] = in[i+1] + in[i+2];
     }
 }
