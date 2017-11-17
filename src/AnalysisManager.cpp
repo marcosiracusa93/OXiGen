@@ -102,6 +102,13 @@ FunctionAnalysisResult* AnalysisManager::analyzeFunction(llvm::Function* F, llvm
                             if(llvm::PHINode* exitPhi = llvm::dyn_cast<llvm::PHINode>(exitPred_1)){
                                 indVar = exitPhi;
 
+                                const llvm::SCEV* phi_scev = SE->getSCEV(exitPhi);
+
+                                if(const llvm::SCEVAddRecExpr* add_rec = llvm::dyn_cast<llvm::SCEVAddRecExpr>(phi_scev)){
+                                    if(add_rec->getStart()->getSCEVType() == llvm::SCEVTypes::scConstant &&
+                                            accessType == IndVarAccess::Exact)
+                                        accessType = IndVarAccess::Constant;
+                                }
                             }else{
                                 llvm::errs() << "Non PHI cond pred...\n";
                                 cmp->getOperand(0)->dump();
@@ -119,8 +126,20 @@ FunctionAnalysisResult* AnalysisManager::analyzeFunction(llvm::Function* F, llvm
             llvm::errs() << "Recursive trip count analysis not implemented...\n";
             
             if(SE->hasLoopInvariantBackedgeTakenCount(loop)){
-                backedgeTakenCount = 1;
-                llvm::errs() << "Backedge taken count calculation not implemented...\n";
+                const llvm::SCEV* back_edge_count_scev = SE->getBackedgeTakenCount(loop);
+
+                if(back_edge_count_scev->getSCEVType() == llvm::SCEVTypes::scConstant){
+
+                    const llvm::SCEVConstant *const_offset_scev = (llvm::SCEVConstant *)back_edge_count_scev;
+                    llvm::ConstantInt* intOfs = const_offset_scev->getValue();
+                    backedgeTakenCount = intOfs->getSExtValue();
+
+                    llvm::errs() << "Backedge taken count is " << backedgeTakenCount << " for ";
+                    indVar->dump();
+                }
+            }else{
+                llvm::errs() << "Backedge taken count could not be computed for ";
+                indVar->dump();
             }
 
             std::vector<LoopTripCount*> subloopsTripCount;

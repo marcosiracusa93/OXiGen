@@ -9,8 +9,41 @@
 
 namespace oxigen{
 
-    enum NodeType { Node = 1, WriteNode = 2, ReadNode = 3, OffsetRead = 4, OffsetWrite = 5};
-    
+    class TickBasedCondition{
+
+    protected:
+
+        std::string tickName;
+        std::string conditionAsString;
+
+    public:
+
+        TickBasedCondition(std::string tickName ){ this->tickName = tickName; }
+
+        std::string getConditionAsString(){ return this->conditionAsString; }
+        std::string getTickName(){ return this->tickName; }
+    };
+
+    class TickBasedConstantCondition : public TickBasedCondition{
+
+    private:
+
+        int U;
+        int L;
+
+    public:
+
+        TickBasedConstantCondition(std::string tickName, int U,int L) : TickBasedCondition(tickName){
+            this->U = U;
+            this->L = L;
+        }
+
+        int getTickLowerBound(){ return this->L; }
+        int getTickUpperBound(){ return this->U; }
+    };
+
+    enum NodeType { Node = 1, WriteNode = 2, ReadNode = 3, OffsetRead = 4, OffsetWrite = 5, Offset = 6, MuxNode = 7};
+
     /**
      * @class DFGNode
      * @brief Basic component of a DataFlow graph structure. Is a simple
@@ -26,8 +59,6 @@ namespace oxigen{
     protected:
 
         NodeType typeID;
-    
-    private:
 
         llvm::Value* node;
         std::vector<DFGNode*> predecessors;
@@ -36,6 +67,7 @@ namespace oxigen{
         std::string name;
         bool markedFlag;
         int position;
+        std::pair<int,int> streamWindow; //the window for which this stream will be processed
         
     public:
 
@@ -45,26 +77,33 @@ namespace oxigen{
          * @brief Constructor for the DFGNode class. 
          * @param value - the llvm::Value which this node of the graph contains
          */
-        DFGNode(llvm::Value* value){
+        DFGNode(llvm::Value* value,int loopTripCount = -1){
             this->node = value;
             this->markedFlag = false;
             this->name = "unnamed";
             this->typeID = NodeType::Node;
+            this->streamWindow = std::pair<int,int>(0,loopTripCount-1);
+            this->predecessors = std::vector<DFGNode*>();
+            this->successors = std::vector<DFGNode*>();
         } 
         
         //getter methods for the class
         
-        llvm::Value* getValue(){ return node; }
+        llvm::Value* getValue();
 
         std::vector<DFGNode*> &getPredecessors(){ return predecessors; }
         
         std::vector<DFGNode*> getSuccessors(){ return successors; }
-        
+
         std::string getName() { return name; }
         
         bool getFlag() { return markedFlag; }
         
         int getPosition() { return position; }
+
+        std::pair<int,int> getStreamWindow(){ return this->streamWindow; }
+
+        void setStreamWindow(int L,int U){ this->streamWindow = std::pair<int,int>(L,U); }
         
         //setter methods for the class
         
@@ -74,7 +113,9 @@ namespace oxigen{
         
         void setFlag(bool value){ this->markedFlag = value; }
 
-        void setSuccessor(DFGNode* succ){ successors.push_back(succ); }
+        void setSuccessor(DFGNode* succ){
+            successors.push_back(succ);
+        }
         
         /**
          * @brief Method used to set a predecessor to this DFGNode,
@@ -84,13 +125,84 @@ namespace oxigen{
          * @param pred - the DFGNode to link to this node
          */
         void linkPredecessor(DFGNode* pred){
-            predecessors.insert(predecessors.begin(),pred);
+            predecessors.insert(predecessors.begin(), pred);
             pred->setSuccessor(this);
         }
-        
-        void linkPredecessor(DFGNode* pred, int pos){
+        void linkPredecessor(DFGNode* pred,int pos){
             predecessors.insert(predecessors.begin()+pos,pred);
             pred->setSuccessor(this);
+        }
+
+        void forgetSuccessor(int pos){
+            successors.erase(successors.begin()+pos);
+        }
+
+        void forgetPredecessor(int pos){
+            predecessors.erase(predecessors.begin()+pos);
+        }
+
+        void unlinkPredecessor(DFGNode* pred){
+
+            std::vector<DFGNode*> predSucc = pred->getSuccessors();
+
+            int predPos = std::find(predecessors.begin(),predecessors.end(),pred)-predecessors.begin();
+            int thisPos = std::find(predSucc.begin(),predSucc.end(),this)-predSucc.begin();
+
+            if(predPos >= 0 && predPos < predecessors.size())
+                predecessors.erase(predecessors.begin()+predPos);
+
+            if(thisPos >= 0 && thisPos < predSucc.size())
+                pred->forgetSuccessor(thisPos);
+        }
+
+        void setPredecessorAt(int pos,DFGNode* n){
+
+            if(pos >= predecessors.size()){
+                llvm::errs() << "Invalid positon...";
+                return;
+            }
+            predecessors.erase(predecessors.begin()+pos);
+            predecessors.insert(predecessors.begin()+pos,n);
+        }
+
+        void setSuccessorAt(int pos,DFGNode* n){
+
+            if(pos >= successors.size()){
+                llvm::errs() << "Invalid positon...";
+                return;
+            }
+            successors.erase(successors.begin()+pos);
+            successors.insert(successors.begin()+pos,n);
+        }
+
+        void changeParent(DFGNode* oldParent,DFGNode* newParent){
+
+            int oldParentPos = std::find(predecessors.begin(),predecessors.end(),oldParent)-predecessors.begin();
+
+            this->unlinkPredecessor(oldParent);
+
+            newParent->setSuccessor(this);
+            predecessors.insert(predecessors.begin()+oldParentPos,newParent);
+        }
+
+        void insertPredecessor(DFGNode* pred,DFGNode* newPred){
+
+            for(DFGNode* p : this->predecessors){
+                if(p == pred){
+                    std::vector<DFGNode*> predSucc = p->getSuccessors();
+
+                    int thisPos = std::find(predSucc.begin(),predSucc.end(),this)-predSucc.begin();
+                    int predPos = std::find(predecessors.begin(),predecessors.end(),pred)-predecessors.begin();
+
+                    pred->setSuccessorAt(thisPos,newPred);
+                    newPred->getPredecessors().push_back(pred);
+
+                    this->setPredecessorAt(predPos,newPred);
+                    newPred->setSuccessor(this);
+
+                    return;
+                }
+            }
         }
         
         /**
@@ -118,6 +230,55 @@ namespace oxigen{
 
             return false;
         }
+
+        bool isInTheSameLoop(DFGNode* n,llvm::LoopInfo* LI){
+
+            if(llvm::Instruction* i_1 = llvm::dyn_cast<llvm::Instruction>(this->getValue())){
+                if(llvm::Instruction* i_2 = llvm::dyn_cast<llvm::Instruction>(n->getValue())){
+
+                    llvm::Loop* L1 = LI->getLoopFor(i_1->getParent());
+                    llvm::Loop* L2 = LI->getLoopFor(i_2->getParent());
+
+                    if(L1 == L2)
+                        return true;
+
+                }else{
+                    return false;
+                }
+            }else{
+                return false;
+            }
+            return false;
+        }
+
+        int firstOccurrenceInNodeVector(std::vector<DFGNode*> nodes){
+
+            int pos = 0;
+
+            for(DFGNode* n : nodes){
+                if(n == this)
+                    return pos;
+                else
+                    pos++;
+            }
+            return -1;
+        }
+    };
+
+    class DFGOffsetNode : public DFGNode {
+
+    private:
+
+        int offsetAsInt;
+
+    public:
+
+        DFGOffsetNode(DFGNode* baseNode);
+
+        llvm::Value* getValue();
+
+        void printNode();
+
     };
     
     /**
@@ -146,7 +307,7 @@ namespace oxigen{
          * @param loopStreams pointer to a IOStreams object corresponding to the
          *        input and output streams for a loop
          */
-        DFGWriteNode(llvm::Value* value, IOStreams* loopStreams);
+        DFGWriteNode(llvm::Value* value, IOStreams* loopStreams, int loopTripCount);
         
         //getter for the writingStream of this node
         StreamPair getWritingStream(){ return writingStream; }
@@ -177,7 +338,7 @@ namespace oxigen{
 
     public:
 
-        DFGOffsetWriteNode(llvm::Value* value,IOStreams* IOs,const llvm::SCEV* offset);
+        DFGOffsetWriteNode(llvm::Value* value,IOStreams* IOs,const llvm::SCEV* offset, int loopTripCount);
 
         bool equals(DFGNode* n_2){
 
@@ -228,7 +389,7 @@ namespace oxigen{
          * @param loopStreams pointer to a IOStreams object corresponding to the
          *        input and output streams for a loop
          */
-        DFGReadNode(llvm::Value* value, IOStreams* loopStreams);
+        DFGReadNode(llvm::Value* value, IOStreams* loopStreams, int loopTripCount);
         
         //getter for the sourceStream of this node
         StreamPair getReadingStream(){ return sourceStream; }
@@ -260,7 +421,7 @@ namespace oxigen{
 
     public:
 
-        DFGOffsetReadNode(llvm::Value* value,IOStreams* IOs,const llvm::SCEV* offset);
+        DFGOffsetReadNode(llvm::Value* value,IOStreams* IOs,const llvm::SCEV* offset, int loopTripCount);
 
         bool equals(DFGNode* n_2){
 
@@ -282,7 +443,26 @@ namespace oxigen{
             sourceStream.second->dump();
         }
     };
-      
+
+    class DFGMuxNode : public DFGNode {
+
+    public:
+
+        DFGMuxNode(DFGNode* node_1,DFGNode* node_2,TickBasedCondition cond) : DFGNode(nullptr) {
+
+            llvm::LLVMContext c;
+            llvm::Constant* zero =
+                    llvm::ConstantInt::get(llvm::IntegerType::get(c,1),llvm::APInt(1,0));
+
+            llvm::Value* value =
+                    llvm::SelectInst::Create(zero, node_1->getValue(), node_2->getValue());
+
+            this->node = value;
+            this->typeID = NodeType ::MuxNode;
+
+        };
+    };
+
     /**
      * @class DFG
      * @brief Class representing a DataFlow graph in the program. It acts as a
@@ -413,6 +593,10 @@ namespace oxigen{
         void setFlags(DFGNode *node);
 
         void descendAndSet(DFGNode* node);
+
+        std::pair<int,int> getMinWindowInSubgraph(DFGNode* start);
+
+        std::pair<int,int> getResultingWindow(std::pair<int,int> w_1,std::pair<int,int> w_2);
         
     };
     
@@ -427,6 +611,7 @@ namespace oxigen{
         
     protected:
         std::vector<DFG*> dfgs;
+        ProcessingScheduler* scheduler;
     
     public:
     
@@ -437,6 +622,7 @@ namespace oxigen{
         }
         
         void acceptExecutor(ProcessingScheduler* scheduler){
+            this->scheduler = scheduler;
             scheduler->execute(this);
         }
         
@@ -464,22 +650,24 @@ namespace oxigen{
                 scheduler->execute(this);
             }
             
-            std::vector<DFG*> computeIOStreamBasedDFG(llvm::Loop* topLevelLoop, llvm::Function* F,
-                                                      IOStreams* IOs,llvm::ScalarEvolution* SE);
+            std::vector<DFG*> computeIOStreamBasedDFG(llvm::Loop* topLevelLoop, IOStreams* IOs,
+                                                      llvm::ScalarEvolution* SE, int loopIndex);
             
         private:
 
-            void populateDFG(DFGNode* node,llvm::Loop* loop, IOStreams* IOs);
+            void populateDFG(DFGNode* node,llvm::Loop* loop, IOStreams* IOs, int loopTripCount);
 
-            DFG* computeDFGFromBase(DFGWriteNode* baseNode,llvm::Loop* loop, IOStreams* IOs);
+            DFG* computeDFGFromBase(DFGWriteNode* baseNode,llvm::Loop* loop, IOStreams* IOs,int loopTripCount);
 
             llvm::Instruction* getInstrFromOperand(llvm::Value* value, std::string opcodeName);
 
-            DFGNode* shortcutSoreGetelementPtr(DFGWriteNode* storeNode,IOStreams* IOs);
+            DFGNode* shortcutSoreGetelementPtr(DFGWriteNode* storeNode,IOStreams* IOs, int loopTripCount);
 
             bool hasSextOnIndvar(llvm::Instruction* instr,llvm::Loop* loop);
 
             StreamPair storedOutputStream(llvm::StoreInst* store, IOStreams* IOs, llvm::ScalarEvolution* SE);
+
+
     };
     
     /**
@@ -514,6 +702,10 @@ namespace oxigen{
         }
         
     };
+
+    void insertNode(DFGNode* n,DFGNode* pred,DFGNode* succ,bool areConsecutive);
+
+    void transferSuccessors(DFGNode* currentParent,DFGNode* newParent);
 
 } // End OXiGen namespace
 

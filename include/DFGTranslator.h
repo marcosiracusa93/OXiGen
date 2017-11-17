@@ -133,6 +133,8 @@ namespace oxigen{
         std::string generateInstructionsString(std::vector<DFGNode*> sortedNodes);
         
         std::string appendInstruction(DFGNode* node);
+
+        std::string getTmpStoreInstructionString(DFGNode* node);
         
     };
 

@@ -5,6 +5,49 @@ using namespace oxigen;
 
 ///DFGNode methods implementation
 
+llvm::Value* DFGNode::getValue(){
+
+        if(typeID == Offset){
+            DFGOffsetNode* off = (DFGOffsetNode*)this;
+            return off->getValue();
+        }
+
+        return node;
+}
+
+llvm::Value* DFGOffsetNode::getValue() {
+
+    llvm::LLVMContext c;
+
+    llvm::Constant* offset =
+            llvm::ConstantInt::get(llvm::IntegerType::get(c,32),llvm::APInt(32,streamWindow.first));
+
+    return offset;
+}
+
+void DFGOffsetNode::printNode() {
+
+    llvm::errs() << "\nNode: " << name << "\n";
+    getValue()->dump();
+
+    llvm::errs() << "Streaming window: [" << streamWindow.first << "," << streamWindow.second << "]\n";
+
+    llvm::errs() << "Predecessors\n";
+
+    for(DFGNode* predecessor : predecessors){
+        predecessor->getValue()->dump();
+        if(std::find(predecessor->getSuccessors().begin(),predecessor->getSuccessors().end(),this) ==
+           predecessor->getSuccessors().end()){
+            llvm::errs() << "Pred has not this as succ\n";
+        }
+    }
+
+    for(DFGNode* succ : successors){
+        if(std::find(succ->getPredecessors().begin(),succ->getPredecessors().end(),this)==succ->getPredecessors().end())
+            llvm::errs() << "Succ has not this as pred\n";
+    }
+}
+
 int DFGNode::countSubgraphNodes(){
     int count = 0;
     
@@ -50,22 +93,32 @@ void DFGNode::printNode(){
                 ofs_w->printNode();
                 return;
             }
+            case NodeType::Offset: {
+                DFGOffsetNode* ofs_w = (DFGOffsetNode*)this;
+                setFlag(true);
+                ofs_w->printNode();
+                return;
+            }
 
             default:
                 break;
         }
-    else{
+    else
+    {
         setFlag(false);
     }
     
     llvm::errs() << "\nNode: " << name << "\n";
     node->dump();
+
+    llvm::errs() << "Streaming window: [" << streamWindow.first << "," << streamWindow.second << "]\n";
+
     llvm::errs() << "Predecessors\n";
-    
+
     for(DFGNode* predecessor : predecessors){
         predecessor->getValue()->dump();
         if(std::find(predecessor->getSuccessors().begin(),predecessor->getSuccessors().end(),this) ==
-                predecessor->getSuccessors().end()){
+           predecessor->getSuccessors().end()){
             llvm::errs() << "Pred has not this as succ\n";
         }
     }
@@ -78,7 +131,7 @@ void DFGNode::printNode(){
 
 ///DFGWriteNode methods implementation
 
-DFGWriteNode::DFGWriteNode(llvm::Value* value, IOStreams* loopStreams) : DFGNode(value) {
+DFGWriteNode::DFGWriteNode(llvm::Value* value, IOStreams* loopStreams, int loopTripCount) : DFGNode(value,loopTripCount) {
 
     this->typeID = NodeType::WriteNode;
 
@@ -90,8 +143,7 @@ DFGWriteNode::DFGWriteNode(llvm::Value* value, IOStreams* loopStreams) : DFGNode
                 return;
             }   
         }
-            writingStream =
-                    StreamPair(((llvm::Instruction*)(instr->getOperand(1)))->getOperand(0), nullptr);
+        writingStream = loopStreams->getInStreamFromGEP((llvm::GetElementPtrInst*)(instr->getOperand(1)));
         llvm::errs() << "Attributed default writing stream for "; value->dump();
     }
 }
@@ -99,7 +151,7 @@ DFGWriteNode::DFGWriteNode(llvm::Value* value, IOStreams* loopStreams) : DFGNode
 
 ///DFGReadNode methods implementation
 
-DFGReadNode::DFGReadNode(llvm::Value* value, IOStreams* loopStreams) : DFGNode(value) {
+DFGReadNode::DFGReadNode(llvm::Value* value, IOStreams* loopStreams, int loopTripCount) : DFGNode(value,loopTripCount) {
 
     this->typeID = NodeType::ReadNode;
 
@@ -111,48 +163,104 @@ DFGReadNode::DFGReadNode(llvm::Value* value, IOStreams* loopStreams) : DFGNode(v
                 return;
             }
         }
-        sourceStream =
-                StreamPair(((llvm::Instruction*)(instr->getOperand(0)))->getOperand(0),nullptr);
+        sourceStream = loopStreams->getInStreamFromGEP((llvm::GetElementPtrInst*)(instr->getOperand(0)));
         llvm::errs() << "Attributed default reading stream for "; value->dump();
     }
 }
 
-DFGOffsetWriteNode::DFGOffsetWriteNode(llvm::Value* value,IOStreams* IOs, const llvm::SCEV* offset) :
-        DFGWriteNode(value,IOs){
+DFGOffsetWriteNode::DFGOffsetWriteNode(llvm::Value* value,IOStreams* IOs, const llvm::SCEV* offset, int loopTripCount) :
+        DFGWriteNode(value,IOs,loopTripCount){
 
     this->typeID = NodeType::OffsetWrite;
 
+    llvm::Value* valuePtr = ((llvm::Instruction*)(((llvm::Instruction*)value)->getOperand(1)))->getOperand(0);
+
     for(StreamPair p : IOs->getOutputStreams()){
-        llvm::Value* valuePtr = ((llvm::Instruction*)(((llvm::Instruction*)value)->getOperand(1)))->getOperand(0);
 
         if(valuePtr == p.first && offset == p.second){
             writingStream = p;
+
+            if(offset->getSCEVType() == llvm::SCEVTypes::scConstant) {
+                llvm::ConstantInt *intOfs = ((llvm::SCEVConstant *) offset)->getValue();
+
+                int startingOffset = intOfs->getSExtValue();
+                streamWindow.first = streamWindow.first - startingOffset;
+                streamWindow.second = streamWindow.second - startingOffset;
+            }
             return;
         }
 
     }
-    llvm::errs() << "Offset could not be computed...";
-    exit(EXIT_FAILURE);
+    llvm::errs() << "Offset not in IOStreams, assigning new offset...\n";
+    writingStream = StreamPair(valuePtr,offset);
+
+    if(offset->getSCEVType() == llvm::SCEVTypes::scConstant){
+        llvm::ConstantInt* intOfs = ((llvm::SCEVConstant*)offset)->getValue();
+
+        int startingOffset = intOfs->getSExtValue();
+        streamWindow.first = streamWindow.first - startingOffset;
+        streamWindow.second = streamWindow.second - startingOffset;
+
+    }else{
+        llvm::errs() << "Non constant offset while computing stream window, terminating...\n";
+        exit(EXIT_FAILURE);
+    }
 
 }
 
-DFGOffsetReadNode::DFGOffsetReadNode(llvm::Value* value,IOStreams* IOs, const llvm::SCEV* offset) :
-        DFGReadNode(value,IOs){
+DFGOffsetNode::DFGOffsetNode(DFGNode* baseNode) : DFGNode((baseNode->getValue()),baseNode->getStreamWindow().second){
+
+    this->typeID = NodeType::Offset;
+    this->streamWindow = baseNode->getStreamWindow();
+    this->offsetAsInt = streamWindow.first;
+
+    llvm::LLVMContext c;
+
+    llvm::Constant* offset =
+            llvm::ConstantInt::get(llvm::IntegerType::get(c,32),llvm::APInt(32,streamWindow.first));
+
+    this->node = offset;
+    llvm::errs() << "OFFSET: ";node->dump();
+
+}
+
+DFGOffsetReadNode::DFGOffsetReadNode(llvm::Value* value,IOStreams* IOs, const llvm::SCEV* offset, int loopTripCount) :
+        DFGReadNode(value,IOs,loopTripCount){
 
     this->typeID = NodeType::OffsetRead;
 
+    llvm::Value* valuePtr = ((llvm::Instruction*)(((llvm::Instruction*)value)->getOperand(0)))->getOperand(0);
+
     for(StreamPair p : IOs->getInputStreams()){
-        llvm::Value* valuePtr = ((llvm::Instruction*)(((llvm::Instruction*)value)->getOperand(0)))->getOperand(0);
 
         if(valuePtr == p.first && offset == p.second){
             sourceStream = p;
+
+            if(offset->getSCEVType() == llvm::SCEVTypes::scConstant) {
+                llvm::ConstantInt *intOfs = ((llvm::SCEVConstant *) offset)->getValue();
+
+                int startingOffset = intOfs->getSExtValue();
+                streamWindow.first = streamWindow.first + startingOffset;
+                streamWindow.second = streamWindow.second + startingOffset;
+            }
             return;
         }
 
     }
-    llvm::errs() << "Offset could not be computed...";
-    exit(EXIT_FAILURE);
+    llvm::errs() << "Offset not in IOStreams, assigning new offset...";
+    sourceStream = StreamPair(valuePtr,offset);
 
+    if(offset->getSCEVType() == llvm::SCEVTypes::scConstant){
+        llvm::ConstantInt* intOfs = ((llvm::SCEVConstant*)offset)->getValue();
+
+        int startingOffset = intOfs->getSExtValue();
+        streamWindow.first = streamWindow.first + startingOffset;
+        streamWindow.second = streamWindow.second + startingOffset;
+
+    }else{
+        llvm::errs() << "Non constant offset while computing stream window, terminating...\n";
+        exit(EXIT_FAILURE);
+    }
 }
 
 ///DFG methods implementation
@@ -179,7 +287,7 @@ void DFG::collectReadNodes(DFGNode* baseNode,std::vector<DFGReadNode*> &readNode
     
     for(DFGNode* pred : baseNode->getPredecessors())
         if(!pred->getFlag())
-            collectReadNodes(pred,readNodes);  
+            collectReadNodes(pred,readNodes);
 }
 
 void DFG::descendAndCollectReads(DFGNode* node, std::vector<DFGReadNode*> &readNodes){
@@ -222,7 +330,7 @@ void DFG::collectWriteNodes(DFGNode* baseNode,std::vector<DFGWriteNode*> &writeN
     
     for(DFGNode* pred : baseNode->getPredecessors())
         if(!pred->getFlag())
-            collectWriteNodes(pred,writeNodes);  
+            collectWriteNodes(pred,writeNodes);
 }
 
 void DFG::descendAndCollectWrites(DFGNode* node, std::vector<DFGWriteNode*> &writeNodes){
@@ -465,7 +573,7 @@ void DFG::setNames(std::vector<std::string> &nodeNames, DFGNode* node){
             
     std::vector<DFGNode*> pred;
     pred = node->getPredecessors();
-    std::vector<DFGNode*> revPred(pred.size()); 
+    std::vector<DFGNode*> revPred(pred.size());
     std::reverse_copy(std::begin(pred),std::end(pred),std::begin(revPred));
     
     for(DFGNode* pred : revPred)
@@ -522,7 +630,7 @@ void DFG::printDFG(DFGNode* startingNode){
     startingNode->setFlag(true);
     
     for(DFGNode* succ : startingNode->getSuccessors())
-        if(!succ->getFlag())   
+        if(!succ->getFlag())
             descendAndPrint(startingNode);
     
     for(DFGNode* pred : startingNode->getPredecessors())
@@ -545,13 +653,13 @@ void DFG::descendAndPrint(DFGNode* node){
 
     while(nodeToPrint->getSuccessors().size() != 0) {
         int considered_succ = nodeToPrint->getSuccessors().size();
-        for (DFGNode *succ : nodeToPrint->getSuccessors())
+        for (DFGNode* succ : nodeToPrint->getSuccessors())
             if (!succ->getFlag()) {
                 nodeToPrint = succ;
                 break;
             }
         if(considered_succ == nodeToPrint->getSuccessors().size())
-            for(DFGNode *succ : nodeToPrint->getSuccessors())
+            for(DFGNode* succ : nodeToPrint->getSuccessors())
                 succ->setFlag(false);
     }
     if(nodeToPrint != node)
@@ -603,7 +711,7 @@ void DFG::setDFGFlags(){
     setFlags(DFG::getEndNode());
 }
 
-void DFG::setFlags(DFGNode *node) {
+void DFG::setFlags(DFGNode* node) {
 
     node->setFlag(true);
 
@@ -640,52 +748,68 @@ void DFG::descendAndSet(DFGNode* node){
 
 //DFGConstructor methods implementation
 
-std::vector<DFG*> DFGConstructor::computeIOStreamBasedDFG(llvm::Loop* topLevelLoop, llvm::Function* F,
-                                                          IOStreams* IOs, llvm::ScalarEvolution* SE){
+std::vector<DFG*> DFGConstructor::computeIOStreamBasedDFG(llvm::Loop* topLevelLoop, IOStreams* IOs,
+                                                          llvm::ScalarEvolution* SE, int loopIndex){
 
     std::vector<DFG*> computedDFGs;
-    
+
+    LoopAnalysisResult* loopInfo = scheduler->analysisResult->getLoopInfo(loopIndex);
+    int loopTripCount = loopInfo->getLoopTripCount()->getTripCount();
+
     //iterates over the loop body instructions
 
-        for(llvm::BasicBlock *BB : topLevelLoop->blocks()){
-            if(BB != topLevelLoop->getHeader() &&
-                BB != topLevelLoop->getLoopLatch()){
-                
-                for(llvm::Instruction &instr : BB->getInstList()){
-                    
-                    //if a store is found, and the store refers to an output stream,
-                    //a DFG is computed with the store as its base, and it is added 
-                    //to the DFG vector
-                    if(llvm::StoreInst* store = llvm::dyn_cast<llvm::StoreInst>(&instr)){
-                        if(llvm::Instruction* storeAddr = llvm::dyn_cast<llvm::Instruction>(store->getOperand(1))) {
+    for(llvm::BasicBlock *BB : topLevelLoop->blocks()){
+        if(BB != topLevelLoop->getHeader() &&
+            BB != topLevelLoop->getLoopLatch()){
 
-                            llvm::Instruction *allocaInstr = nullptr;
+            for(llvm::Instruction &instr : BB->getInstList()){
 
-                            if (llvm::Instruction *i = llvm::dyn_cast<llvm::Instruction>(storeAddr->getOperand(0))) {
-                                allocaInstr = i;
-                            }
-                            if(allocaInstr != nullptr && allocaInstr->getOpcodeName() == std::string("alloca"))
-                                computedDFGs.push_back(
-                                        computeDFGFromBase(new DFGWriteNode(&instr, IOs), topLevelLoop, IOs));
+                //if a store is found, and the store refers to an output stream,
+                //a DFG is computed with the store as its base, and it is added
+                //to the DFG vector
+                if(llvm::StoreInst* store = llvm::dyn_cast<llvm::StoreInst>(&instr)){
+                    if(llvm::Instruction* storeAddr = llvm::dyn_cast<llvm::Instruction>(store->getOperand(1))) {
 
-                            StreamPair stream = storedOutputStream(store,IOs,SE);
-                            if (stream.first != nullptr) {
-                                if(stream.second == nullptr)
-                                    computedDFGs.push_back(
-                                            computeDFGFromBase(new DFGWriteNode(&instr, IOs), topLevelLoop, IOs));
-                                else{
-                                    DFGOffsetWriteNode* offsetNode = new DFGOffsetWriteNode(&instr,IOs,stream.second);
-                                    llvm::errs() << "Equals: " << offsetNode->equals(offsetNode);
-                                    computedDFGs.push_back(
-                                            computeDFGFromBase(offsetNode, topLevelLoop, IOs));
-                                }
-                            }
+                        llvm::Instruction *allocaInstr = nullptr;
+                        StreamPair stream;
 
+                        if (llvm::Instruction *i = llvm::dyn_cast<llvm::Instruction>(storeAddr->getOperand(0))) {
+                            allocaInstr = i;
                         }
+                        if(allocaInstr != nullptr && allocaInstr->getOpcodeName() == std::string("alloca")) {
+                            stream = IOs->getInStreamFromGEP((llvm::GetElementPtrInst *) storeAddr);
+
+                            if (stream.second != nullptr) {
+
+                                DFGOffsetWriteNode *offsetNode = new DFGOffsetWriteNode(&instr, IOs, stream.second,loopTripCount);
+                                computedDFGs.push_back(
+                                        computeDFGFromBase(offsetNode, topLevelLoop, IOs,loopTripCount));
+                            } else {
+
+                                computedDFGs.push_back(
+                                        computeDFGFromBase(new DFGWriteNode(&instr, IOs,loopTripCount), topLevelLoop, IOs,loopTripCount));
+                            }
+                        }
+
+                        stream = storedOutputStream(store,IOs,SE);
+
+                        if (stream.first != nullptr) {
+                            if(stream.second == nullptr)
+                                computedDFGs.push_back(
+                                        computeDFGFromBase(new DFGWriteNode(&instr, IOs,loopTripCount), topLevelLoop, IOs,loopTripCount));
+                            else{
+                                DFGOffsetWriteNode* offsetNode = new DFGOffsetWriteNode(&instr,IOs,stream.second,loopTripCount);
+                                llvm::errs() << "Equals: " << offsetNode->equals(offsetNode);
+                                computedDFGs.push_back(
+                                        computeDFGFromBase(offsetNode, topLevelLoop, IOs,loopTripCount));
+                            }
+                        }
+
                     }
                 }
             }
         }
+    }
     
     if(computedDFGs.size() > 1){
         DFGConstructor::scheduler->schedule(new DFGLinker(computedDFGs));
@@ -699,8 +823,8 @@ std::vector<DFG*> DFGConstructor::computeIOStreamBasedDFG(llvm::Loop* topLevelLo
     }
 }
 
-void DFGConstructor::populateDFG(DFGNode* node,llvm::Loop* loop, IOStreams* IOs){
-    
+void DFGConstructor::populateDFG(DFGNode* node,llvm::Loop* loop, IOStreams* IOs,int loopTripCount){
+    //TODO: check link predecessor calls
     llvm::Value* parentVal = node->getValue();
 
     if(llvm::Instruction* parentInstr = llvm::dyn_cast<llvm::Instruction>(parentVal)){
@@ -725,7 +849,7 @@ void DFGConstructor::populateDFG(DFGNode* node,llvm::Loop* loop, IOStreams* IOs)
                     bool cond_2 = getelemPtrInstr->getNumOperands() == 3 && getelemPtrInstr->getOperand(2) == loop->getCanonicalInductionVariable();
                     if(getelemPtrInstr != nullptr && (hasSextOnIndvar(getelemPtrInstr,loop) || cond_1 || cond_2))
                     {
-                        DFGReadNode* childNode = new DFGReadNode(operandVal,IOs);
+                        DFGReadNode* childNode = new DFGReadNode(operandVal,IOs,loopTripCount);
                         node->linkPredecessor(childNode);
                     }else{
                         llvm::errs() << "Getelemptr may be offset node: "; getelemPtrInstr->dump();
@@ -736,13 +860,14 @@ void DFGConstructor::populateDFG(DFGNode* node,llvm::Loop* loop, IOStreams* IOs)
                         if(gep != nullptr)
                             stream = IOs->getInStreamFromGEP(gep);
 
-                        if(stream.first != nullptr && stream.second != nullptr){
-                            llvm::errs() << "Creating offset read node...";
-                            DFGOffsetReadNode* childNode = new DFGOffsetReadNode(operandVal,IOs,stream.second);
+                        if(stream.second != nullptr){
+                            llvm::errs() << "Creating offset read node...\n";
+                            DFGOffsetReadNode* childNode = new DFGOffsetReadNode(operandVal,IOs,stream.second,loopTripCount);
                             node->linkPredecessor(childNode);
                         }else{
-                            llvm::errs() << "Stream not found, terminating...";
-                            exit(EXIT_FAILURE);
+                            llvm::errs() << "Node was without offset after all...\n";
+                            DFGReadNode* childNode = new DFGReadNode(operandVal,IOs,loopTripCount);
+                            node->linkPredecessor(childNode);
                         }
 
                     }
@@ -757,8 +882,7 @@ void DFGConstructor::populateDFG(DFGNode* node,llvm::Loop* loop, IOStreams* IOs)
 
                     DFGNode* childNode = new DFGNode(operandVal);
                     node->linkPredecessor(childNode);
-                    populateDFG(childNode,loop,IOs);
-                    
+                    populateDFG(childNode,loop,IOs,loopTripCount);
                 }
             }
             else
@@ -778,12 +902,12 @@ void DFGConstructor::populateDFG(DFGNode* node,llvm::Loop* loop, IOStreams* IOs)
     
 }
 
-DFG* DFGConstructor::computeDFGFromBase(DFGWriteNode* baseNode,llvm::Loop* loop, IOStreams* IOs){
+DFG* DFGConstructor::computeDFGFromBase(DFGWriteNode* baseNode,llvm::Loop* loop, IOStreams* IOs,int loopTripCount){
         
     //intializes a new DFG object
     DFG* graph = new DFG(baseNode);
     //populates it from its base node
-    populateDFG(shortcutSoreGetelementPtr(baseNode,IOs),loop,IOs);
+    populateDFG(shortcutSoreGetelementPtr(baseNode,IOs,loopTripCount),loop,IOs,loopTripCount);
 
     return graph;
 }
@@ -796,7 +920,7 @@ llvm::Instruction* DFGConstructor::getInstrFromOperand(llvm::Value* value, std::
     return nullptr;
 }
 
-DFGNode* DFGConstructor::shortcutSoreGetelementPtr(DFGWriteNode* storeNode,IOStreams* IOs){
+DFGNode* DFGConstructor::shortcutSoreGetelementPtr(DFGWriteNode* storeNode,IOStreams* IOs,int loopTripCount){
 
     llvm::Instruction* storeInstr = (llvm::Instruction*) storeNode->getValue();
 
@@ -804,12 +928,12 @@ DFGNode* DFGConstructor::shortcutSoreGetelementPtr(DFGWriteNode* storeNode,IOStr
 
     if(llvm::Instruction* cInstr = llvm::dyn_cast<llvm::Instruction>(storeInstr->getOperand(0))){
         if (cInstr->getOpcodeName() == std::string("load")) {
-            startingNode = new DFGReadNode(cInstr, IOs);
+            startingNode = new DFGReadNode(cInstr, IOs,loopTripCount);
             storeNode->linkPredecessor(startingNode);
             return startingNode;
         }
         if (cInstr->getOpcodeName() == std::string("store")) {
-            startingNode = new DFGWriteNode(cInstr, IOs);
+            startingNode = new DFGWriteNode(cInstr, IOs,loopTripCount);
             storeNode->linkPredecessor(startingNode);
             return startingNode;
         }
@@ -852,10 +976,35 @@ StreamPair DFGConstructor::storedOutputStream(llvm::StoreInst* store, IOStreams*
     return StreamPair(nullptr, nullptr);
 }
 
+void oxigen::insertNode(DFGNode* n,DFGNode* pred,DFGNode* succ,bool areConsecutive = false){
+
+    if(areConsecutive){
+        succ->insertPredecessor(pred,n);
+    }else{
+        succ->linkPredecessor(n);
+        n->linkPredecessor(pred);
+    }
+
+}
+
+void oxigen::transferSuccessors(DFGNode* currentParent,DFGNode* newParent){
+
+    for(DFGNode* child : currentParent->getSuccessors()){
+        if(child != newParent){
+            child->changeParent(currentParent,newParent);
+        }
+    }
+}
+
 //DFGLinker methods implementation
 
 std::vector<DFG*> DFGLinker::linkDFG(){
-    
+
+    DefaultScheduler* dScheduler = nullptr;
+
+    if(scheduler->getType() == SchedulerType::Default)
+        dScheduler = (DefaultScheduler*)scheduler;
+
     std::vector<DFGNode*>  nodesOrder;
     std::vector<DFGReadNode*> readNodes;
     std::vector<DFGWriteNode*> writeNodes;
@@ -897,9 +1046,11 @@ std::vector<DFG*> DFGLinker::linkDFG(){
                 {  
                     DFGWriteNode* writeNode = (DFGWriteNode*)nodesOrder.at(j);
                     
-                    if(readNode->getReadingStream() == writeNode->getWritingStream()){
+                    if(readNode->getReadingStream().first == writeNode->getWritingStream().first &&
+                            (readNode->getStreamWindow().first <= -(writeNode->getStreamWindow().first) ||
+                                    (dScheduler != nullptr && !readNode->isInTheSameLoop(writeNode,dScheduler->getLoopInfo())))){
 
-                        DFGNode * readSucc = readNode->getSuccessors().at(0);   //assumes that reads have one successor
+                        DFGNode* readSucc = readNode->getSuccessors().at(0);   //assumes that reads have one successor
 
                         for(DFGNode* rSucc : readNode->getSuccessors())
                             if(llvm::Instruction* readSuccAsInstr = llvm::dyn_cast<llvm::Instruction>(rSucc->getValue()))
@@ -909,13 +1060,36 @@ std::vector<DFG*> DFGLinker::linkDFG(){
                                 }
 
                         std::vector<DFGNode*> &linkedNodes = readSucc->getPredecessors();
-                        
-                        int pos = std::find(linkedNodes.begin(),linkedNodes.end(),readNode)-linkedNodes.begin();
-                        
-                        readSucc->linkPredecessor(writeNode->getPredecessors().at(0),pos);
-                        linkedNodes.erase(linkedNodes.begin() + pos+1);
-                        j = 0;
 
+                        int pos = std::find(linkedNodes.begin(),linkedNodes.end(),readNode)-linkedNodes.begin();
+                        readSucc->linkPredecessor(writeNode->getPredecessors().at(0),pos);
+
+                        //update stream window
+                        writeNode->getPredecessors().at(0)->setStreamWindow(
+                                readNode->getStreamWindow().first,
+                                readNode->getStreamWindow().second);
+
+                        linkedNodes.erase(linkedNodes.begin() + pos+1);
+
+                        if(writeNode->getStreamWindow().first != 0 &&
+                           writeNode->getPredecessors().at(0)->getType() != NodeType::Offset){
+
+                            DFGOffsetNode* offsetNode = new DFGOffsetNode(writeNode);
+                            DFGNode* wPred = writeNode->getPredecessors().at(0);
+
+                            oxigen::insertNode(offsetNode,wPred,writeNode,true);
+                            oxigen::transferSuccessors(wPred,offsetNode);
+
+                        }
+
+                        if(readNode->getStreamWindow().first != 0){
+                            DFGOffsetNode* offsetNode = new DFGOffsetNode(readNode);
+                            DFGNode* wPred = writeNode->getPredecessors().at(0);
+
+                            oxigen::insertNode(offsetNode,wPred,readSucc,true);
+                        }
+
+                        j = 0;
                     }
                 }
             }

@@ -62,6 +62,15 @@ IOStreams* StreamsAnalyzer::getConstantIndvarIOStreams(llvm::Function *F, llvm::
     std::vector<const llvm::SCEV*> inOffsets;
     std::vector<const llvm::SCEV*> outOffsets;
 
+    const llvm::SCEV* indvar_scev = SE->getSCEV(indVar);
+    const llvm::SCEVAddRecExpr* indvar_addrec = nullptr;
+
+    if(indvar_scev->getSCEVType() == llvm::SCEVTypes::scAddRecExpr){
+        indvar_addrec = llvm::dyn_cast<const llvm::SCEVAddRecExpr>(indvar_scev);
+        llvm::errs() << "Addrec found: "; indvar_addrec->dump();
+        llvm::errs() << "Is zero? : " << indvar_addrec->getStart()->isZero();
+    }
+
     //iterate basic blocks of the loop body
     for(llvm::BasicBlock *BB : L->blocks()){
         if(BB != L->getHeader() &&
@@ -77,12 +86,13 @@ IOStreams* StreamsAnalyzer::getConstantIndvarIOStreams(llvm::Function *F, llvm::
 
                             outputStreams.push_back(instr.getOperand(0));
 
-                            if (directlyUses(&instr, indVar)) {
+                            if (directlyUses(&instr, indVar) &&
+                                    (indvar_addrec == nullptr || indvar_addrec->getStart()->isZero())) {
                                 outOffsets.push_back(nullptr);
                             } else {
-
+                                llvm::errs() << "\nLOOKING FOR OFFSET OF:\n"; gep->dump();
                                 //Store offset as llvm::SCEV*
-                                llvm::Value* index = *(gep->idx_begin());
+                                llvm::Value* index = *(gep->idx_end() -1);
 
                                 if(const llvm::SCEVAddRecExpr* scev_index = llvm::dyn_cast<const llvm::SCEVAddRecExpr>(SE->getSCEV(index))){
                                     const llvm::SCEV* scev_offset = scev_index->getStart();
@@ -105,7 +115,7 @@ IOStreams* StreamsAnalyzer::getConstantIndvarIOStreams(llvm::Function *F, llvm::
                             }else{
 
                                 //Store offset as llvm::SCEV*
-                                llvm::Value* index = *(gep->idx_begin());
+                                llvm::Value* index = *(gep->idx_end() - 1);
 
                                 if(const llvm::SCEVAddRecExpr* scev_index = llvm::dyn_cast<const llvm::SCEVAddRecExpr>(SE->getSCEV(index))){
                                     const llvm::SCEV* scev_offset = scev_index->getStart();

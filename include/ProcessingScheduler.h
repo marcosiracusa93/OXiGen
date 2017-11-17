@@ -14,6 +14,8 @@
 #include "llvm/IR/Value.h"
 
 namespace oxigen{
+
+	enum SchedulerType { Default = 1, Abstract = 0 };
     
     class FunctionAnalysisResult;
     struct IOStreams;
@@ -24,6 +26,7 @@ namespace oxigen{
     class DFG;
     class SubloopHandler;
     class DFGTranslator;
+	class DFGStreamsOverlapHandler;
     class ProcessingComponent;
     
 	class ProcessingScheduler{
@@ -31,6 +34,7 @@ namespace oxigen{
         protected:
         
             std::vector<ProcessingComponent*> scheduledComponents;
+			SchedulerType typeID;
 			
         public:
         
@@ -47,6 +51,7 @@ namespace oxigen{
 			virtual void execute(StreamsAnalyzer* streamsAnalyzer);
 			virtual void execute(DFGConstructor* dfgConstructor);
             virtual void execute(DFGLinker* dfgLinker);
+			virtual void execute(DFGStreamsOverlapHandler* overlapHandler);
 			virtual void execute(SubloopHandler* subloopHandler);
 			virtual void execute(DFGTranslator* dfgTranslator);
             
@@ -54,11 +59,13 @@ namespace oxigen{
             std::vector<IOStreams*> getIOStreams() { return ioStreams; }
             std::vector<DFG*> getDFG(){ return dataflowGraph; }
             std::string getKernelCode(){ return kernelCode; }
+			SchedulerType getType(){ return typeID; }
             
 	};
 	
 	class DefaultScheduler : public ProcessingScheduler{
-    private:
+
+    protected:
         
         std::string functionName;
         llvm::Function* F;
@@ -66,17 +73,20 @@ namespace oxigen{
         llvm::LoopInfo* LI;
         llvm::SCEVAAResult* SEAA;
         
-		public:
-			DefaultScheduler(std::string functionName, llvm::Function* F,
-                                                       llvm::ScalarEvolution* SE,
-                                                       llvm::LoopInfo* LI,
-                                                       llvm::SCEVAAResult* SEAA);
-                                
-            void execute(AnalysisManager* analysisManager);
-            void execute(StreamsAnalyzer* streamsAnalyzer);
-            void execute(DFGConstructor* dfgConstructor);
-            void execute(DFGLinker* dfgLinker);
-            void execute(DFGTranslator* dfgTranslator);
+	public:
+		DefaultScheduler(std::string functionName, llvm::Function* F,
+												   llvm::ScalarEvolution* SE,
+												   llvm::LoopInfo* LI,
+												   llvm::SCEVAAResult* SEAA);
+
+		void execute(AnalysisManager* analysisManager);
+		void execute(StreamsAnalyzer* streamsAnalyzer);
+		void execute(DFGConstructor* dfgConstructor);
+		void execute(DFGLinker* dfgLinker);
+		void execute(DFGStreamsOverlapHandler* overlapHandler);
+		void execute(DFGTranslator* dfgTranslator);
+
+		llvm::LoopInfo* getLoopInfo(){ return this->LI; }
             
 	};
 	

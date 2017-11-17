@@ -147,8 +147,8 @@ std::string MaxJInstructionPrinter::getConstantOutputOffsetsDeclarations(std::ve
 
     for(DFGOffsetWriteNode* n : offsetWrites) {
 
-        llvm::errs() << "\nNODE:\n";
-        n->printNode();
+        if(llvm::dyn_cast<llvm::AllocaInst>(n->getWritingStream().first))
+            break;
 
         std::string sourceName = n->getPredecessors().front()->getName();
         n->getPredecessors().front()->setName(std::string("w_off_") + offsetsNames.back());
@@ -165,22 +165,16 @@ std::string MaxJInstructionPrinter::getConstantOutputOffsetsDeclarations(std::ve
             int offset = 0;
 
             offset = intOfs->getSExtValue();
-            intOfs->dump();
 
-            if(offset > 0){
+            int reversed_offset = -offset;
 
-                int reversed_offset = -offset;
+            std::string offsetDeclaration = std::string("\t\tDFEVar ") + ofsStreamName +
+                                            std::string(" = stream.offset(") + sourceName +
+                                            std::string(", ") + std::to_string(reversed_offset) +
+                                            std::string(");\n");
 
-                std::string offsetDeclaration = std::string("\t\tDFEVar ") + ofsStreamName +
-                                                std::string(" = stream.offset(") + sourceName +
-                                                std::string(", ") + std::to_string(reversed_offset) +
-                                                std::string(");\n");
+            offsetsStreamsDeclarations.append(offsetDeclaration);
 
-                offsetsStreamsDeclarations.append(offsetDeclaration);
-            }else{
-                llvm::errs() << "Negative offset not supported:" << offset;
-                exit(EXIT_FAILURE);
-            }
         }else{
             llvm::errs() << "Non-constant offset not supported...";
             exit(EXIT_FAILURE);
@@ -220,17 +214,13 @@ std::string MaxJInstructionPrinter::getConstantInputOffsetsDeclarations(std::vec
             offset = intOfs->getSExtValue();
             intOfs->dump();
 
-            if(offset > 0 ){
-                std::string offsetDeclaration = std::string("\t\tDFEVar ") + ofsStreamName +
-                                                std::string(" = stream.offset(") + sourceName +
-                                                std::string(", ") + std::to_string(offset) +
-                                                std::string(");\n");
+            std::string offsetDeclaration = std::string("\t\tDFEVar ") + ofsStreamName +
+                                            std::string(" = stream.offset(") + sourceName +
+                                            std::string(", ") + std::to_string(offset) +
+                                            std::string(");\n");
 
-                offsetsStreamsDeclarations.append(offsetDeclaration);
-            }else{
-                llvm::errs() << "Negative offset not supported:" << offset;
-                exit(EXIT_FAILURE);
-            }
+            offsetsStreamsDeclarations.append(offsetDeclaration);
+
         }else{
             llvm::errs() << "Non-constant offset not supported...";
             exit(EXIT_FAILURE);
@@ -261,7 +251,6 @@ std::string MaxJInstructionPrinter::getOutputStreamsDeclarations(std::vector<DFG
     
     for(DFGWriteNode* outputNode :outputs)
     {
-        //TODO : check correcntess
         auto outputStream = outputNode->getWritingStream();
         llvm::Type* outputStreamType = outputStream.first->getType()->getPointerElementType();
         std::string nodeName = outputNode->getName();
@@ -353,12 +342,111 @@ std::string MaxJInstructionPrinter::generateInstructionsString(std::vector<DFGNo
     
     for(DFGNode* n : sortedNodes)
     {
-        instructionsString = instructionsString.append(appendInstruction(n));
+        instructionsString = instructionsString.append(getTmpStoreInstructionString(n));
     }
-        
-    
+
     return instructionsString;
 
+}
+
+std::string MaxJInstructionPrinter::getTmpStoreInstructionString(DFGNode* node){
+
+    std::string instructionString = "";
+
+    if(llvm::Instruction* instr = llvm::dyn_cast<llvm::Instruction>(node->getValue()))
+    {
+        if(instr->getOpcodeName() != std::string("load") &&
+           instr->getOpcodeName() != std::string("store")) {
+
+            std::vector<std::string> predecessorNames;
+            int storeOffset = 0;
+            int minDelay = 0;
+
+            //find the minimum input delay for this node
+            for (DFGNode* pred : node->getPredecessors()) {
+                if (pred->getStreamWindow().first < minDelay) {
+                    minDelay = pred->getStreamWindow().first;
+                }
+            }
+
+            //create offsets on the input taking the min delay into accout
+            int in_offset_1 = node->getPredecessors().at(0)->getStreamWindow().first + minDelay;
+            int in_offset_2 = node->getPredecessors().at(1)->getStreamWindow().first + minDelay;
+
+            std::vector<int> offsets = std::vector<int>();
+            offsets.push_back(in_offset_1);
+            offsets.push_back(in_offset_2);
+
+            int offsetNodeIndex = 0;
+
+            for (int offset : offsets) {
+
+                std::string pred_name = node->getPredecessors().at(offsetNodeIndex)->getName();
+
+                if (offset != 0) {
+
+                    std::string in_ofs_name = node->getName() + std::string("_inofs_") + std::to_string(offset);
+
+                    std::string in_ofs = std::string("\t\tDFEVar ") + in_ofs_name +
+                                         std::string(" = stream.offset(") + pred_name +
+                                         std::string(", ") + std::to_string(offset) +
+                                         std::string(");\n");
+
+                    instructionString.append(in_ofs);
+                    predecessorNames.push_back(in_ofs_name);
+                } else {
+                    predecessorNames.push_back(pred_name);
+                }
+                offsetNodeIndex++;
+            }
+
+            llvm::Instruction *instr = (llvm::Instruction *) node->getValue();
+
+            std::string opcode = MaxJInstructionPrinter::opcodeMap[instr->getOpcodeName()];
+
+            instructionString.append(std::string("\t\tDFEVar ") + node->getName() +
+                                     std::string(" = "));
+
+            std::reverse(predecessorNames.begin(), predecessorNames.end());
+
+            for (std::string predName : predecessorNames) {
+                instructionString.append(predName);
+                instructionString.append(opcode);
+            }
+            instructionString = instructionString.substr(0, instructionString.size() - opcode.size());
+            instructionString.append(";\n");
+
+            for (DFGNode* succ : node->getSuccessors()) {
+                if (llvm::dyn_cast<llvm::StoreInst>(succ->getValue())) {
+
+                    storeOffset = succ->getStreamWindow().first;
+                    int effectiveStoreOffset = -minDelay + storeOffset;
+                    std::string newNodeName = node->getName() + std::string("_outoffs");
+
+                    std::string storeOffsetInstruction = "";
+
+                    if (effectiveStoreOffset != 0) {
+
+                        storeOffsetInstruction.append(
+                                std::string("\t\tDFEVar ") + newNodeName +
+                                std::string(" = stream.offset(") + node->getName() +
+                                std::string(", ") + std::to_string(effectiveStoreOffset) +
+                                std::string(");\n"));
+                        node->setName(newNodeName);
+                        instructionString.append(storeOffsetInstruction);
+                    }
+
+
+
+                    ///IF STORE HAS OFFSET -> COMPUTE VALIDITY
+                    ///                    -> GET PREVIOUS STORE
+                    ///                    -> CREATE TERNARY INSTRUCTION
+                }
+            }
+        }
+    }
+
+    return instructionString;
 }
 
 std::string MaxJInstructionPrinter::appendInstruction(DFGNode* node){
@@ -369,7 +457,7 @@ std::string MaxJInstructionPrinter::appendInstruction(DFGNode* node){
     {
         if(instr->getOpcodeName() != std::string("load") &&
             instr->getOpcodeName() != std::string("store"))
-        {   
+        {
             std::string opcode = MaxJInstructionPrinter::opcodeMap[instr->getOpcodeName()];
             
             currentInstr = std::string("\t\tDFEVar ") + node->getName() +
@@ -385,6 +473,7 @@ std::string MaxJInstructionPrinter::appendInstruction(DFGNode* node){
             currentInstr = currentInstr.substr(0,currentInstr.size()-opcode.size());
             currentInstr.append(";\n");
         }
+
     }
 
     return currentInstr;
@@ -468,19 +557,18 @@ std::string DFGTranslator::generateKernelString(std::string kernelName,std::stri
         writeNodes.insert(writeNodes.end(),wNodes.begin(),wNodes.end());
         argNodes.insert(argNodes.end(),aNodes.begin(),aNodes.end());
 
+        llvm::errs() << "\nINFO: DFG recieved by translator:\n";
         dfg->printDFG();
     }
 
     for(DFGReadNode* rn : readNodes){
         if(rn->getType() == NodeType::OffsetRead){
-            llvm::errs() << "Offset read found: "; rn->printNode();
             offsetReadNodes.push_back((DFGOffsetReadNode*)rn);
         }
     }
 
     for(DFGWriteNode* wn : writeNodes){
         if(wn->getType() == NodeType::OffsetWrite){
-            llvm::errs() << "Write read found: "; wn->printNode();
             offsetWriteNodes.push_back((DFGOffsetWriteNode*)wn);
         }
     }
@@ -490,7 +578,7 @@ std::string DFGTranslator::generateKernelString(std::string kernelName,std::stri
 
     kernelAsString.append(maxjPrinter->getScalarInputsDeclarations(argNodes));
 
-    kernelAsString.append(maxjPrinter->getConstantInputOffsetsDeclarations(offsetReadNodes));
+    //kernelAsString.append(maxjPrinter->getConstantInputOffsetsDeclarations(offsetReadNodes));
 
     kernelAsString.append("\n");
 
@@ -513,7 +601,7 @@ std::string DFGTranslator::generateKernelString(std::string kernelName,std::stri
 
     }
 
-    kernelAsString.append(maxjPrinter->getConstantOutputOffsetsDeclarations(offsetWriteNodes));
+    //kernelAsString.append(maxjPrinter->getConstantOutputOffsetsDeclarations(offsetWriteNodes));
 
     //append output declarations
     kernelAsString.append(maxjPrinter->getOutputStreamsDeclarations(writeNodes));

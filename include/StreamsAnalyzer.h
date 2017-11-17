@@ -71,24 +71,28 @@ namespace oxigen{
 
         StreamPair getInStreamFromGEP(llvm::GetElementPtrInst* gep){
 
-            const llvm::SCEV* idx = SE->getSCEV(*(gep->idx_begin()));
+            const llvm::SCEV* idx = SE->getSCEV(*(gep->idx_end() - 1));
+            idx->dump();
 
             const llvm::SCEVAddRecExpr* addRec = llvm::dyn_cast<llvm::SCEVAddRecExpr>(idx);
+            llvm::Value* ptr = gep->getPointerOperand();
 
-            if(addRec == nullptr){
-                llvm::errs() << "Non AddRec index, terminating...";
-                exit(EXIT_FAILURE);
+            if(addRec == nullptr || addRec->getStart()->isZero()){
+                llvm::errs() << "Non AddRec index, assigning zero offset: ";
+                addRec->dump();
+                return StreamPair(ptr, nullptr);
             }
 
             const llvm::SCEV* scev_offset = addRec->getStart();
-            llvm::Value* ptr = gep->getPointerOperand();
 
             for(StreamPair p : inputStreams){
                 if(p.first == ptr && p.second == scev_offset )
                     return p;
             }
+            llvm::errs() << "New stream created for GEP with base: ";
+            gep->getPointerOperand()->dump();
 
-            return StreamPair(nullptr, nullptr);
+            return StreamPair(ptr, scev_offset);
         }
 
         void printStreams(){

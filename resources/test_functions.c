@@ -68,6 +68,54 @@ void test_5(int* in, int* out){
 void test_6(int* in, int* out){
 
     for(int i = 0; i < N-2; i++){
-        out[i] = in[i+1] + in[i+2];
+        out[i+1] = in[i+1] + in[i+2];
+    }
+}
+
+void test_7(int* in,int* out){
+
+    int tmp[N];
+
+    for(int i = 0; i < N-1; i++) {
+        tmp[i + 1] = in[i] + 5;
+    }
+    for(int i = 0; i < N-1; i++){
+        out[i] = tmp[i] + 3;
+    }
+
+}
+
+void test_8(int* in,int* out) {
+
+    int tmp[N];
+
+    for (int i = 1; i < N - 1; i++) {
+        tmp[i] = in[i - 1] + 5;
+    }
+    for (int i = 1; i < N - 1; i++) {
+        out[i] = tmp[i+1] + in[i-1];
+    }
+}
+
+void test_9(int* in, int* out){
+
+    for(int i = 0; i < N; i++){
+        out[i] = in[i] + 1;
+    }
+    for(int i = 1; i < N-1; i++){
+        out[i] = in[i] + 10;
+    }
+    for(int i = 2; i < N-2; i++){
+        out[i] = in[i] + 100;
+    }
+}
+
+void test_10(int* in,int* out){
+
+    int tmp[N];
+
+    for(int i = 0; i < N; i++){
+        out[i] = out[i+1] + out[i+2];
+        out[i+1] = out[i+1] + 3;
     }
 }

@@ -2,8 +2,9 @@
 #include "ProcessingScheduler.h"
 #include "AnalysisManager.h"
 #include "DFGConstructor.h"
+#include "DFGStreamsOverlapHandler.h"
 #include "DFGTranslator.h"
-#include "StreamsAnalyzer.h"
+
 
 using namespace oxigen;
 
@@ -11,23 +12,26 @@ void ProcessingScheduler::schedule(ProcessingComponent* processingComponent){
     scheduledComponents.push_back(processingComponent);
 }
 
-DefaultScheduler::DefaultScheduler(std::string functionName, llvm::Function* F, 
-                                                             llvm::ScalarEvolution* SE,
-                                                             llvm::LoopInfo* LI,
-                                                             llvm::SCEVAAResult* SEAA){
+DefaultScheduler::DefaultScheduler(std::string functionName, llvm::Function* F,
+                                   llvm::ScalarEvolution* SE,
+                                   llvm::LoopInfo* LI,
+                                   llvm::SCEVAAResult* SEAA){
 
     this->functionName = functionName;
     this->F = F;
     this->SE = SE;
     this->LI = LI;
     this->SEAA = SEAA;
-    
+    this->typeID = SchedulerType::Default;
+
     AnalysisManager* am = new AnalysisManager();
     StreamsAnalyzer* sa = new StreamsAnalyzer();
     DFGConstructor* dfgc = new DFGConstructor();
+    DFGStreamsOverlapHandler* ovHandler = new DFGStreamsOverlapHandler();
     DFGTranslator* dfgt = new DFGTranslator(SE);
-    
+
     schedule(dfgt);
+    schedule(ovHandler);
     schedule(dfgc);
     schedule(sa);
     schedule(am);
@@ -45,7 +49,7 @@ void ProcessingScheduler::executeComponentsQueue(){
 
 void ProcessingScheduler::execute(AnalysisManager* analysisManager){
     llvm::errs() << "Analysis executing\n";
-    
+
 }
 
 void ProcessingScheduler::execute(StreamsAnalyzer* streamsAnalyzer){
@@ -64,28 +68,32 @@ void ProcessingScheduler::execute(SubloopHandler* subloopHandler){
     llvm::errs() << "SubloopHandler executing\n";
 }
 
+void ProcessingScheduler::execute(DFGStreamsOverlapHandler* overlapHandler){
+    llvm::errs() << "DFGStreamsOverlapHandler executing\n";
+}
+
 void ProcessingScheduler::execute(DFGTranslator* dfgTranslator){
     llvm::errs() << "DFGTranslator executing\n";
 }
 
 void DefaultScheduler::execute(AnalysisManager* analysisManager){
-    
+
     analysisResult = analysisManager->analyzeFunction(F, SE, LI);
-    
+
 }
 
 void DefaultScheduler::execute(StreamsAnalyzer* streamsAnalyzer){
     llvm::errs() << "Initializing streams...\n";
-    
+
     int infoIndex = 0;
 
     for(llvm::Loop* loop : *LI){
-        
+
         LoopAnalysisResult* loopInfo = analysisResult->getLoopInfo(infoIndex);
         infoIndex++;
 
         IndVarAccess accessType = loopInfo->getAccessType();
-        
+
         IOStreams* IOs;
 
         switch(accessType){
@@ -104,21 +112,22 @@ void DefaultScheduler::execute(StreamsAnalyzer* streamsAnalyzer){
             default:
                 break;
         }
-        
+
         ioStreams.push_back(IOs);
-        
+
     }
 
 }
 
 void DefaultScheduler::execute(DFGConstructor* dfgConstructor){
-    
+
     int loopIndex = 0;
     std::vector<DFG*> dfgs;
-    
+
     for(llvm::Loop* loop : *LI){
+
         std::vector<DFG*> graphs = dfgConstructor->computeIOStreamBasedDFG(
-                                                     loop,F,ioStreams.at(loopIndex),SE);
+                loop,ioStreams.at(loopIndex),SE,loopIndex);
 
         dfgs.insert(dfgs.end(), graphs.begin(), graphs.end());
         loopIndex++;
@@ -129,7 +138,7 @@ void DefaultScheduler::execute(DFGConstructor* dfgConstructor){
         std::reverse_copy(std::begin(dfgs),std::end(dfgs),std::begin(revDfgs));
         schedule(new DFGLinker(revDfgs));
         executeNextComponent();
-        
+
     }else{
         llvm::errs() << "DFG linkage skipped, assumed only one graph...\n";
         DefaultScheduler::dataflowGraph = dfgs;
@@ -147,7 +156,17 @@ void DefaultScheduler::execute(DFGLinker* dfgl){
     }
 }
 
+void DefaultScheduler::execute(DFGStreamsOverlapHandler *overlapHandler) {
+
+    for(DFG* dfg : dataflowGraph){
+        dfg->printDFG();
+        llvm::errs() << "\nComputing fallback writes for graph with base ";
+        //dfg->getEndNode()->getValue()->dump();
+        //overlapHandler->computeFallbackWrites(dfg);
+    }
+}
+
 void DefaultScheduler::execute(DFGTranslator* dfgTranslator){
-    
-    dfgTranslator->printDFGAsKernel(DefaultScheduler::dataflowGraph,functionName+"Kernel",functionName); 
+
+    dfgTranslator->printDFGAsKernel(DefaultScheduler::dataflowGraph,functionName+"Kernel",functionName);
 }
