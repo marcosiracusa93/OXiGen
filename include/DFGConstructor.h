@@ -67,7 +67,9 @@ namespace oxigen{
         std::string name;
         bool markedFlag;
         int position;
+
         std::pair<int,int> streamWindow; //the window for which this stream will be processed
+        int globalDelay;
         
     public:
 
@@ -85,6 +87,7 @@ namespace oxigen{
             this->streamWindow = std::pair<int,int>(0,loopTripCount-1);
             this->predecessors = std::vector<DFGNode*>();
             this->successors = std::vector<DFGNode*>();
+            this->globalDelay = 999;
         } 
         
         //getter methods for the class
@@ -101,6 +104,8 @@ namespace oxigen{
         
         int getPosition() { return position; }
 
+        int getGlobalDelay() { return this->globalDelay; }
+
         std::pair<int,int> getStreamWindow(){ return this->streamWindow; }
 
         void setStreamWindow(int L,int U){ this->streamWindow = std::pair<int,int>(L,U); }
@@ -110,6 +115,8 @@ namespace oxigen{
         void setName(std::string name){ this->name = name; }
         
         void setPosition(int pos) { this->position = pos; }
+
+        void setGlobalDelay(int delay){ this->globalDelay = delay; }
         
         void setFlag(bool value){ this->markedFlag = value; }
 
@@ -272,6 +279,10 @@ namespace oxigen{
         int offsetAsInt;
 
     public:
+
+        int getOffsetAsInt(){ return offsetAsInt; }
+
+        void setOffsetAsInt(int offset){ offsetAsInt = offset; }
 
         DFGOffsetNode(DFGNode* baseNode);
 
@@ -704,6 +715,8 @@ namespace oxigen{
     };
 
     void insertNode(DFGNode* n,DFGNode* pred,DFGNode* succ,bool areConsecutive);
+
+    void eliminateNode(DFGNode* node);
 
     void transferSuccessors(DFGNode* currentParent,DFGNode* newParent);
 

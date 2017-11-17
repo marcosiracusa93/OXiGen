@@ -20,7 +20,7 @@ llvm::Value* DFGOffsetNode::getValue() {
     llvm::LLVMContext c;
 
     llvm::Constant* offset =
-            llvm::ConstantInt::get(llvm::IntegerType::get(c,32),llvm::APInt(32,streamWindow.first));
+            llvm::ConstantInt::get(llvm::IntegerType::get(c,32),llvm::APInt(32,offsetAsInt));
 
     return offset;
 }
@@ -31,6 +31,7 @@ void DFGOffsetNode::printNode() {
     getValue()->dump();
 
     llvm::errs() << "Streaming window: [" << streamWindow.first << "," << streamWindow.second << "]\n";
+    llvm::errs() << "Global delay for node: " << globalDelay << "\n";
 
     llvm::errs() << "Predecessors\n";
 
@@ -112,6 +113,7 @@ void DFGNode::printNode(){
     node->dump();
 
     llvm::errs() << "Streaming window: [" << streamWindow.first << "," << streamWindow.second << "]\n";
+    llvm::errs() << "Global delay for node: " << globalDelay << "\n";
 
     llvm::errs() << "Predecessors\n";
 
@@ -217,10 +219,11 @@ DFGOffsetNode::DFGOffsetNode(DFGNode* baseNode) : DFGNode((baseNode->getValue())
     llvm::LLVMContext c;
 
     llvm::Constant* offset =
-            llvm::ConstantInt::get(llvm::IntegerType::get(c,32),llvm::APInt(32,streamWindow.first));
+            llvm::ConstantInt::get(llvm::IntegerType::get(c,32),llvm::APInt(32,offsetAsInt));
 
     this->node = offset;
-    llvm::errs() << "OFFSET: ";node->dump();
+    llvm::errs() << "OFFSET: ";
+    node->dump();
 
 }
 
@@ -992,6 +995,34 @@ void oxigen::transferSuccessors(DFGNode* currentParent,DFGNode* newParent){
     for(DFGNode* child : currentParent->getSuccessors()){
         if(child != newParent){
             child->changeParent(currentParent,newParent);
+        }
+    }
+}
+
+void oxigen::eliminateNode(DFGNode* node){
+
+    llvm::errs() << "Attempting elimination of "; node->getValue()->dump();
+    if((node->getSuccessors().size() > 1 && node->getPredecessors().size() > 1) ||
+            node->getSuccessors().size() == 0 || node->getPredecessors().size() == 0) {
+        llvm::errs() << "Node elimination impossible: ambiguous dependencies\n";
+        return;
+    }
+
+    if(node->getSuccessors().size() > 1){
+
+        node->unlinkPredecessor(node->getPredecessors().at(0));
+        for(DFGNode* s : node->getSuccessors()){
+            s->changeParent(node,node->getPredecessors().at(0));
+        }
+
+    }else{
+
+        DFGNode* newSucc = node->getSuccessors().at(0);
+        newSucc->unlinkPredecessor(node);
+
+        for(DFGNode* p : node->getPredecessors()){
+            node->unlinkPredecessor(p);
+            newSucc->linkPredecessor(p);
         }
     }
 }

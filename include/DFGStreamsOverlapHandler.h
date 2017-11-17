@@ -26,9 +26,23 @@ namespace oxigen{
 
         void computeFallbackWrites(DFG* dfg);
 
+        void addFinalStoreOffsets(DFG* dfg);
+
+        void addInitialReadsOffsets(DFG* dfg);
+
+        void computeGlobalDelay(DFG* dfg);
+
     private:
 
         void insertForwardMuxNodes(DFGNode* startingNode);
+
+        void addOffsetIfFinalStore(DFGNode* n);
+
+        void addOffsetIfInitialRead(DFGNode* n);
+
+        void computeDelayForNode(DFGNode* node);
+
+        void descendAndComputeDelay(DFGNode* node);
 
         DFGNode* getFallbackPredecessor(DFGNode* n);
     };

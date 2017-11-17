@@ -160,9 +160,14 @@ void DefaultScheduler::execute(DFGStreamsOverlapHandler *overlapHandler) {
 
     for(DFG* dfg : dataflowGraph){
         dfg->printDFG();
-        llvm::errs() << "\nComputing fallback writes for graph with base ";
-        //dfg->getEndNode()->getValue()->dump();
-        //overlapHandler->computeFallbackWrites(dfg);
+        llvm::errs() << "\nComputing initial r/w offsets for graph with base ";
+        dfg->getEndNode()->getValue()->dump();
+        overlapHandler->addFinalStoreOffsets(dfg);
+        overlapHandler->addInitialReadsOffsets(dfg);
+
+        llvm::errs() << "\nCOMPUTING GLOBAL DELAY\n";
+        overlapHandler->computeGlobalDelay(dfg);
+        llvm::errs() << "\nOFFSET COMPUTATION TERMINATED\n";
     }
 }
 
