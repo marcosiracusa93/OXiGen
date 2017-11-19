@@ -15,6 +15,7 @@ namespace oxigen{
 
     protected:
 
+        std::vector<DFG*> graphs;
         ProcessingScheduler* scheduler;
 
     public:
@@ -24,13 +25,15 @@ namespace oxigen{
             scheduler->execute(this);
         }
 
-        void computeFallbackWrites(DFG* dfg);
+        std::vector<DFG*> computeFallbackWrites();
 
         void addFinalStoreOffsets(DFG* dfg);
 
         void addInitialReadsOffsets(DFG* dfg);
 
         void computeGlobalDelay(DFG* dfg);
+
+        void setDFGs(std::vector<DFG*> dfgs){ this->graphs = dfgs; }
 
     private:
 
@@ -43,6 +46,8 @@ namespace oxigen{
         void computeDelayForNode(DFGNode* node);
 
         void descendAndComputeDelay(DFGNode* node);
+
+        std::pair<int,int> computeLoopCarriedDependencyWindow(DFGWriteNode *write, DFGReadNode *read);
 
         DFGNode* getFallbackPredecessor(DFGNode* n);
     };

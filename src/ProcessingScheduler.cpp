@@ -1,4 +1,5 @@
 
+#include <llvm/Analysis/DependenceAnalysis.h>
 #include "ProcessingScheduler.h"
 #include "AnalysisManager.h"
 #include "DFGConstructor.h"
@@ -168,6 +169,17 @@ void DefaultScheduler::execute(DFGStreamsOverlapHandler *overlapHandler) {
         llvm::errs() << "\nCOMPUTING GLOBAL DELAY\n";
         overlapHandler->computeGlobalDelay(dfg);
         llvm::errs() << "\nOFFSET COMPUTATION TERMINATED\n";
+
+    }
+
+
+    overlapHandler->setDFGs(dataflowGraph);
+    DefaultScheduler::dataflowGraph = overlapHandler->computeFallbackWrites();
+
+    if(dataflowGraph.size() > 1){
+        std::vector<DFG*> tmp(dataflowGraph.size());
+        std::reverse_copy(std::begin(dataflowGraph),std::end(dataflowGraph),std::begin(tmp));
+        dataflowGraph = tmp;
     }
 }
 

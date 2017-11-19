@@ -342,14 +342,14 @@ std::string MaxJInstructionPrinter::generateInstructionsString(std::vector<DFGNo
     
     for(DFGNode* n : sortedNodes)
     {
-        instructionsString = instructionsString.append(getTmpStoreInstructionString(n));
+        instructionsString = instructionsString.append(appendInstruction(n));
     }
 
     return instructionsString;
 
 }
 
-std::string MaxJInstructionPrinter::getTmpStoreInstructionString(DFGNode* node){
+/*std::string MaxJInstructionPrinter::getTmpStoreInstructionString(DFGNode* node){
 
     std::string instructionString = "";
 
@@ -358,47 +358,7 @@ std::string MaxJInstructionPrinter::getTmpStoreInstructionString(DFGNode* node){
         if(instr->getOpcodeName() != std::string("load") &&
            instr->getOpcodeName() != std::string("store")) {
 
-            std::vector<std::string> predecessorNames;
-            int storeOffset = 0;
-            int minDelay = 0;
 
-            //find the minimum input delay for this node
-            for (DFGNode* pred : node->getPredecessors()) {
-                if (pred->getStreamWindow().first < minDelay) {
-                    minDelay = pred->getStreamWindow().first;
-                }
-            }
-
-            //create offsets on the input taking the min delay into accout
-            int in_offset_1 = node->getPredecessors().at(0)->getStreamWindow().first + minDelay;
-            int in_offset_2 = node->getPredecessors().at(1)->getStreamWindow().first + minDelay;
-
-            std::vector<int> offsets = std::vector<int>();
-            offsets.push_back(in_offset_1);
-            offsets.push_back(in_offset_2);
-
-            int offsetNodeIndex = 0;
-
-            for (int offset : offsets) {
-
-                std::string pred_name = node->getPredecessors().at(offsetNodeIndex)->getName();
-
-                if (offset != 0) {
-
-                    std::string in_ofs_name = node->getName() + std::string("_inofs_") + std::to_string(offset);
-
-                    std::string in_ofs = std::string("\t\tDFEVar ") + in_ofs_name +
-                                         std::string(" = stream.offset(") + pred_name +
-                                         std::string(", ") + std::to_string(offset) +
-                                         std::string(");\n");
-
-                    instructionString.append(in_ofs);
-                    predecessorNames.push_back(in_ofs_name);
-                } else {
-                    predecessorNames.push_back(pred_name);
-                }
-                offsetNodeIndex++;
-            }
 
             llvm::Instruction *instr = (llvm::Instruction *) node->getValue();
 
@@ -407,12 +367,6 @@ std::string MaxJInstructionPrinter::getTmpStoreInstructionString(DFGNode* node){
             instructionString.append(std::string("\t\tDFEVar ") + node->getName() +
                                      std::string(" = "));
 
-            std::reverse(predecessorNames.begin(), predecessorNames.end());
-
-            for (std::string predName : predecessorNames) {
-                instructionString.append(predName);
-                instructionString.append(opcode);
-            }
             instructionString = instructionString.substr(0, instructionString.size() - opcode.size());
             instructionString.append(";\n");
 
@@ -447,7 +401,7 @@ std::string MaxJInstructionPrinter::getTmpStoreInstructionString(DFGNode* node){
     }
 
     return instructionString;
-}
+}*/
 
 std::string MaxJInstructionPrinter::appendInstruction(DFGNode* node){
     
@@ -458,24 +412,37 @@ std::string MaxJInstructionPrinter::appendInstruction(DFGNode* node){
         if(instr->getOpcodeName() != std::string("load") &&
             instr->getOpcodeName() != std::string("store"))
         {
+
             std::string opcode = MaxJInstructionPrinter::opcodeMap[instr->getOpcodeName()];
-            
+
             currentInstr = std::string("\t\tDFEVar ") + node->getName() +
-                std::string(" = ");
-                
-            std::reverse(node->getPredecessors().begin(),node->getPredecessors().end());
-            
-            for(DFGNode* pred : node->getPredecessors())
-            {
+                           std::string(" = ");
+
+            std::reverse(node->getPredecessors().begin(), node->getPredecessors().end());
+
+            for (DFGNode *pred : node->getPredecessors()) {
                 currentInstr.append(pred->getName());
                 currentInstr.append(opcode);
             }
-            currentInstr = currentInstr.substr(0,currentInstr.size()-opcode.size());
+            currentInstr = currentInstr.substr(0, currentInstr.size() - opcode.size());
             currentInstr.append(";\n");
+
         }
 
-    }
+    }else if(node->getType() == NodeType::Offset) {
 
+        DFGOffsetNode *offsetNode = (DFGOffsetNode *) node;
+
+        std::string ofsStreamName = offsetNode->getName();
+        std::string sourceName = offsetNode->getPredecessors().at(0)->getName();
+        int offset = offsetNode->getOffsetAsInt();
+
+        std::string offsetDeclaration = std::string("\t\tDFEVar ") + ofsStreamName +
+                                        std::string(" = stream.offset(") + sourceName +
+                                        std::string(", ") + std::to_string(offset) +
+                                        std::string(");\n");
+        currentInstr.append(offsetDeclaration);
+    }
     return currentInstr;
 }
 

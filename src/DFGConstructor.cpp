@@ -11,6 +11,10 @@ llvm::Value* DFGNode::getValue(){
             DFGOffsetNode* off = (DFGOffsetNode*)this;
             return off->getValue();
         }
+        if(typeID == MuxNode){
+            DFGMuxNode* mux = (DFGMuxNode*)this;
+            return mux->getValue();
+        }
 
         return node;
 }
@@ -25,7 +29,51 @@ llvm::Value* DFGOffsetNode::getValue() {
     return offset;
 }
 
+llvm::Value* DFGMuxNode::getValue(){
+
+    TickBasedConstantCondition* cond = (TickBasedConstantCondition*)getCond();
+
+    llvm::LLVMContext c;
+    llvm::Constant* zero =
+            llvm::ConstantInt::get(llvm::IntegerType::get(c,1),llvm::APInt(1,0));
+
+    llvm::Constant* selOP_1 =
+            llvm::ConstantInt::get(llvm::IntegerType::get(c,32),llvm::APInt(32,cond->getTickLowerBound()));
+
+    llvm::Value* selOP_2 =
+            llvm::ConstantInt::get(llvm::IntegerType::get(c,32),llvm::APInt(32,cond->getTickUpperBound()));
+
+    llvm::Value* value =
+            llvm::SelectInst::Create(zero, selOP_1, selOP_2);
+
+    return value;
+}
+
 void DFGOffsetNode::printNode() {
+
+    llvm::errs() << "\nNode: " << name << "\n";
+    getValue()->dump();
+
+    llvm::errs() << "Streaming window: [" << streamWindow.first << "," << streamWindow.second << "]\n";
+    llvm::errs() << "Global delay for node: " << globalDelay << "\n";
+
+    llvm::errs() << "Predecessors\n";
+
+    for(DFGNode* predecessor : predecessors){
+        predecessor->getValue()->dump();
+        if(std::find(predecessor->getSuccessors().begin(),predecessor->getSuccessors().end(),this) ==
+           predecessor->getSuccessors().end()){
+            llvm::errs() << "Pred has not this as succ\n";
+        }
+    }
+
+    for(DFGNode* succ : successors){
+        if(std::find(succ->getPredecessors().begin(),succ->getPredecessors().end(),this)==succ->getPredecessors().end())
+            llvm::errs() << "Succ has not this as pred\n";
+    }
+}
+
+void DFGMuxNode::printNode() {
 
     llvm::errs() << "\nNode: " << name << "\n";
     getValue()->dump();
@@ -100,6 +148,12 @@ void DFGNode::printNode(){
                 ofs_w->printNode();
                 return;
             }
+            case NodeType::MuxNode: {
+                DFGMuxNode* ofs_w = (DFGMuxNode*)this;
+                setFlag(true);
+                ofs_w->printNode();
+                return;
+            }
 
             default:
                 break;
@@ -110,7 +164,7 @@ void DFGNode::printNode(){
     }
     
     llvm::errs() << "\nNode: " << name << "\n";
-    node->dump();
+    getValue()->dump();
 
     llvm::errs() << "Streaming window: [" << streamWindow.first << "," << streamWindow.second << "]\n";
     llvm::errs() << "Global delay for node: " << globalDelay << "\n";
@@ -562,8 +616,13 @@ void DFG::setNames(std::vector<std::string> &nodeNames, DFGNode* node){
 
         if(llvm::ConstantInt* CFP = llvm::dyn_cast<llvm::ConstantInt>(node->getValue()))
         {
-            node->setName(std::to_string(CFP->getZExtValue()));
-            nodeNames.pop_back();
+            if(node->getType() == NodeType::Offset){
+                node->setName(nodeNames.back());
+                nodeNames.pop_back();
+            }else{
+                node->setName(std::to_string(CFP->getZExtValue()));
+                nodeNames.pop_back();
+            }
         }
 
     }

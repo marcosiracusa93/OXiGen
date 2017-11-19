@@ -17,7 +17,7 @@
 using namespace oxigen;
 
 OXiGenPass* oxigen::createOXiGenWrapperPass(std::string functionName){
-    return new OXiGenPass::OXiGenPass(functionName); 
+    return new OXiGenPass(functionName);
 }
 
 OXiGenPass::OXiGenPass(std::string functionName) : FunctionPass(ID){ this->functionName = functionName; }

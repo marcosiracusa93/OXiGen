@@ -183,29 +183,133 @@ void DFGStreamsOverlapHandler::computeGlobalDelay(DFG* dfg){
     computeDelayForNode(baseNode);
 }
 
-void DFGStreamsOverlapHandler::computeFallbackWrites(DFG* dfg){
+std::pair<int,int> DFGStreamsOverlapHandler::computeLoopCarriedDependencyWindow(DFGWriteNode *write, DFGReadNode *read){
 
-    if(dfg != nullptr){
-        llvm::errs() << "Adding condition nodes to DFG with base ";
-        dfg->getEndNode()->getValue()->dump();
+    std::pair<int,int> dependenceWindow = std::pair<int,int>(-1,-1);    //default response for no dependence
+
+    if(scheduler->getType() != SchedulerType::Default) {
+        llvm::errs() << "Loop carried dependence analysis not implemented for this scheduler...\n";
+    }else{
+        DefaultScheduler* dSched = (DefaultScheduler*)scheduler;
+        llvm::LoopInfo* loopInfo = dSched->getLoopInfo();
+
+        std::pair<int,int> posWriteWindow =
+                std::pair<int,int>(-(write->getStreamWindow().first),
+                                   -2*(write->getStreamWindow().first)+write->getStreamWindow().second);
+
+        if(!write->isInTheSameLoop(read,loopInfo))
+            return dependenceWindow;
+
+        int rw_min = read->getStreamWindow().first;
+        int rw_max = read->getStreamWindow().second;
+        int ww_min = posWriteWindow.first;
+        int ww_max = posWriteWindow.second;
+
+        if(rw_min >= ww_min-1 )
+            return dependenceWindow;
+
+        llvm::errs() << "Loop carried dependenece found from\n ";
+        write->getValue()->dump();
+        llvm::errs() << " \nto\n";
+        read->getValue()->dump();
+
+        int L = ww_min - rw_min;
+        int U = std::min(rw_max,ww_max);
+
+        dependenceWindow.first = U;
+        dependenceWindow.second = L;
+
+        return dependenceWindow;
+    }
+}
+
+std::vector<DFG*> DFGStreamsOverlapHandler::computeFallbackWrites(){
+
+    std::vector<DFGNode*>  nodesOrder;
+    std::vector<DFGWriteNode*> writeNodes;
+    int baseSize = 0;
+
+    for(DFG* dfg : DFGStreamsOverlapHandler::graphs)
+    {
+        int graphSize = dfg->getNodesCount();
+        DFGNode* base = dfg->getEndNode();
+        std::vector<DFGWriteNode*> wNodes;
+        std::vector<DFGNode*> sortedNodes(graphSize);
+
+        dfg->getWriteNodes(base,wNodes);;
 
         dfg->resetFlags(dfg->getEndNode());
 
-        llvm::errs() << "INFO: inserting forward mux nodes...\n";
-        insertForwardMuxNodes(dfg->getEndNode());
+        dfg->orderNodes(dfg->getEndNode(),baseSize,sortedNodes,baseSize);
 
-        DFGNode* n = dfg->getEndNode()->getPredecessors().at(0)->getPredecessors().at(0);
+        nodesOrder.insert(nodesOrder.end(),sortedNodes.begin(),sortedNodes.end());
 
-        TickBasedCondition* cond  = new TickBasedConstantCondition("k",0,0);
-        DFGMuxNode* muxNode = new DFGMuxNode(n,n,*cond);
+        baseSize += graphSize;
 
-        llvm::errs() << "\nNEW MUX NODE\n";
-        muxNode->getValue()->dump();
-    }else{
-        llvm::errs() << "ERROR: null pointer passed as DFG to DFGStreamsOverlapHandler\n";
+        writeNodes.insert(writeNodes.end(),wNodes.begin(),wNodes.end());
     }
 
+    for(int i = 0; i < nodesOrder.size(); i++)
+    {
+        if(std::find(writeNodes.begin(), writeNodes.end(), nodesOrder.at(i)) != writeNodes.end())
+        {
+            DFGWriteNode* write_1 = (DFGWriteNode*)(nodesOrder.at(i));
+
+            for(int j = i-1; j >= 0; j--)
+            {
+                if(std::find(writeNodes.begin(), writeNodes.end(), nodesOrder.at(j)) != writeNodes.end())
+                {
+                    DFGWriteNode *write_2 = (DFGWriteNode *) nodesOrder.at(j);
+
+                    if(write_1->getWritingStream().first == write_2->getWritingStream().first){
+
+                        int posWStart_1 = -write_1->getStreamWindow().first;
+                        int posWStart_2 = -write_2->getStreamWindow().first;
+                        int posWEnd_1 = write_1->getStreamWindow().second+2*posWStart_1;
+                        int posWEnd_2 = write_2->getStreamWindow().second+2*posWStart_2;
+
+                        int overlapStart = std::max(posWStart_1,posWStart_2);
+                        int overlapEnd = std::min(posWEnd_1,posWEnd_2);
+
+                        if(overlapEnd-overlapStart > 0){
+
+                            TickBasedCondition* cond =
+                                    new TickBasedConstantCondition(defaultTickCounterName,overlapEnd,overlapStart);
+
+                            DFGMuxNode* linkingMux = new DFGMuxNode(write_1,write_2,cond);
+
+                            oxigen::insertNode(linkingMux,write_1->getPredecessors().at(0),write_1,true);
+                            linkingMux->linkPredecessor(write_2->getPredecessors().at(0));
+
+                            j = 0;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    std::vector<DFG*> indipendentGraphs;
+    std::vector<DFG*> reverseGraphs(graphs.size());
+    std::reverse_copy(std::begin(graphs),std::end(graphs),std::begin(reverseGraphs));
+
+    for(DFG* dfg : graphs) {
+        dfg->resetFlags(dfg->getEndNode());
+    }
+
+    for(DFG* dfg : reverseGraphs){
+
+        if(!dfg->getEndNode()->getFlag())
+            indipendentGraphs.push_back(dfg);
+
+        dfg->setDFGFlags();
+    }
+
+    graphs = indipendentGraphs;
+
+    return indipendentGraphs;
 }
+
 
 DFGNode* DFGStreamsOverlapHandler::getFallbackPredecessor(DFGNode* n){
 

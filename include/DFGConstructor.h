@@ -457,9 +457,14 @@ namespace oxigen{
 
     class DFGMuxNode : public DFGNode {
 
+    private:
+        TickBasedCondition* cond;
+
     public:
 
-        DFGMuxNode(DFGNode* node_1,DFGNode* node_2,TickBasedCondition cond) : DFGNode(nullptr) {
+        DFGMuxNode(DFGNode* node_1,DFGNode* node_2,TickBasedCondition* cond) : DFGNode(nullptr) {
+
+            this->cond = cond;
 
             llvm::LLVMContext c;
             llvm::Constant* zero =
@@ -471,7 +476,14 @@ namespace oxigen{
             this->node = value;
             this->typeID = NodeType ::MuxNode;
 
-        };
+
+        }
+
+        llvm::Value* getValue();
+
+        TickBasedCondition* getCond(){ return this->cond; }
+
+        void printNode();
     };
 
     /**

@@ -119,3 +119,10 @@ void test_10(int* in,int* out){
         out[i+1] = out[i+1] + 3;
     }
 }
+
+void mov_avg(int * in, int* out){
+
+    for(int i = 1; i < N-1; i++){
+        out[i] = (in[i-1] + in[i] + in[i+1])/3;
+    }
+}
