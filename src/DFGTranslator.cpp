@@ -31,7 +31,35 @@ MaxJInstructionPrinter::OpcodeMap MaxJInstructionPrinter::opcodeMap = {
     {"fdiv", " / "},
     {"sdiv", " / "},
     {"udiv", " / "},
+    {"sitofp", "float"},
+    {"fpext","float"},
+    {"fptrunc","float"},
+    {"sext","int"},
+    {"fptosi","int"},
+    {"sitrunc","int"}
     
+};
+
+MaxJInstructionPrinter::OpcodeMap MaxJInstructionPrinter::funcLibMap = {
+
+        {"ceil","KernelMath"},
+        {"abs","KernelMath"},
+        {"floor","KernelMath"},
+        {"sqrt","KernelMath"},
+        {"log2","KernelMath"},
+        {"log","KernelMath"},
+        {"sin","KernelMath"},
+        {"cos","KernelMath"},
+        {"pow2","KernelMath"},
+        {"exp","KernelMath"},
+        {"min","KernelMath"},
+        {"max","KernelMath"},
+        {"Ncdf", "Unknown"}
+};
+
+MaxJInstructionPrinter::ImportMap MaxJInstructionPrinter::libImports = {
+        {"KernelMath",std::pair<bool,std::string>(
+                false,"com.maxeler.maxcompiler.v2.kernelcompiler.stdlib.KernelMath")}
 };
 
 //SequentialNamesManager methods implementation
@@ -349,60 +377,6 @@ std::string MaxJInstructionPrinter::generateInstructionsString(std::vector<DFGNo
 
 }
 
-/*std::string MaxJInstructionPrinter::getTmpStoreInstructionString(DFGNode* node){
-
-    std::string instructionString = "";
-
-    if(llvm::Instruction* instr = llvm::dyn_cast<llvm::Instruction>(node->getValue()))
-    {
-        if(instr->getOpcodeName() != std::string("load") &&
-           instr->getOpcodeName() != std::string("store")) {
-
-
-
-            llvm::Instruction *instr = (llvm::Instruction *) node->getValue();
-
-            std::string opcode = MaxJInstructionPrinter::opcodeMap[instr->getOpcodeName()];
-
-            instructionString.append(std::string("\t\tDFEVar ") + node->getName() +
-                                     std::string(" = "));
-
-            instructionString = instructionString.substr(0, instructionString.size() - opcode.size());
-            instructionString.append(";\n");
-
-            for (DFGNode* succ : node->getSuccessors()) {
-                if (llvm::dyn_cast<llvm::StoreInst>(succ->getValue())) {
-
-                    storeOffset = succ->getStreamWindow().first;
-                    int effectiveStoreOffset = -minDelay + storeOffset;
-                    std::string newNodeName = node->getName() + std::string("_outoffs");
-
-                    std::string storeOffsetInstruction = "";
-
-                    if (effectiveStoreOffset != 0) {
-
-                        storeOffsetInstruction.append(
-                                std::string("\t\tDFEVar ") + newNodeName +
-                                std::string(" = stream.offset(") + node->getName() +
-                                std::string(", ") + std::to_string(effectiveStoreOffset) +
-                                std::string(");\n"));
-                        node->setName(newNodeName);
-                        instructionString.append(storeOffsetInstruction);
-                    }
-
-
-
-                    ///IF STORE HAS OFFSET -> COMPUTE VALIDITY
-                    ///                    -> GET PREVIOUS STORE
-                    ///                    -> CREATE TERNARY INSTRUCTION
-                }
-            }
-        }
-    }
-
-    return instructionString;
-}*/
-
 std::string MaxJInstructionPrinter::appendInstruction(DFGNode* node){
     
     std::string currentInstr = "";
@@ -412,20 +386,81 @@ std::string MaxJInstructionPrinter::appendInstruction(DFGNode* node){
         if(instr->getOpcodeName() != std::string("load") &&
             instr->getOpcodeName() != std::string("store"))
         {
+            if(llvm::CastInst* castInst = llvm::dyn_cast<llvm::CastInst>(instr)){
 
-            std::string opcode = MaxJInstructionPrinter::opcodeMap[instr->getOpcodeName()];
+                std::string opcode = MaxJInstructionPrinter::opcodeMap[instr->getOpcodeName()];
+                int destTypeSize = castInst->getDestTy()->getScalarSizeInBits();
+                int split_1 = 8;
+                int split_2 = destTypeSize - split_1;
+                std::string castTarget = node->getPredecessors().at(0)->getName();
 
-            currentInstr = std::string("\t\tDFEVar ") + node->getName() +
-                           std::string(" = ");
+                if(opcode == std::string("float")){
 
-            std::reverse(node->getPredecessors().begin(), node->getPredecessors().end());
+                    currentInstr = std::string("\t\tDFEVar ") + node->getName() +
+                                   std::string(" = ") + castTarget +
+                                   std::string(".cast(dfeFloat(") + std::to_string(split_1)+
+                                   std::string(",") + std::to_string(split_2) +
+                                   std::string("));\n");
+                }
 
-            for (DFGNode *pred : node->getPredecessors()) {
-                currentInstr.append(pred->getName());
-                currentInstr.append(opcode);
+                if(opcode == std::string("int")){
+
+                    currentInstr = std::string("\t\tDFEVar ") + node->getName() +
+                                   std::string(" = ") + castTarget +
+                                   std::string(".cast(dfeInt(") + std::to_string(destTypeSize) +
+                                   std::string("));\n");
+                }
+
+            }else if(llvm::CallInst* callInstr = llvm::dyn_cast<llvm::CallInst>(instr)){
+
+                std::string funcName = callInstr->getCalledFunction()->getName();
+                std::string funcLib = MaxJInstructionPrinter::funcLibMap[funcName];
+                std::vector<std::string> funcArgs = std::vector<std::string>();
+
+                for(DFGNode* pred : node->getPredecessors()){
+                    funcArgs.push_back(pred->getName());
+                    llvm::errs() << "Func pred:\n";
+                    pred->printNode();
+                    pred->setFlag(false);
+                }
+
+                std::string argsSig = "(";
+
+                for(std::string arg : funcArgs){
+                    argsSig.append(arg + std::string(","));
+                }
+
+                argsSig.pop_back();
+                argsSig.append(")");
+
+                if(funcLib.length() == 0 || funcLib == std::string("Unknown")){
+                    llvm::errs() << "ERROR: unknown function was called, terminating...\n";
+                    exit(EXIT_FAILURE);
+                }
+
+                libImports[funcLib].first = true;
+                llvm::errs() << libImports[funcLib].first;
+
+                currentInstr = std::string("\t\tDFEVar ") + node->getName() +
+                               std::string(" = ") + funcLib + std::string(".") +
+                               funcName + argsSig + std::string(";\n");
+
+            } else{
+
+                std::string opcode = MaxJInstructionPrinter::opcodeMap[instr->getOpcodeName()];
+
+                currentInstr = std::string("\t\tDFEVar ") + node->getName() +
+                               std::string(" = ");
+
+                std::reverse(node->getPredecessors().begin(), node->getPredecessors().end());
+
+                for (DFGNode *pred : node->getPredecessors()) {
+                    currentInstr.append(pred->getName());
+                    currentInstr.append(opcode);
+                }
+                currentInstr = currentInstr.substr(0, currentInstr.size() - opcode.size());
+                currentInstr.append(";\n");
             }
-            currentInstr = currentInstr.substr(0, currentInstr.size() - opcode.size());
-            currentInstr.append(";\n");
 
         }
 
@@ -488,9 +523,9 @@ std::string DFGTranslator::generateKernelString(std::string kernelName,std::stri
     //append imports
     for(std::string import : MaxJInstructionPrinter::imports)
         kernelAsString.append(std::string("import ") + import + endl);
-    
-    kernelAsString.append("\n");
-    
+
+    std::string kernelBody = "";
+
     std::string::size_type n = 0;
     
     //replace kernel name in kernel signature
@@ -500,9 +535,9 @@ std::string DFGTranslator::generateKernelString(std::string kernelName,std::stri
         kernelSignatureTmpl.replace( n, kernelNamePlaceholder.size(), kernelName );
         n += kernelName.size();
     }
-    
+
     //append kernel signature
-    kernelAsString.append(kernelSignatureTmpl);
+    kernelBody.append(kernelSignatureTmpl);
     
     //identify inputs and outputs
     assignNodeNames();
@@ -541,19 +576,17 @@ std::string DFGTranslator::generateKernelString(std::string kernelName,std::stri
     }
 
     //append input declarations
-    kernelAsString.append(maxjPrinter->getInputStreamsDeclarations(readNodes));
+    kernelBody.append(maxjPrinter->getInputStreamsDeclarations(readNodes));
 
-    kernelAsString.append(maxjPrinter->getScalarInputsDeclarations(argNodes));
+    kernelBody.append(maxjPrinter->getScalarInputsDeclarations(argNodes));
 
-    //kernelAsString.append(maxjPrinter->getConstantInputOffsetsDeclarations(offsetReadNodes));
-
-    kernelAsString.append("\n");
+    kernelBody.append("\n");
 
     //print instructions
     for(DFG* dfg : dfgs) {
 
         DFGNode *endNode = dfg->getEndNode();
-        std::vector<DFGNode*> sortedNodes(dfg->getNodesCount());
+        std::vector<DFGNode *> sortedNodes(dfg->getNodesCount());
 
         int startingPos = 0;
 
@@ -562,19 +595,26 @@ std::string DFGTranslator::generateKernelString(std::string kernelName,std::stri
         dfg->orderNodes(endNode, startingPos, sortedNodes);
 
         //append instructions
-        kernelAsString.append(maxjPrinter->generateInstructionsString(sortedNodes));
+        kernelBody.append(maxjPrinter->generateInstructionsString(sortedNodes));
 
-        kernelAsString.append("\n");
+        kernelBody.append("\n");
 
     }
 
-    //kernelAsString.append(maxjPrinter->getConstantOutputOffsetsDeclarations(offsetWriteNodes));
-
     //append output declarations
-    kernelAsString.append(maxjPrinter->getOutputStreamsDeclarations(writeNodes));
+    kernelBody.append(maxjPrinter->getOutputStreamsDeclarations(writeNodes));
     
     //append kernel signature closing
-    kernelAsString.append(MaxJInstructionPrinter::kernelSignatureClosing);
+    kernelBody.append(MaxJInstructionPrinter::kernelSignatureClosing);
+
+    for(auto libImport : MaxJInstructionPrinter::libImports){
+        if(libImport.second.first == true)
+            kernelAsString.append(std::string("import ") + libImport.second.second + endl);
+    }
+
+    kernelAsString.append("\n");
+
+    kernelAsString.append(kernelBody);
     
     return kernelAsString;
 }

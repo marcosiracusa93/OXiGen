@@ -124,15 +124,37 @@ void DefaultScheduler::execute(DFGConstructor* dfgConstructor){
 
     int loopIndex = 0;
     std::vector<DFG*> dfgs;
+    llvm::BasicBlock* currentBlock = &(*(F->begin()));
 
     for(llvm::Loop* loop : *LI){
+
+        std::vector<DFG*> loopGraphs;
+
+        std::vector<DFG*> staticGraphs =  dfgConstructor->computeStaticDFG(
+                ioStreams.at(loopIndex),SE,LI,F,currentBlock);
 
         std::vector<DFG*> graphs = dfgConstructor->computeIOStreamBasedDFG(
                 loop,ioStreams.at(loopIndex),SE,loopIndex);
 
-        dfgs.insert(dfgs.end(), graphs.begin(), graphs.end());
+
+        std::vector<DFG*> revStatic(staticGraphs.size());
+        std::reverse_copy(std::begin(staticGraphs),std::end(staticGraphs),std::begin(revStatic));
+
+        loopGraphs.insert(loopGraphs.begin(),revStatic.begin(),revStatic.end());
+        loopGraphs.insert(loopGraphs.begin(),graphs.begin(),graphs.end());
+
+        currentBlock = loop->getExitBlock();
         loopIndex++;
+        dfgs.insert(dfgs.begin(),loopGraphs.begin(),loopGraphs.end());
     }
+
+    std::vector<DFG*> staticGraphs =  dfgConstructor->computeStaticDFG(
+            ioStreams.at(loopIndex-1),SE,LI,F,currentBlock);
+
+    std::vector<DFG*> revStatic(staticGraphs.size());
+    std::reverse_copy(std::begin(staticGraphs),std::end(staticGraphs),std::begin(revStatic));
+
+    dfgs.insert(dfgs.begin(),revStatic.begin(),revStatic.end());
 
     if(dfgs.size() > 1){
         std::vector<DFG*> revDfgs(dfgs.size());

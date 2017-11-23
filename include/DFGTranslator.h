@@ -81,12 +81,15 @@ namespace oxigen{
         
     private:
         typedef std::map<std::string,std::string> OpcodeMap;
+        typedef std::map<std::string,std::pair<bool,std::string>> ImportMap;
         static OpcodeMap opcodeMap;
+        static OpcodeMap funcLibMap;
         llvm::ScalarEvolution* SE;
         
     public:
     
         static std::vector<std::string> imports;
+        static ImportMap libImports;
         static std::string kernelSignature;
         static std::string kernelSignatureClosing;
         

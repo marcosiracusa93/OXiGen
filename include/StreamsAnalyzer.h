@@ -72,14 +72,18 @@ namespace oxigen{
         StreamPair getInStreamFromGEP(llvm::GetElementPtrInst* gep){
 
             const llvm::SCEV* idx = SE->getSCEV(*(gep->idx_end() - 1));
-            idx->dump();
-
-            const llvm::SCEVAddRecExpr* addRec = llvm::dyn_cast<llvm::SCEVAddRecExpr>(idx);
             llvm::Value* ptr = gep->getPointerOperand();
 
+            if(idx->getSCEVType() == llvm::SCEVTypes::scConstant){
+                llvm::errs() << "INFO: constant offset found in SCEV...\n";
+                idx->dump();
+                return StreamPair(ptr,idx);
+            }
+
+            const llvm::SCEVAddRecExpr* addRec = llvm::dyn_cast<llvm::SCEVAddRecExpr>(idx);
+
             if(addRec == nullptr || addRec->getStart()->isZero()){
-                llvm::errs() << "Non AddRec index, assigning zero offset: ";
-                addRec->dump();
+                llvm::errs() << "Non AddRec index, assigning zero offset";
                 return StreamPair(ptr, nullptr);
             }
 

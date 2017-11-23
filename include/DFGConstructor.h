@@ -319,6 +319,8 @@ namespace oxigen{
          *        input and output streams for a loop
          */
         DFGWriteNode(llvm::Value* value, IOStreams* loopStreams, int loopTripCount);
+
+        DFGWriteNode(llvm::Value* value, IOStreams* loopStreams, int windowStart,int windowEnd);
         
         //getter for the writingStream of this node
         StreamPair getWritingStream(){ return writingStream; }
@@ -401,6 +403,8 @@ namespace oxigen{
          *        input and output streams for a loop
          */
         DFGReadNode(llvm::Value* value, IOStreams* loopStreams, int loopTripCount);
+
+        DFGReadNode(llvm::Value* value,IOStreams* loopStreams,int windowSart,int windowEnd);
         
         //getter for the sourceStream of this node
         StreamPair getReadingStream(){ return sourceStream; }
@@ -675,12 +679,23 @@ namespace oxigen{
             
             std::vector<DFG*> computeIOStreamBasedDFG(llvm::Loop* topLevelLoop, IOStreams* IOs,
                                                       llvm::ScalarEvolution* SE, int loopIndex);
+
+            std::vector<DFG*> computeStaticDFG(IOStreams* IOs,llvm::ScalarEvolution* SE,
+                                                llvm::LoopInfo* LI,llvm::Function* F,llvm::BasicBlock* start);
             
         private:
 
-            void populateDFG(DFGNode* node,llvm::Loop* loop, IOStreams* IOs, int loopTripCount);
+            void initiateDFGConstruction(std::vector<DFG*> &computedDFGs,IOStreams* IOs,
+                                         llvm::Loop* topLevelLoop,llvm::ScalarEvolution* SE,
+                                         int loopTripCount,llvm::BasicBlock* BB);
 
-            DFG* computeDFGFromBase(DFGWriteNode* baseNode,llvm::Loop* loop, IOStreams* IOs,int loopTripCount);
+            void initiateStaticDFGConstruction(std::vector<DFG *> &computedDFGs, IOStreams *IOs,
+                                                           llvm::ScalarEvolution *SE, llvm::BasicBlock *BB);
+
+            void populateDFG(DFGNode* node, IOStreams* IOs, int loopTripCount,llvm::Loop* loop);
+
+            DFG* computeDFGFromBase(DFGWriteNode* baseNode, IOStreams* IOs,int loopTripCount,llvm::Loop* loop);
+
 
             llvm::Instruction* getInstrFromOperand(llvm::Value* value, std::string opcodeName);
 

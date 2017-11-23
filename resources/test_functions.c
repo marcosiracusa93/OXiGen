@@ -1,5 +1,7 @@
 #define N 100
 
+#include "MaxJFunctions.h"
+
 void test_1(int* in_1,int* in_2,int* out_1, int* out_2){
 
     for(int i = 0; i < N; i++){
@@ -124,5 +126,39 @@ void mov_avg(int * in, int* out){
 
     for(int i = 1; i < N-1; i++){
         out[i] = (in[i-1] + in[i] + in[i+1])/3;
+    }
+}
+
+
+void averageKernel(float* input, float* output){
+
+    int i;
+
+    output[0] = (input[0] + input[1]) / 2;
+
+    for(i = 1; i < N - 1; i++){
+
+        output[i] = (input[i - 1] + input[i] + input[i + 1]) / 3;
+
+    }
+
+    output[N - 1] = (input[N - 2] + input[N - 1]) / 2;
+
+    return;
+
+}
+
+void test_cast(float* in, int* out){
+
+    for(int i = 0; i < N; i++){
+        out[i] = (int)in[i] + 2;
+
+    }
+}
+
+void func_test(float* in, float* out){
+
+    for(int i = 0; i < N; i++){
+        out[i] = log(exp(in[i]));
     }
 }
