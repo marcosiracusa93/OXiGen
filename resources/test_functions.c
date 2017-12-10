@@ -187,8 +187,10 @@ void unroll_test(int* in,int* v,int* out){
 
 void counter_test(int* in, int* out){
 
-    for(int i = 2; i < N-2; i++){
-        out[i-2] = in[i-2] + i;
+    for(int i = 0; i < N; i++) {
+        for (int j = 0; j < 4; j++) {
+            out[i] = in[i] + j;
+        }
     }
 }
 

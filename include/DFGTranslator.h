@@ -95,6 +95,7 @@ namespace oxigen{
         static std::string kernelSignature;
         static std::string kernelSignatureClosing;
         std::string nestingTabs;
+        std::string loopHeadDeclarations;
         
         MaxJInstructionPrinter(llvm::ScalarEvolution* SE){
             this->SE = SE;
@@ -147,7 +148,8 @@ namespace oxigen{
 
         std::string translateAsJavaLoop(DFGLoopNode* loopNode);
 
-        void fixAccumulNodeNaming(DFGAccNode* n,DFGLoopNode* loopNode);
+        void fixAccumulNodeNaming(DFGAccNode *n, DFGLoopNode *loopNode,
+                                  SequentialNamesManager* nm,std::string loopPrefix);
     };
 
     /**

@@ -1231,40 +1231,57 @@ define void @counter_test(i32*, i32*) #0 {
   %3 = alloca i32*, align 8
   %4 = alloca i32*, align 8
   %5 = alloca i32, align 4
+  %6 = alloca i32, align 4
   store i32* %0, i32** %3, align 8
   store i32* %1, i32** %4, align 8
-  store i32 2, i32* %5, align 4
-  br label %6
+  store i32 0, i32* %5, align 4
+  br label %7
 
-; <label>:6:                                      ; preds = %23, %2
-  %7 = load i32, i32* %5, align 4
-  %8 = icmp slt i32 %7, 98
-  br i1 %8, label %9, label %26
+; <label>:7:                                      ; preds = %30, %2
+  %8 = load i32, i32* %5, align 4
+  %9 = icmp slt i32 %8, 100
+  br i1 %9, label %10, label %33
 
-; <label>:9:                                      ; preds = %6
-  %10 = load i32*, i32** %3, align 8
-  %11 = load i32, i32* %5, align 4
-  %12 = sub nsw i32 %11, 2
-  %13 = sext i32 %12 to i64
-  %14 = getelementptr inbounds i32, i32* %10, i64 %13
-  %15 = load i32, i32* %14, align 4
+; <label>:10:                                     ; preds = %7
+  store i32 0, i32* %6, align 4
+  br label %11
+
+; <label>:11:                                     ; preds = %26, %10
+  %12 = load i32, i32* %6, align 4
+  %13 = icmp slt i32 %12, 4
+  br i1 %13, label %14, label %29
+
+; <label>:14:                                     ; preds = %11
+  %15 = load i32*, i32** %3, align 8
   %16 = load i32, i32* %5, align 4
-  %17 = add nsw i32 %15, %16
-  %18 = load i32*, i32** %4, align 8
-  %19 = load i32, i32* %5, align 4
-  %20 = sub nsw i32 %19, 2
-  %21 = sext i32 %20 to i64
-  %22 = getelementptr inbounds i32, i32* %18, i64 %21
-  store i32 %17, i32* %22, align 4
-  br label %23
+  %17 = sext i32 %16 to i64
+  %18 = getelementptr inbounds i32, i32* %15, i64 %17
+  %19 = load i32, i32* %18, align 4
+  %20 = load i32, i32* %6, align 4
+  %21 = add nsw i32 %19, %20
+  %22 = load i32*, i32** %4, align 8
+  %23 = load i32, i32* %5, align 4
+  %24 = sext i32 %23 to i64
+  %25 = getelementptr inbounds i32, i32* %22, i64 %24
+  store i32 %21, i32* %25, align 4
+  br label %26
 
-; <label>:23:                                     ; preds = %9
-  %24 = load i32, i32* %5, align 4
-  %25 = add nsw i32 %24, 1
-  store i32 %25, i32* %5, align 4
-  br label %6
+; <label>:26:                                     ; preds = %14
+  %27 = load i32, i32* %6, align 4
+  %28 = add nsw i32 %27, 1
+  store i32 %28, i32* %6, align 4
+  br label %11
 
-; <label>:26:                                     ; preds = %6
+; <label>:29:                                     ; preds = %11
+  br label %30
+
+; <label>:30:                                     ; preds = %29
+  %31 = load i32, i32* %5, align 4
+  %32 = add nsw i32 %31, 1
+  store i32 %32, i32* %5, align 4
+  br label %7
+
+; <label>:33:                                     ; preds = %7
   ret void
 }
 

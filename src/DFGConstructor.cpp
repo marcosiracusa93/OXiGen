@@ -882,7 +882,9 @@ int DFG::getNodesCount(){
     DFG::resetFlags(DFG::endNode);
     //count = DFG::countChildren(DFG::endNode,count);
     count = DFG::simpleCount(DFG::endNode);
-
+    llvm::errs() << "Count end: " << count << "\n";
+    DFG::resetFlags(DFG::endNode);
+    DFG::resetFlags(DFG::endNode);
     return count;
 }
 
@@ -1341,7 +1343,9 @@ std::vector<DFG*> DFGConstructor::computeIOStreamBasedDFG(llvm::Loop* topLevelLo
             initiateDFGConstruction(computedDFGs,IOs,topLevelLoop,SE,loopTripCount,BB);
         }
     }
-    
+
+    //TODO: chech if dfgs are indipendent
+
     if(computedDFGs.size() > 1){
         DFGConstructor::scheduler->schedule(new DFGLinker(computedDFGs));
         DFGConstructor::scheduler->executeNextComponent();
@@ -2228,6 +2232,10 @@ std::vector<DFG*> DFGLinker::linkDFG(){
         
     }
 
+    llvm::errs() << "Ordered nodes\n";
+    for(DFGNode* n : nodesOrder)
+        n->getValue()->dump();
+
     for(int i = 0; i < nodesOrder.size(); i++)
     {
         if(std::find(readNodes.begin(), readNodes.end(), nodesOrder.at(i)) != readNodes.end())
@@ -2244,6 +2252,14 @@ std::vector<DFG*> DFGLinker::linkDFG(){
                             (readNode->getStreamWindow().first <= -(writeNode->getStreamWindow().first) ||
                                     (dScheduler != nullptr && !readNode->isInTheSameLoop(writeNode,dScheduler->getLoopInfo())))){
 
+                        if(readNode->getSuccessors().size() == 0){
+                            llvm::errs() << "No succ read: ";
+                            readNode->getValue()->dump();
+                            writeNode->getValue()->dump();
+                            for(DFGNode* s : readNode->getPredecessors()){
+                                s->getValue()->dump();
+                            }
+                        }
                         DFGNode* readSucc = readNode->getSuccessors().at(0);   //assumes that reads have one successor
 
                         for(DFGNode* rSucc : readNode->getSuccessors())
@@ -2252,20 +2268,40 @@ std::vector<DFG*> DFGLinker::linkDFG(){
                                     readSucc = rSucc;
                                     break;
                                 }
-
+                        llvm::errs() << "\nRS\n";
+                        for(DFGNode* rs : readNode->getSuccessors()){
+                            rs->getValue()->dump();
+                        }
+                        llvm::errs() << "\nRead Node\n";
+                        readNode->getValue()->dump();
+                        llvm::errs() << "\nWrite Node\n";
+                        writeNode->getValue()->dump();
+                        llvm::errs() << "\nWP\n";
+                        for(DFGNode* wp : writeNode->getPredecessors()){
+                            wp->getValue()->dump();
+                        }
                         std::vector<DFGNode*> &linkedNodes = readSucc->getPredecessors();
+                        int linkedSize = linkedNodes.size();
 
                         int pos = std::find(linkedNodes.begin(),linkedNodes.end(),readNode)-linkedNodes.begin();
                         readSucc->linkPredecessor(writeNode->getPredecessors().at(0),pos);
-
-
 
                         //update stream window
                         writeNode->getPredecessors().at(0)->setStreamWindow(
                                 readNode->getStreamWindow().first,
                                 readNode->getStreamWindow().second);
 
-                        linkedNodes.erase(linkedNodes.begin() + pos+1);
+                        llvm::errs() << "\nRSP\n";
+                        for(DFGNode* rs : readSucc->getPredecessors()){
+                            rs->getValue()->dump();
+                        }
+
+                        readSucc->unlinkPredecessor(readNode);
+                        llvm::errs() << "\nRSP\n";
+                        for(DFGNode* rs : readSucc->getPredecessors()){
+                            rs->getValue()->dump();
+                        }
+
 
                         if(writeNode->getStreamWindow().first != 0 &&
                            writeNode->getPredecessors().at(0)->getType() != NodeType::Offset){

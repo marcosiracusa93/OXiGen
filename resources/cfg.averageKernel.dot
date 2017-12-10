@@ -1,14 +1,14 @@
 digraph "CFG for 'averageKernel' function" {
 	label="CFG for 'averageKernel' function";
 
-	Node0x3f50a50 [shape=record,label="{%2:\l  %3 = getelementptr inbounds float, float* %0, i64 0\l  %4 = load float, float* %3, align 4\l  %5 = getelementptr inbounds float, float* %0, i64 1\l  %6 = load float, float* %5, align 4\l  %7 = fadd float %4, %6\l  %8 = fdiv float %7, 2.000000e+00\l  %9 = getelementptr inbounds float, float* %1, i64 0\l  store float %8, float* %9, align 4\l  br label %10\l}"];
-	Node0x3f50a50 -> Node0x3f50be0;
-	Node0x3f50be0 [shape=record,label="{%10:\l\l  %.0 = phi i32 [ 1, %2 ], [ %30, %29 ]\l  %11 = icmp slt i32 %.0, 99\l  br i1 %11, label %12, label %31\l|{<s0>T|<s1>F}}"];
-	Node0x3f50be0:s0 -> Node0x3f50c30;
-	Node0x3f50be0:s1 -> Node0x3f50cd0;
-	Node0x3f50c30 [shape=record,label="{%12:\l\l  %13 = sub nsw i32 %.0, 1\l  %14 = sext i32 %13 to i64\l  %15 = getelementptr inbounds float, float* %0, i64 %14\l  %16 = load float, float* %15, align 4\l  %17 = sext i32 %.0 to i64\l  %18 = getelementptr inbounds float, float* %0, i64 %17\l  %19 = load float, float* %18, align 4\l  %20 = fadd float %16, %19\l  %21 = add nsw i32 %.0, 1\l  %22 = sext i32 %21 to i64\l  %23 = getelementptr inbounds float, float* %0, i64 %22\l  %24 = load float, float* %23, align 4\l  %25 = fadd float %20, %24\l  %26 = fdiv float %25, 3.000000e+00\l  %27 = sext i32 %.0 to i64\l  %28 = getelementptr inbounds float, float* %1, i64 %27\l  store float %26, float* %28, align 4\l  br label %29\l}"];
-	Node0x3f50c30 -> Node0x3f50c80;
-	Node0x3f50c80 [shape=record,label="{%29:\l\l  %30 = add nsw i32 %.0, 1\l  br label %10\l}"];
-	Node0x3f50c80 -> Node0x3f50be0;
-	Node0x3f50cd0 [shape=record,label="{%31:\l\l  %32 = getelementptr inbounds float, float* %0, i64 98\l  %33 = load float, float* %32, align 4\l  %34 = getelementptr inbounds float, float* %0, i64 99\l  %35 = load float, float* %34, align 4\l  %36 = fadd float %33, %35\l  %37 = fdiv float %36, 2.000000e+00\l  %38 = getelementptr inbounds float, float* %1, i64 99\l  store float %37, float* %38, align 4\l  ret void\l}"];
+	Node0x492b360 [shape=record,label="{%2:\l  %3 = getelementptr inbounds float, float* %0, i64 0\l  %4 = load float, float* %3, align 4\l  %5 = getelementptr inbounds float, float* %0, i64 1\l  %6 = load float, float* %5, align 4\l  %7 = fadd float %4, %6\l  %8 = fdiv float %7, 2.000000e+00\l  %9 = getelementptr inbounds float, float* %1, i64 0\l  store float %8, float* %9, align 4\l  br label %10\l}"];
+	Node0x492b360 -> Node0x492b4f0;
+	Node0x492b4f0 [shape=record,label="{%10:\l\l  %.0 = phi i32 [ 1, %2 ], [ %30, %29 ]\l  %11 = icmp slt i32 %.0, 99\l  br i1 %11, label %12, label %31\l|{<s0>T|<s1>F}}"];
+	Node0x492b4f0:s0 -> Node0x492b540;
+	Node0x492b4f0:s1 -> Node0x492b5e0;
+	Node0x492b540 [shape=record,label="{%12:\l\l  %13 = sub nsw i32 %.0, 1\l  %14 = sext i32 %13 to i64\l  %15 = getelementptr inbounds float, float* %0, i64 %14\l  %16 = load float, float* %15, align 4\l  %17 = sext i32 %.0 to i64\l  %18 = getelementptr inbounds float, float* %0, i64 %17\l  %19 = load float, float* %18, align 4\l  %20 = fadd float %16, %19\l  %21 = add nsw i32 %.0, 1\l  %22 = sext i32 %21 to i64\l  %23 = getelementptr inbounds float, float* %0, i64 %22\l  %24 = load float, float* %23, align 4\l  %25 = fadd float %20, %24\l  %26 = fdiv float %25, 3.000000e+00\l  %27 = sext i32 %.0 to i64\l  %28 = getelementptr inbounds float, float* %1, i64 %27\l  store float %26, float* %28, align 4\l  br label %29\l}"];
+	Node0x492b540 -> Node0x492b590;
+	Node0x492b590 [shape=record,label="{%29:\l\l  %30 = add nsw i32 %.0, 1\l  br label %10\l}"];
+	Node0x492b590 -> Node0x492b4f0;
+	Node0x492b5e0 [shape=record,label="{%31:\l\l  %32 = getelementptr inbounds float, float* %0, i64 98\l  %33 = load float, float* %32, align 4\l  %34 = getelementptr inbounds float, float* %0, i64 99\l  %35 = load float, float* %34, align 4\l  %36 = fadd float %33, %35\l  %37 = fdiv float %36, 2.000000e+00\l  %38 = getelementptr inbounds float, float* %1, i64 99\l  store float %37, float* %38, align 4\l  ret void\l}"];
 }
