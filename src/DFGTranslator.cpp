@@ -406,6 +406,7 @@ std::string MaxJInstructionPrinter::generateInstructionsString(std::vector<DFGNo
 std::string MaxJInstructionPrinter::translateAsJavaLoop(DFGLoopNode* loopNode){
 
     SequentialNamesManager* loopNamesManager = new SequentialNamesManager();
+    loopHeadDeclarations = "";
 
     for(DFGNode* endNode : loopNode->getEndNodes()){
         DFG* dfg = new DFG(endNode);
@@ -476,7 +477,7 @@ std::string MaxJInstructionPrinter::translateAsJavaLoop(DFGLoopNode* loopNode){
 
         for(DFGNode* n : sortedNodes) {
             if (n->getType() == NodeType::AccumulNode)
-                fixAccumulNodeNaming((DFGAccNode *) n, loopNode);
+                fixAccumulNodeNaming((DFGAccNode *) n, loopNode,loopNamesManager,std::string("l_"+loopNode->getName()));
         }
 
         //append instructions
@@ -487,15 +488,33 @@ std::string MaxJInstructionPrinter::translateAsJavaLoop(DFGLoopNode* loopNode){
     }
     nestingTabs = "";
 
-    return std::string(forHeader+loopBody+forClosure);
+    return std::string(loopHeadDeclarations +forHeader+loopBody+forClosure);
 }
 
-void MaxJInstructionPrinter::fixAccumulNodeNaming(DFGAccNode *n, DFGLoopNode *loopNode) {
+void MaxJInstructionPrinter::fixAccumulNodeNaming(DFGAccNode *n, DFGLoopNode *loopNode,
+                                                  SequentialNamesManager* nm,std::string loopPrefix) {
 
     llvm::PHINode* phi = (llvm::PHINode*)n->getValue();
 
     for(DFGNode* pred : loopNode->getInPortPredecessors(n)){
         if(pred->getValue() == phi->getIncomingValue(0)){
+            pred->setName(loopPrefix + nm->getNewName());
+            if(llvm::ConstantInt* c = llvm::dyn_cast<llvm::ConstantInt>(pred->getValue())){
+                loopHeadDeclarations.append(std::string("\t\tDFEvar "+
+                                             pred->getName() + " = " + std::to_string(c->getSExtValue())) + ";\n");
+
+            }else if(llvm::ConstantFP *cfp = llvm::dyn_cast<llvm::ConstantFP>(pred->getValue())){
+                if(cfp->getType()->isDoubleTy()) {
+                    double val = cfp->getValueAPF().convertToDouble();
+                    loopHeadDeclarations.append(std::string("\t\tDFEvar "+
+                                                            pred->getName() + " = " + std::to_string(val)) + ";\n");
+                }else{
+                    float val = cfp->getValueAPF().convertToFloat();
+                    loopHeadDeclarations.append(std::string("\t\tDFEvar "+
+                                                            pred->getName() + " = " + std::to_string(val)) + ";\n");
+                }
+
+            }
             n->setName(pred->getName());
             n->setIsDeclared();
         }
@@ -515,6 +534,7 @@ std::string MaxJInstructionPrinter::appendInstruction(DFGNode* node){
     if(node->getType() == NodeType::LoopNode){
 
         currentInstr = translateAsJavaLoop((DFGLoopNode*)node);
+        loopHeadDeclarations = "";
 
     } else if(node->getType() == NodeType::MuxNode){
         llvm::errs() << "Mux translation not yet supported, terminating...\n";

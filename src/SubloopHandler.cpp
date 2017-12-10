@@ -88,13 +88,20 @@ int SubloopHandler::calculateMaxNestingDepth(DFGNode *node, llvm::LoopInfo *LI,l
 void SubloopHandler::reduceLoopsToNodes(DFG* dfg,llvm::LoopInfo* LI,llvm::Function* F,
                                         llvm::ScalarEvolution* SE,int nestingDepth){
 
-    DFGNodeFactory* nodeFactory = new DFGNodeFactory();
     DFGNode* node = dfg->getEndNode();
     dfg->resetFlags(node);
-    promoteIfIndipendentNode(node,getNodeLoop(node, LI, F));
+    insertIntoLoopNode(node,LI,F,SE,nestingDepth,dfg);
 
+}
+
+void SubloopHandler::insertIntoLoopNode(DFGNode* node,llvm::LoopInfo* LI, llvm::Function* F, llvm::ScalarEvolution* SE,
+                                        int nestingDepth,DFG* dfg){
+
+    DFGNodeFactory* nodeFactory = new DFGNodeFactory();
     llvm::errs() << "INFO: considering node: ";
     node->getValue()->dump();
+
+    promoteIfIndipendentNode(node,getNodeLoop(node, LI, F));
 
     if(node->getLoopDepth() == nestingDepth){
 
@@ -117,78 +124,85 @@ void SubloopHandler::reduceLoopsToNodes(DFG* dfg,llvm::LoopInfo* LI,llvm::Functi
             loopNode->getValue()->dump();
         }
         node->setLoop(loopNode);
-        loopNode->addEndNode(node);
-        node->setFlag(true);
-        dfg->setEndNode(loopNode);
 
-        for(DFGNode* pred : node->getPredecessors())
-            insertIntoLoopNode(pred,LI,F,SE,nestingDepth);
-    }else {
-        insertIntoLoopNode(node, LI, F, SE, nestingDepth);
-    }
-}
+        if(node->getSuccessors().size() == 0)
+            loopNode->addEndNode(node);
 
-void SubloopHandler::insertIntoLoopNode(DFGNode* node,llvm::LoopInfo* LI, llvm::Function* F, llvm::ScalarEvolution* SE,
-                                        int nestingDepth){
+        if(node == dfg->getEndNode())
+            dfg->setEndNode(loopNode);
 
-    DFGNodeFactory* nodeFactory = new DFGNodeFactory();
-    node->setFlag(true);
-    promoteIfIndipendentNode(node,getNodeLoop(node, LI, F));
+        ///port insertion
 
-    llvm::errs() << "INFO: considering node: ";
-    node->getValue()->dump();
-
-    if(node->getLoopDepth() == nestingDepth) {
-        llvm::Loop *nodeLoop = getNodeLoop(node, LI, F);
-        DFGLoopNode* loopNode;
-
-        if (loopNodesMap[nodeLoop] != nullptr) {
-            //node is already initialized. Insert this node into the loop graph
-            loopNode = loopNodesMap[nodeLoop];
-            llvm::errs() << "INFO: loop node found: ";
-            loopNode->getValue()->dump();
-
-        } else {
-            //initialize a new loop node
-            loopNode = nodeFactory->createDFGLoopNode(nodeLoop);
-            loopNode->setLoopDepth(node->getLoopDepth()-1);
-            loopNode->setTripCount(getBackedgeTakenCount(nodeLoop,SE));
-            loopNodesMap.insert(std::pair<llvm::Loop*,DFGLoopNode*>(nodeLoop,loopNode));
-            loopNodesMap[nodeLoop] = loopNode;
-            llvm::errs() << "New loop node added: ";
-            loopNode->getValue()->dump();
-        }
-
-        node->setLoop(loopNode);
-
-        for(DFGNode* pred : node->getPredecessors()){
-            promoteIfIndipendentNode(pred,nodeLoop);
-            if(pred->getLoopDepth() < node->getLoopDepth()){
+        for(DFGNode* pred : node->getCrossScopePredecessors()){
+            promoteIfIndipendentNode(pred,getNodeLoop(node, LI, F));
+            if(pred->getLoopDepth() != node->getLoopDepth() ||
+               nodeLoop != getNodeLoop(pred,LI,F) || isIndipendent(pred, nodeLoop)){
                 loopNode->insertInputPort(pred,node);
             }
         }
-
         for(DFGNode* succ : node->getSuccessors()){
-            promoteIfIndipendentNode(succ,nodeLoop);
-            if(succ->getLoopDepth() < node->getLoopDepth()){
+            if(succ->getLoopDepth() != node->getLoopDepth() ||
+               nodeLoop != getNodeLoop(succ,LI,F) || isIndipendent(succ, nodeLoop)){
                 loopNode->insertOutputPort(node,succ);
             }
         }
-    }
 
-    for(DFGNode* pred : node->getPredecessors()){
+    }
+    node->setFlag(true);
+
+    for(DFGNode* pred : node->getCrossScopePredecessors())
         if(!pred->getFlag())
-            insertIntoLoopNode(pred,LI,F,SE,nestingDepth);
+            insertIntoLoopNode(pred,LI,F,SE,nestingDepth,dfg);
+
+    for(DFGNode* succ : node->getSuccessors())
+        if(!succ->getFlag())
+            insertIntoLoopNode(succ,LI,F,SE,nestingDepth,dfg);
+}
+
+bool SubloopHandler::isIndipendent(DFGNode *node, llvm::Loop *loop) {
+
+    if(loop == nullptr){
+        llvm::errs() << "INFO: loop not found for node ";
+        return true;
+    }
+    llvm::PHINode* loopCounter = oxigen::getLoopCounterIfAny(loop);
+
+    if(node->getLoopDepth() != loop->getLoopDepth()){
+        llvm::errs() << "INFO: unmatching nesting depths\n";
+        return true;
     }
 
-    for(DFGNode* succ : node->getSuccessors()){
-        if(!succ->getFlag())
-            insertIntoLoopNode(succ,LI,F,SE,nestingDepth);
+    if(llvm::LoadInst* load = llvm::dyn_cast<llvm::LoadInst>(node->getValue())){
+
+        llvm::Value* loadPtr = load->getPointerOperand();
+        if(llvm::GetElementPtrInst* gep = llvm::dyn_cast<llvm::GetElementPtrInst>(loadPtr)){
+            llvm::Value* gep_idx = *(gep->idx_end() - 1);
+            if(((llvm::Instruction*)gep_idx)->getOperand(0) != loopCounter){
+                return true;
+            }
+        }
+
+    }else if(llvm::StoreInst* store = llvm::dyn_cast<llvm::StoreInst>(node->getValue())){
+
+        llvm::Value* storePtr = store->getPointerOperand();
+        if(llvm::GetElementPtrInst* gep = llvm::dyn_cast<llvm::GetElementPtrInst>(storePtr)){
+            llvm::Value* gep_idx = *(gep->idx_end() - 1);
+            if(((llvm::Instruction*)gep_idx)->getOperand(0) != loopCounter){
+                return true;
+            }
+        }
     }
+    return false;
 }
 
 void SubloopHandler::promoteIfIndipendentNode(DFGNode *node, llvm::Loop *loop) {
 
+    if(loop == nullptr){
+        llvm::errs() << "INFO: loop not found for node ";
+        node->getValue()->dump();
+        node->setLoopDepth(node->getLoopDepth()-1);
+        return;
+    }
     llvm::PHINode* loopCounter = oxigen::getLoopCounterIfAny(loop);
 
     llvm::errs() << "INFO: computing proper loop depth for ";
