@@ -785,7 +785,6 @@ std::vector<DFGWriteNode*> DFG::getUniqueWriteNodes(DFGNode* baseNode){
 
 std::vector<DFGNode*> DFG::getScalarArguments(DFGNode* baseNode,llvm::Function* F){
 
-    llvm::errs() << "\n----------\n";
     std::vector<DFGNode*> sortedNodes;
     std::vector<DFGNode*> scalarArgs;
     
@@ -794,17 +793,10 @@ std::vector<DFGNode*> DFG::getScalarArguments(DFGNode* baseNode,llvm::Function* 
     
     for(DFGNode* n : sortedNodes)
     {
-        if(n != nullptr) {
-            llvm::errs() << "Sorted ";
-            n->getValue()->dump();
-            if(llvm::dyn_cast<llvm::Argument>(n->getValue()))
-            {
-                scalarArgs.push_back(n);
-            }
-        }else{
-            llvm::errs() << "NULL in sorted vector\n";
+        if(llvm::dyn_cast<llvm::Argument>(n->getValue()))
+        {
+            scalarArgs.push_back(n);
         }
-
     }
     
     return scalarArgs;
@@ -1293,15 +1285,19 @@ std::vector<DFGNode*> DFG::orderNodesWithFunc(llvm::Function *F) {
 
     for(llvm::BasicBlock &BB : *F){
         for(llvm::Instruction &instr : BB){
-            for(DFGNode* n : nodes){
-                if(&instr == n->getValue() && !n->getFlag()) {
-                    for(DFGNode* pred : n->getPredecessors())
+            for(auto it = nodes.begin(); it != nodes.end(); ++it){
+                if(&instr == (*it)->getValue() && !(*it)->getFlag()) {
+                    for(DFGNode* pred : (*it)->getPredecessors())
                         if(!pred->getFlag()) {
                             pred->setFlag(true);
                             sortedNodes.push_back(pred);
+                            auto pred_it = std::find(nodes.begin(),nodes.end(),pred);
+                            if(pred_it != nodes.end())
+                                nodes.erase(pred_it);
+
                         }
-                    n->setFlag(true);
-                    sortedNodes.push_back(n);
+                    (*it)->setFlag(true);
+                    sortedNodes.push_back(*it);
                     break;
                 }
 

@@ -15,6 +15,57 @@ DFG* SubloopHandler::extractSubloops(llvm::Function* F,llvm::ScalarEvolution *SE
 
     for(int nestingLevel = maxNestingDepth; nestingLevel > 1; nestingLevel--){
         reduceLoopsToNodes(graph,LI,F,SE,nestingLevel);
+
+        std::vector<DFGNode*> orderedNodes = graph->orderNodesWithFunc(F);
+
+        for(DFGNode* node : orderedNodes){
+            for(DFGNode* succ : node->getSuccessors()){
+                if(succ->getType() == NodeType::LoopNode && node->getType() != NodeType::LoopNode &&
+                        succ->getLoopDepth() < node->getLoopDepth()) {
+                    llvm::errs() << " Mismatching depths for\n";
+                    node->getValue()->dump();
+                    succ->getValue()->dump();
+                    llvm::Loop *nodeLoop = getNodeLoop(node, LI, F);
+                    DFGLoopNode *loopNode;
+
+                    if (nodeLoop != nullptr)
+                        loopNode = loopNodesMap[nodeLoop];
+                    else {
+                        llvm::errs() << "ERROR: nesting error, terminating\n";
+                        exit(EXIT_FAILURE);
+                    }
+                    if (loopNode != nullptr) {
+                        succ->unlinkPredecessor(node);
+                        succ->linkPredecessor(loopNodesMap[nodeLoop]);
+                    }else{
+                        llvm::errs() << "ERROR: nesting error, terminating\n";
+                        exit(EXIT_FAILURE);
+                    }
+                }else if(node->getType() == NodeType::LoopNode && succ->getType() != NodeType::LoopNode &&
+                        node->getLoopDepth() < succ->getLoopDepth()){
+
+                    llvm::errs() << " Mismatching depths for\n";
+                    node->getValue()->dump();
+                    succ->getValue()->dump();
+                    llvm::Loop *nodeLoop = getNodeLoop(succ, LI, F);
+                    DFGLoopNode *loopNode;
+
+                    if (nodeLoop != nullptr)
+                        loopNode = loopNodesMap[nodeLoop];
+                    else {
+                        llvm::errs() << "ERROR: nesting error, terminating\n";
+                        exit(EXIT_FAILURE);
+                    }
+                    if (loopNode != nullptr) {
+                        succ->unlinkPredecessor(node);
+                        loopNodesMap[nodeLoop]->linkPredecessor(node);
+                    }else{
+                        llvm::errs() << "ERROR: nesting error, terminating\n";
+                        exit(EXIT_FAILURE);
+                    }
+                }
+            }
+        }
     }
 
     return nullptr;
@@ -88,9 +139,10 @@ int SubloopHandler::calculateMaxNestingDepth(DFGNode *node, llvm::LoopInfo *LI,l
 void SubloopHandler::reduceLoopsToNodes(DFG* dfg,llvm::LoopInfo* LI,llvm::Function* F,
                                         llvm::ScalarEvolution* SE,int nestingDepth){
 
-    DFGNode* node = dfg->getEndNode();
-    dfg->resetFlags(node);
-    insertIntoLoopNode(node,LI,F,SE,nestingDepth,dfg);
+    std::vector<DFGNode*> orderedNodes = dfg->orderNodesWithFunc(F);
+
+    for(DFGNode* node : orderedNodes)
+        insertIntoLoopNode(node,LI,F,SE,nestingDepth,dfg);
 
 }
 
@@ -107,8 +159,6 @@ void SubloopHandler::insertIntoLoopNode(DFGNode* node,llvm::LoopInfo* LI, llvm::
 
         DFGLoopNode* loopNode;
         llvm::Loop* nodeLoop = getNodeLoop(node,LI,F);
-        llvm::errs() << "INFO: reduce to nodes: loop: ";
-        nodeLoop->getCanonicalInductionVariable()->dump();
 
         if(loopNodesMap[nodeLoop] != nullptr) {
             loopNode = loopNodesMap[nodeLoop];
@@ -146,17 +196,7 @@ void SubloopHandler::insertIntoLoopNode(DFGNode* node,llvm::LoopInfo* LI, llvm::
                 loopNode->insertOutputPort(node,succ);
             }
         }
-
     }
-    node->setFlag(true);
-
-    for(DFGNode* pred : node->getCrossScopePredecessors())
-        if(!pred->getFlag())
-            insertIntoLoopNode(pred,LI,F,SE,nestingDepth,dfg);
-
-    for(DFGNode* succ : node->getSuccessors())
-        if(!succ->getFlag())
-            insertIntoLoopNode(succ,LI,F,SE,nestingDepth,dfg);
 }
 
 bool SubloopHandler::isIndipendent(DFGNode *node, llvm::Loop *loop) {
@@ -200,7 +240,8 @@ void SubloopHandler::promoteIfIndipendentNode(DFGNode *node, llvm::Loop *loop) {
     if(loop == nullptr){
         llvm::errs() << "INFO: loop not found for node ";
         node->getValue()->dump();
-        node->setLoopDepth(node->getLoopDepth()-1);
+        if(node->getLoopDepth() > 1)
+            node->setLoopDepth(node->getLoopDepth()-1);
         return;
     }
     llvm::PHINode* loopCounter = oxigen::getLoopCounterIfAny(loop);
@@ -218,8 +259,10 @@ void SubloopHandler::promoteIfIndipendentNode(DFGNode *node, llvm::Loop *loop) {
         if(llvm::GetElementPtrInst* gep = llvm::dyn_cast<llvm::GetElementPtrInst>(loadPtr)){
             llvm::Value* gep_idx = *(gep->idx_end() - 1);
             if(((llvm::Instruction*)gep_idx)->getOperand(0) != loopCounter){
-                node->setLoopDepth(node->getLoopDepth()-1);
-                llvm::errs() << "INFO: Read node promoted outside loop\n";
+                if(node->getLoopDepth() > 1) {
+                    node->setLoopDepth(node->getLoopDepth() - 1);
+                    llvm::errs() << "INFO: Read node promoted outside loop\n";
+                }
             }
         }
 
@@ -229,8 +272,10 @@ void SubloopHandler::promoteIfIndipendentNode(DFGNode *node, llvm::Loop *loop) {
         if(llvm::GetElementPtrInst* gep = llvm::dyn_cast<llvm::GetElementPtrInst>(storePtr)){
             llvm::Value* gep_idx = *(gep->idx_end() - 1);
             if(((llvm::Instruction*)gep_idx)->getOperand(0) != loopCounter){
-                node->setLoopDepth(node->getLoopDepth()-1);
-                llvm::errs() << "INFO: Write node promoted outside loop\n";
+                if(node->getLoopDepth() > 1) {
+                    node->setLoopDepth(node->getLoopDepth() - 1);
+                    llvm::errs() << "INFO: Write node promoted outside loop\n";
+                }
             }
         }
     }

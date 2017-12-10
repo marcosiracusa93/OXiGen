@@ -26,7 +26,10 @@ namespace oxigen{
 
         DFG *extractSubloops(llvm::Function* F,llvm::ScalarEvolution *SE, llvm::LoopInfo *LI, DFG *graph);
 
-        SubloopHandler(){ loopNodesMap = LoopNodesMap(); }
+        SubloopHandler(llvm::Function* F){
+            loopNodesMap = LoopNodesMap();
+            this->F = F;
+        }
 
         void acceptExecutor(ProcessingScheduler *scheduler) {
             scheduler->execute(this);
@@ -35,6 +38,7 @@ namespace oxigen{
     private:
 
         LoopNodesMap loopNodesMap;
+        llvm::Function* F;
 
         int getNodeLoopDepth(DFGNode* node,llvm::LoopInfo* LI,llvm::Function* F);
 

@@ -472,12 +472,6 @@ std::string MaxJInstructionPrinter::translateAsJavaLoop(DFGLoopNode* loopNode){
 
         sortedNodes = dfg->orderNodesWithFunc(F);
 
-
-        for(DFGNode* n : sortedNodes) {
-            if (n->getType() == NodeType::AccumulNode)
-                fixAccumulNodeNaming((DFGAccNode *) n, loopNode,loopNamesManager,std::string("l_"+loopNode->getName()));
-        }
-
         //append instructions
         loopBody.append(generateInstructionsString(sortedNodes));
 
@@ -493,31 +487,40 @@ void MaxJInstructionPrinter::fixAccumulNodeNaming(DFGAccNode *n, DFGLoopNode *lo
                                                   SequentialNamesManager* nm,std::string loopPrefix) {
 
     llvm::PHINode* phi = (llvm::PHINode*)n->getValue();
+    DFGNode* initPred = nullptr;
 
-    for(DFGNode* pred : loopNode->getInPortPredecessors(n)){
-        if(pred->getValue() == phi->getIncomingValue(0)){
-            pred->setName(loopPrefix + nm->getNewName());
-            if(llvm::ConstantInt* c = llvm::dyn_cast<llvm::ConstantInt>(pred->getValue())){
-                loopHeadDeclarations.append(std::string("\t\tDFEvar "+
-                                             pred->getName() + " = " + std::to_string(c->getSExtValue())) + ";\n");
-
-            }else if(llvm::ConstantFP *cfp = llvm::dyn_cast<llvm::ConstantFP>(pred->getValue())){
-                if(cfp->getType()->isDoubleTy()) {
-                    double val = cfp->getValueAPF().convertToDouble();
-                    loopHeadDeclarations.append(std::string("\t\tDFEvar "+
-                                                            pred->getName() + " = " + std::to_string(val)) + ";\n");
-                }else{
-                    float val = cfp->getValueAPF().convertToFloat();
-                    loopHeadDeclarations.append(std::string("\t\tDFEvar "+
-                                                            pred->getName() + " = " + std::to_string(val)) + ";\n");
-                }
-
-            }
-            n->setName(pred->getName());
-            n->setIsDeclared();
+    for(DFGNode* pred : n ->getCrossScopePredecessors()){
+        if(phi->getIncomingValue(0) == pred->getValue()){
+            initPred = pred;
         }
     }
+
+    if(initPred == nullptr){
+        llvm::errs() << "ERROR: inti for phinode not found\n";
+        exit(EXIT_FAILURE);
+    }
+
+    if(llvm::ConstantInt* c = llvm::dyn_cast<llvm::ConstantInt>(initPred->getValue())){
+
+        loopHeadDeclarations.append(std::string("\t\tDFEvar "+initPred->getName() + " = " +
+                                                        std::to_string(c->getSExtValue())) + ";\n");
+
+    }else if(llvm::ConstantFP *cfp = llvm::dyn_cast<llvm::ConstantFP>(initPred->getValue())){
+        if(cfp->getType()->isDoubleTy()) {
+            double val = cfp->getValueAPF().convertToDouble();
+            loopHeadDeclarations.append(std::string("\t\tDFEvar "+initPred->getName() + " = " +
+                                                            std::to_string(val)) + ";\n");
+        }else{
+            float val = cfp->getValueAPF().convertToFloat();
+            loopHeadDeclarations.append(std::string("\t\tDFEvar "+initPred->getName() + " = " +
+                                                            std::to_string(val)) + ";\n");
+        }
+
+    }
+
 }
+
+
 
 std::string MaxJInstructionPrinter::appendInstruction(DFGNode* node){
     
@@ -540,7 +543,23 @@ std::string MaxJInstructionPrinter::appendInstruction(DFGNode* node){
 
     } else if(node->getType() == NodeType::AccumulNode){
 
-        currentInstr =  "";
+        DFGNode* initPred = nullptr;
+
+        for(DFGNode* pred : node->getCrossScopePredecessors()){
+            llvm::PHINode* phi = (llvm::PHINode*)node->getValue();
+            pred->getValue()->dump();
+            phi->getIncomingValue(0)->dump();
+            if(pred->getValue() == phi->getIncomingValue(0))
+                initPred = pred;
+        }
+        if(initPred == nullptr){
+            llvm::errs() << "ERROR: init pred not found in translation\n";
+            exit(EXIT_FAILURE);
+        }
+
+        loopHeadDeclarations.append("\t\tDFEVar " + node->getName() +
+                                    " = " + initPred->getName() + ";\n");
+
         if(!llvm::dyn_cast<llvm::PHINode>(node->getValue())){
             llvm::errs() << "ERROR: non phi accumul not supported, terimating...\n";
             exit(EXIT_FAILURE);

@@ -32,7 +32,7 @@ DefaultScheduler::DefaultScheduler(std::string functionName, llvm::Function* F,
     StreamsAnalyzer* sa = new StreamsAnalyzer();
     DFGConstructor* dfgc = new DFGConstructor(F);
     DFGStreamsOverlapHandler* ovHandler = new DFGStreamsOverlapHandler();
-    SubloopHandler* subhdl = new SubloopHandler();
+    SubloopHandler* subhdl = new SubloopHandler(F);
     DFGTranslator* dfgt = new DFGTranslator(SE,F);
 
     schedule(dfgt);
