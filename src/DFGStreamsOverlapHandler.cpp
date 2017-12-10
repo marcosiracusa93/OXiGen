@@ -7,11 +7,13 @@ std::string defaultTickCounterName = "def_counter";
 
 void DFGStreamsOverlapHandler::addOffsetIfFinalStore(DFGNode* n){
 
+    DFGNodeFactory* nodeFactory = new DFGNodeFactory();
+
     n->setFlag(true);
 
     if(llvm::dyn_cast<llvm::StoreInst>(n->getValue()))
         if(n->getStreamWindow().first < 0 && n->getPredecessors().at(0)->getSuccessors().size() == 1){
-            DFGOffsetNode* offsetNode = new DFGOffsetNode(n);
+            DFGOffsetNode* offsetNode = nodeFactory->createDFGOffsetNode(n);
             oxigen::insertNode(offsetNode,n->getPredecessors().at(0),n,true);
         }
 
@@ -27,11 +29,12 @@ void DFGStreamsOverlapHandler::addOffsetIfFinalStore(DFGNode* n){
 
 void DFGStreamsOverlapHandler::addOffsetIfInitialRead(DFGNode *n) {
 
+    DFGNodeFactory* nodeFactory = new DFGNodeFactory();
     n->setFlag(true);
 
     if(llvm::dyn_cast<llvm::LoadInst>(n->getValue()))
         if(n->getStreamWindow().first != 0 && n->getPredecessors().size() == 0){
-            DFGOffsetNode* offsetNode = new DFGOffsetNode(n);
+            DFGOffsetNode* offsetNode = nodeFactory->createDFGOffsetNode(n);
             oxigen::insertNode(offsetNode,n,n->getSuccessors().at(0),true);
         }
 
@@ -64,16 +67,17 @@ void DFGStreamsOverlapHandler::addInitialReadsOffsets(DFG *dfg) {
 void DFGStreamsOverlapHandler::descendAndComputeDelay(DFGNode* node){
 
     DFGNode *startingNode = node;
-    int succSize = startingNode->getSuccessors().size();
+    int trueSucc = 0;
 
-    while (succSize != 0)
+    while (startingNode->getSuccessors().size() != trueSucc)
         for (DFGNode *succ : startingNode->getSuccessors()){
             if (!succ->getFlag()) {
                 startingNode = succ;
-                succSize = startingNode->getSuccessors().size();
+                trueSucc = 0;
                 break;
+            }else {
+                trueSucc++;
             }
-            succSize--;
         }
 
     if (startingNode != node)
@@ -84,6 +88,8 @@ void DFGStreamsOverlapHandler::computeDelayForNode(DFGNode* node){
 
     llvm::errs() << "Computing delay for ";
     node->getValue()->dump();
+
+    DFGNodeFactory* nodeFactory = new DFGNodeFactory();
 
     if(node->getPredecessors().size() == 0){
         node->setGlobalDelay(0);
@@ -140,7 +146,7 @@ void DFGStreamsOverlapHandler::computeDelayForNode(DFGNode* node){
                         oxigen::eliminateNode(offsetP);
                 }else{
 
-                    DFGOffsetNode* newOffset = new DFGOffsetNode(p);
+                    DFGOffsetNode* newOffset = nodeFactory->createDFGOffsetNode(p);
 
                     newOffset->setOffsetAsInt(minDelay-p->getGlobalDelay());
 
@@ -226,6 +232,8 @@ std::pair<int,int> DFGStreamsOverlapHandler::computeLoopCarriedDependencyWindow(
 
 std::vector<DFG*> DFGStreamsOverlapHandler::computeFallbackWrites(){
 
+    DFGNodeFactory* nodeFactory = new DFGNodeFactory();
+
     std::vector<DFGNode*>  nodesOrder;
     std::vector<DFGWriteNode*> writeNodes;
     int baseSize = 0;
@@ -286,7 +294,7 @@ std::vector<DFG*> DFGStreamsOverlapHandler::computeFallbackWrites(){
                                 cond = new TickBasedConstantCondition(defaultTickCounterName,posWEnd_2,posWStart_2);
                             }
 
-                            DFGMuxNode* linkingMux = new DFGMuxNode(write_1,write_2,cond);
+                            DFGMuxNode* linkingMux = nodeFactory->createDFGMuxNode(write_1,write_2,cond);
 
                             oxigen::insertNode(linkingMux,write_1->getPredecessors().at(0),write_1,true);
                             linkingMux->linkPredecessor(write_2->getPredecessors().at(0));

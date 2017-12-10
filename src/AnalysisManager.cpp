@@ -25,6 +25,7 @@ IndVarAccess AnalysisManager::identifyAccessType(llvm::Function *F, llvm::Scalar
     for (llvm::BasicBlock *BB : L->blocks()) {
         if (BB != L->getHeader() &&
             BB != L->getLoopLatch()) {
+
             for (llvm::Instruction &instr : BB->getInstList()) {
 
                 if(llvm::GetElementPtrInst* gep = llvm::dyn_cast<llvm::GetElementPtrInst>(&instr)){
@@ -33,9 +34,13 @@ IndVarAccess AnalysisManager::identifyAccessType(llvm::Function *F, llvm::Scalar
                         bool isOffset = true;
 
                         if(llvm::Instruction* inst = llvm::dyn_cast<llvm::Instruction>(*idx)){
-                            if((inst->isCast() && inst->getOperand(0) == L->getCanonicalInductionVariable())
-                                    || L->getCanonicalInductionVariable() == *idx)
+                            llvm::Value* indexValue = inst;
+                            if(inst->isCast())
+                                indexValue = inst->getOperand(0);
+
+                            if(llvm::dyn_cast<llvm::PHINode>(indexValue))
                                 isOffset = false;
+
                         }else if(llvm::Constant* c = llvm::dyn_cast<llvm::Constant>(*idx)){
                             isOffset = !(c->isZeroValue());
                         }

@@ -4,10 +4,13 @@
 #include "AnalysisManager.h"
 #include "DFGConstructor.h"
 #include "DFGStreamsOverlapHandler.h"
+#include "SubloopHandler.h"
 #include "DFGTranslator.h"
 
 
 using namespace oxigen;
+
+std::vector<DFGNode*> globalNodesList = std::vector<DFGNode*>();
 
 void ProcessingScheduler::schedule(ProcessingComponent* processingComponent){
     scheduledComponents.push_back(processingComponent);
@@ -29,9 +32,11 @@ DefaultScheduler::DefaultScheduler(std::string functionName, llvm::Function* F,
     StreamsAnalyzer* sa = new StreamsAnalyzer();
     DFGConstructor* dfgc = new DFGConstructor();
     DFGStreamsOverlapHandler* ovHandler = new DFGStreamsOverlapHandler();
+    SubloopHandler* subhdl = new SubloopHandler();
     DFGTranslator* dfgt = new DFGTranslator(SE);
 
     schedule(dfgt);
+    schedule(subhdl);
     schedule(ovHandler);
     schedule(dfgc);
     schedule(sa);
@@ -84,7 +89,7 @@ void DefaultScheduler::execute(AnalysisManager* analysisManager){
 }
 
 void DefaultScheduler::execute(StreamsAnalyzer* streamsAnalyzer){
-    llvm::errs() << "Initializing streams...\n";
+    llvm::errs() << "\nInitializing streams...\n";
 
     int infoIndex = 0;
 
@@ -136,7 +141,6 @@ void DefaultScheduler::execute(DFGConstructor* dfgConstructor){
         std::vector<DFG*> graphs = dfgConstructor->computeIOStreamBasedDFG(
                 loop,ioStreams.at(loopIndex),SE,loopIndex);
 
-
         std::vector<DFG*> revStatic(staticGraphs.size());
         std::reverse_copy(std::begin(staticGraphs),std::end(staticGraphs),std::begin(revStatic));
 
@@ -166,6 +170,7 @@ void DefaultScheduler::execute(DFGConstructor* dfgConstructor){
         llvm::errs() << "DFG linkage skipped, assumed only one graph...\n";
         DefaultScheduler::dataflowGraph = dfgs;
     }
+
 }
 
 void DefaultScheduler::execute(DFGLinker* dfgl){
@@ -179,6 +184,21 @@ void DefaultScheduler::execute(DFGLinker* dfgl){
     }
 }
 
+void DefaultScheduler::execute(SubloopHandler *subloopHandler) {
+
+    llvm::errs() << "\nINFO: Executing default subloop handler\n";
+
+    for(DFG* dfg : dataflowGraph) {
+        dfg->fuseIdenticalNodes();
+        llvm::errs() << "INFO: DFG after identical nodes fusion and cleanup:\n";
+        dfg->printDFG();
+        subloopHandler->extractSubloops(F,SE, LI, dfg);
+        llvm::errs() << "INFO: DFG after subloop extraction: \n";
+        dfg->printDFG();
+    }
+
+}
+
 void DefaultScheduler::execute(DFGStreamsOverlapHandler *overlapHandler) {
 
     for(DFG* dfg : dataflowGraph){
@@ -188,10 +208,10 @@ void DefaultScheduler::execute(DFGStreamsOverlapHandler *overlapHandler) {
         overlapHandler->addFinalStoreOffsets(dfg);
         overlapHandler->addInitialReadsOffsets(dfg);
 
-        llvm::errs() << "\nCOMPUTING GLOBAL DELAY\n";
-        overlapHandler->computeGlobalDelay(dfg);
-        llvm::errs() << "\nOFFSET COMPUTATION TERMINATED\n";
-
+        //llvm::errs() << "\nCOMPUTING GLOBAL DELAY\n";
+        //overlapHandler->computeGlobalDelay(dfg);
+        //llvm::errs() << "\nOFFSET COMPUTATION TERMINATED\n";
+        llvm::errs() << "WARNING: global delay computation temporary suspended\n";
     }
 
 

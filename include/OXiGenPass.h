@@ -18,6 +18,8 @@
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Analysis/ScalarEvolutionAliasAnalysis.h"
+#include <llvm/Transforms/Utils/CodeExtractor.h>
+#include <llvm/IR/Dominators.h>
 
 #include "llvm/Pass.h"
 #include "llvm/IR/Function.h"

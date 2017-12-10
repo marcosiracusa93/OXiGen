@@ -7,7 +7,10 @@
 #include "ProcessingScheduler.h"
 #include "ProcessingComponent.h"
 
+
 namespace oxigen{
+
+    class DFGLoopNode;
 
     class TickBasedCondition{
 
@@ -42,7 +45,20 @@ namespace oxigen{
         int getTickUpperBound(){ return this->U; }
     };
 
-    enum NodeType { Node = 1, WriteNode = 2, ReadNode = 3, OffsetRead = 4, OffsetWrite = 5, Offset = 6, MuxNode = 7};
+    enum NodeType { Node =          1,
+                    WriteNode =     2,
+                    ReadNode =      3,
+                    OffsetRead =    4,
+                    OffsetWrite =   5,
+                    Offset =        6,
+                    MuxNode =       7,
+                    CounterNode =   8,
+                    AccumulNode =   9,
+                    LoopNode = 10
+    };
+
+    const NodeType ENUM_FIRST = NodeType::Node;
+    const NodeType ENUM_LAST = NodeType::LoopNode;
 
     /**
      * @class DFGNode
@@ -63,10 +79,14 @@ namespace oxigen{
         llvm::Value* node;
         std::vector<DFGNode*> predecessors;
         std::vector<DFGNode*> successors;
+        DFGLoopNode* loop;
         
         std::string name;
         bool markedFlag;
+        bool passedFlag;
+        bool isDeclared;
         int position;
+        int loopDepth;
 
         std::pair<int,int> streamWindow; //the window for which this stream will be processed
         int globalDelay;
@@ -80,6 +100,7 @@ namespace oxigen{
          * @param value - the llvm::Value which this node of the graph contains
          */
         DFGNode(llvm::Value* value,int loopTripCount = -1){
+
             this->node = value;
             this->markedFlag = false;
             this->name = "unnamed";
@@ -88,7 +109,10 @@ namespace oxigen{
             this->predecessors = std::vector<DFGNode*>();
             this->successors = std::vector<DFGNode*>();
             this->globalDelay = 999;
-        } 
+            this->loopDepth = -1;
+            this->isDeclared = false;
+            this->loop = nullptr;
+        }
         
         //getter methods for the class
         
@@ -98,13 +122,31 @@ namespace oxigen{
         
         std::vector<DFGNode*> getSuccessors(){ return successors; }
 
-        std::string getName() { return name; }
-        
+        std::vector<DFGNode*> getCrossScopePredecessors();
+
+        std::vector<DFGNode*> getCrossScopeSuccessors();
+
+        int getPredecessorPosition(DFGNode* n);
+
+        int getSuccessorPosition(DFGNode* n);
+
+        std::string getName();
+
         bool getFlag() { return markedFlag; }
+
+        bool getPassedFlag(){ return passedFlag; }
+
+        bool isAlreadyDeclared(){ return isDeclared; }
         
         int getPosition() { return position; }
 
         int getGlobalDelay() { return this->globalDelay; }
+
+        int getLoopDepth(){ return loopDepth; }
+
+        DFGLoopNode* getLoop(){ return this->loop; }
+
+        void setLoop(DFGLoopNode* loop){ this->loop = loop; }
 
         std::pair<int,int> getStreamWindow(){ return this->streamWindow; }
 
@@ -117,11 +159,18 @@ namespace oxigen{
         void setPosition(int pos) { this->position = pos; }
 
         void setGlobalDelay(int delay){ this->globalDelay = delay; }
+
+        void setLoopDepth(int loopDepth){ this->loopDepth = loopDepth; }
         
         void setFlag(bool value){ this->markedFlag = value; }
 
+        void setPassedFlag(bool value){ this->passedFlag = value; }
+
+        void setIsDeclared(){ this->isDeclared = true; }
+
         void setSuccessor(DFGNode* succ){
-            successors.push_back(succ);
+            if(std::find(successors.begin(),successors.end(),succ) == successors.end())
+                successors.push_back(succ);
         }
         
         /**
@@ -132,11 +181,29 @@ namespace oxigen{
          * @param pred - the DFGNode to link to this node
          */
         void linkPredecessor(DFGNode* pred){
-            predecessors.insert(predecessors.begin(), pred);
-            pred->setSuccessor(this);
+
+            bool isDuplicateConstant = false;
+            if(predecessors.size() == 0)
+                predecessors.push_back(pred);
+            else {
+
+                if(llvm::dyn_cast<llvm::Constant>(pred->getValue())){
+                    for(DFGNode* p : predecessors){
+                        if(p->equals(pred)){
+                            isDuplicateConstant = true;
+                        }
+                    }
+                }
+                if (std::find(predecessors.begin(), predecessors.end(), pred) == predecessors.end()
+                    && !isDuplicateConstant)
+                    predecessors.insert(predecessors.begin(), pred);
+            }
+            if(!isDuplicateConstant)
+                pred->setSuccessor(this);
         }
         void linkPredecessor(DFGNode* pred,int pos){
-            predecessors.insert(predecessors.begin()+pos,pred);
+            if(std::find(predecessors.begin(),predecessors.end(),pred) == predecessors.end())
+                predecessors.insert(predecessors.begin()+pos,pred);
             pred->setSuccessor(this);
         }
 
@@ -183,13 +250,9 @@ namespace oxigen{
         }
 
         void changeParent(DFGNode* oldParent,DFGNode* newParent){
-
-            int oldParentPos = std::find(predecessors.begin(),predecessors.end(),oldParent)-predecessors.begin();
-
+            int pos = getPredecessorPosition(oldParent);
             this->unlinkPredecessor(oldParent);
-
-            newParent->setSuccessor(this);
-            predecessors.insert(predecessors.begin()+oldParentPos,newParent);
+            this->linkPredecessor(newParent,pos);
         }
 
         void insertPredecessor(DFGNode* pred,DFGNode* newPred){
@@ -228,9 +291,6 @@ namespace oxigen{
         int countSubgraphNodes();
 
         bool equals(DFGNode* n_2){
-
-            if(typeID != n_2->getType())
-                return false;
 
             if(node == n_2->getValue())
                 return true;
@@ -272,6 +332,46 @@ namespace oxigen{
         }
     };
 
+    typedef std::pair<DFGNode*,DFGNode*> NodePort;
+
+    class DFGCounterNode : public DFGNode {
+
+    private:
+
+        int start;
+        int step;
+
+    public:
+
+        DFGCounterNode(llvm::PHINode* value,int loopTripCount = -1) :
+                DFGNode(value,loopTripCount) {
+
+            this->typeID = NodeType::CounterNode;
+            this->step = 1;
+
+            if(llvm::ConstantInt* c = llvm::dyn_cast<llvm::ConstantInt>(value->getIncomingValue(0))){
+                start = c->getSExtValue();
+            }else{
+                llvm::errs() << "INFO: unable to compute start for counter \n";
+                start = 0;
+            }
+        }
+
+        int getStart(){ return this->start; }
+
+        int getStep(){ return this->step; }
+    };
+
+    class DFGAccNode : public DFGNode {
+
+    public:
+
+        DFGAccNode(llvm::Value* value,int loopTripCount = -1) : DFGNode(value,loopTripCount) {
+
+            this->typeID = NodeType::AccumulNode;
+        }
+    };
+
     class DFGOffsetNode : public DFGNode {
 
     private:
@@ -289,6 +389,46 @@ namespace oxigen{
         llvm::Value* getValue();
 
         void printNode();
+
+    };
+
+    class DFGLoopNode : public DFGNode {
+
+    private:
+
+        std::vector<NodePort> inputPorts;
+        std::vector<NodePort> outputPorts;
+        std::vector<DFGNode*> endNodes;
+        llvm::Loop* loop;
+        int constTripCount;
+
+    public:
+
+        DFGLoopNode(llvm::Loop* loop);
+
+        llvm::Loop* getLoopPtr(){ return loop; }
+
+        std::vector<DFGNode*> getEndNodes(){ return endNodes; }
+        void addEndNode(DFGNode* node){ endNodes.push_back(node); }
+
+        void insertInputPort(DFGNode* in,DFGNode* out);
+        void insertOutputPort(DFGNode* in,DFGNode* out);
+        std::vector<DFGNode*> getInPortSuccessors(DFGNode *outerNode);
+        std::vector<DFGNode*> getInPortPredecessors(DFGNode *innerNode);
+        std::vector<DFGNode*> getOutPortSuccessors(DFGNode *innerNode);
+        std::vector<DFGNode*> getOutPortPredecessors(DFGNode *outerNode);
+
+        std::vector<DFGNode*> getOutPortInnerNodes();
+        std::vector<DFGNode*> getOutPortOuterNodes();
+        std::vector<DFGNode*> getInPortInnerNodes();
+        std::vector<DFGNode*> getInPortOuterNodes();
+
+        void printNode();
+
+        int getTripCount(){ return constTripCount; }
+        void setTripCount(int iters){ constTripCount = iters; }
+
+        std::vector<DFG*> getIndipendentLoopGraphs();
 
     };
     
@@ -490,6 +630,35 @@ namespace oxigen{
         void printNode();
     };
 
+    class DFGNodeFactory{
+
+    public:
+
+        DFGNode* createDFGNode(llvm::Value* value,int loopTripCount = -1);
+
+        DFGWriteNode* createDFGWriteNode(llvm::Value* value, IOStreams* loopStreams, int loopTripCount);
+        DFGWriteNode* createDFGWriteNode(llvm::Value* value, IOStreams* loopStreams, int windowStart,int windowEnd);
+
+        DFGReadNode* createDFGReadNode(llvm::Value* value, IOStreams* loopStreams, int loopTripCount);
+        DFGReadNode* createDFGReadNode(llvm::Value* value,IOStreams* loopStreams,int windowSart,int windowEnd);
+
+        DFGOffsetNode* createDFGOffsetNode(DFGNode* baseNode);
+        DFGOffsetReadNode* createDFGOffsetReadNode(llvm::Value* value,IOStreams* IOs,const llvm::SCEV* offset, int loopTripCount);
+        DFGOffsetWriteNode* createDFGOffsetWriteNode(llvm::Value* value,IOStreams* IOs,const llvm::SCEV* offset, int loopTripCount);
+
+        DFGMuxNode* createDFGMuxNode(DFGNode* node_1,DFGNode* node_2,TickBasedCondition* cond);
+
+        DFGCounterNode* createDFGCounterNode(llvm::PHINode* value,int loopTripCount = -1);
+        DFGAccNode* createDFGAccNode(llvm::Value* value,int loopTripCount = -1);
+
+        DFGLoopNode* createDFGLoopNode(llvm::Loop* loop);
+
+    private:
+
+        DFGNode* getNodeIfListed(llvm::Value* nVal,NodeType type);
+
+    };
+
     /**
      * @class DFG
      * @brief Class representing a DataFlow graph in the program. It acts as a
@@ -512,7 +681,9 @@ namespace oxigen{
         
         //getter for the root node of this graph
         DFGNode* getEndNode(){ return endNode; }
-        
+
+        void setEndNode(DFGNode* node){ endNode = node; }
+
         /**
          * @brief Used to retrieve the DFGReadNodes in this graph. It
          *        actually just searches for 'load' operations and then
@@ -549,6 +720,8 @@ namespace oxigen{
         std::vector<DFGReadNode*> getUniqueReadNodes(DFGNode* baseNode);
         
         std::vector<DFGWriteNode*> getUniqueWriteNodes(DFGNode* baseNode);
+
+        void getUniqueOrderedNodes(DFGNode* n, int &pos, std::vector<DFGNode*> &sorted,int baseSize);
         
         /**
          * @brief Returns the DFGNodes containing llvm::Arguments as values
@@ -575,7 +748,9 @@ namespace oxigen{
          * @param node - the starting node for the given call to this method
          */
         void setNameVector(std::vector<std::string> &nodeNames, DFGNode* node);
-        
+
+        void simplePrintDFG(DFGNode* startingNode);
+
         void printDFG(DFGNode* startingNode);
 
         void printDFG();
@@ -589,10 +764,17 @@ namespace oxigen{
          * @param node - the DFGNode acting as root
          */
         void resetFlags(DFGNode* node);
+
+        void resetMarkedFlags(DFGNode* node);
+
+        void resetPassedFlags(DFGNode* node);
         
-        void orderNodes(DFGNode* n, int &pos, std::vector<DFGNode*> &sorted, int baseSize=0);
+        void orderNodes(DFGNode* n, int &pos, std::vector<DFGNode*> &sorted,
+                        int baseSize=0,std::vector<DFGNode*>* passedNodes = nullptr);
 
         void setDFGFlags();
+
+        void fuseIdenticalNodes();
     
     private:
         
@@ -600,6 +782,8 @@ namespace oxigen{
          * @brief Recursive method used in the count of the nodes of a DFG
          */
         int countChildren(DFGNode* parent, int count);
+
+        int simpleCount(DFGNode* n);
 
         int descendAndCount(DFGNode* node, int count);
         
@@ -612,6 +796,8 @@ namespace oxigen{
         void collectWriteNodes(DFGNode* baseNode,std::vector<DFGWriteNode*> &writeNodes);
         
         void descendAndCollectWrites(DFGNode* node, std::vector<DFGWriteNode*> &writeNodes);
+
+        void simpleSetNames(std::vector<std::string> &nodeNames, DFGNode* node);
         
         void setNames(std::vector<std::string> &nodeNames, DFGNode* node);
         
@@ -665,10 +851,13 @@ namespace oxigen{
      * @brief 
      */
     class DFGConstructor : public ProcessingComponent{
+
+        typedef std::pair<llvm::Loop*,DFGCounterNode*> CounterPair;
         
         protected:
         
             ProcessingScheduler* scheduler;
+            std::vector<CounterPair> loopCounters;
       
         public:
     
@@ -682,7 +871,7 @@ namespace oxigen{
 
             std::vector<DFG*> computeStaticDFG(IOStreams* IOs,llvm::ScalarEvolution* SE,
                                                 llvm::LoopInfo* LI,llvm::Function* F,llvm::BasicBlock* start);
-            
+
         private:
 
             void initiateDFGConstruction(std::vector<DFG*> &computedDFGs,IOStreams* IOs,
@@ -692,14 +881,14 @@ namespace oxigen{
             void initiateStaticDFGConstruction(std::vector<DFG *> &computedDFGs, IOStreams *IOs,
                                                            llvm::ScalarEvolution *SE, llvm::BasicBlock *BB);
 
-            void populateDFG(DFGNode* node, IOStreams* IOs, int loopTripCount,llvm::Loop* loop);
+            void populateDFG(DFGNode* node, IOStreams* IOs, int loopTripCount,
+                             llvm::Loop* loop);
 
             DFG* computeDFGFromBase(DFGWriteNode* baseNode, IOStreams* IOs,int loopTripCount,llvm::Loop* loop);
 
-
             llvm::Instruction* getInstrFromOperand(llvm::Value* value, std::string opcodeName);
 
-            DFGNode* shortcutSoreGetelementPtr(DFGWriteNode* storeNode,IOStreams* IOs, int loopTripCount);
+            DFGNode* shortcutSoreGetelementPtr(DFGWriteNode* storeNode,IOStreams* IOs,llvm::Loop* loop, int loopTripCount);
 
             bool hasSextOnIndvar(llvm::Instruction* instr,llvm::Loop* loop);
 
@@ -707,45 +896,28 @@ namespace oxigen{
 
 
     };
-    
-    /**
-     * @class SubloopHandler
-     * @author 
-     * @date 26/07/17
-     * @file DFGConstructor.h
-     * @brief 
-     */
-    class SubloopHandler : public ProcessingComponent{
-        
-        public:
-            DFG* computeSubloop(llvm::Loop &L){
-                llvm::errs() << "subloop computation not implemented \n";
-                return nullptr;
-            } 
-    };
-    
-    /**
-     * @class AliasAnalyzer
-     * @author 
-     * @date 26/07/17
-     * @file DFGConstructor.h
-     * @brief 
-     */
-    class AliasAnalyzer{
-    
-    public:
-        bool disambiguate(DFGNode* n_1, DFGNode* n_2, DFGAnalysisResult &R){
-            llvm::errs() << "DFG node disambiguation not yet implemented \n";
-            return false;
-        }
-        
-    };
 
     void insertNode(DFGNode* n,DFGNode* pred,DFGNode* succ,bool areConsecutive);
 
     void eliminateNode(DFGNode* node);
 
+    void  fuseNodes(DFGNode* n_1, DFGNode* n_2,std::vector<DFGNode*> &exceptionVector);
+
     void transferSuccessors(DFGNode* currentParent,DFGNode* newParent);
+
+    void transferPredecessors(oxigen::DFGNode *currentSuccessor, oxigen::DFGNode *newSuccessor);
+
+    bool isCounterForLoop(llvm::PHINode* phi,llvm::Loop* L);
+
+    llvm::PHINode* getLoopCounterIfAny(llvm::Loop* loop);
+
+    std::vector<DFGNode*> getElementarPredecessors(std::vector<DFGNode*> nodes,DFGNode* succNode);
+
+    std::vector<DFGNode*> getNodePredecessors(DFGNode* n,NodeType type,DFGNode* succNode);
+
+    bool  isComposite(NodeType type);
+
+    std::vector<NodeType> getCompositeTypes();
 
 } // End OXiGen namespace
 

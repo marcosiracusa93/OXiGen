@@ -1,0 +1,14 @@
+digraph "CFG for 'counter_test' function" {
+	label="CFG for 'counter_test' function";
+
+	Node0x3f5bdd0 [shape=record,label="{%2:\l  br label %3\l}"];
+	Node0x3f5bdd0 -> Node0x3f5bf60;
+	Node0x3f5bf60 [shape=record,label="{%3:\l\l  %.0 = phi i32 [ 2, %2 ], [ %15, %14 ]\l  %4 = icmp slt i32 %.0, 98\l  br i1 %4, label %5, label %16\l|{<s0>T|<s1>F}}"];
+	Node0x3f5bf60:s0 -> Node0x3f5bfb0;
+	Node0x3f5bf60:s1 -> Node0x3f5c050;
+	Node0x3f5bfb0 [shape=record,label="{%5:\l\l  %6 = sub nsw i32 %.0, 2\l  %7 = sext i32 %6 to i64\l  %8 = getelementptr inbounds i32, i32* %0, i64 %7\l  %9 = load i32, i32* %8, align 4\l  %10 = add nsw i32 %9, %.0\l  %11 = sub nsw i32 %.0, 2\l  %12 = sext i32 %11 to i64\l  %13 = getelementptr inbounds i32, i32* %1, i64 %12\l  store i32 %10, i32* %13, align 4\l  br label %14\l}"];
+	Node0x3f5bfb0 -> Node0x3f5c000;
+	Node0x3f5c000 [shape=record,label="{%14:\l\l  %15 = add nsw i32 %.0, 1\l  br label %3\l}"];
+	Node0x3f5c000 -> Node0x3f5bf60;
+	Node0x3f5c050 [shape=record,label="{%16:\l\l  ret void\l}"];
+}

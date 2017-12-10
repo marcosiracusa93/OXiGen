@@ -10,6 +10,7 @@
 
 #include <vector>
 #include <iostream>
+#include <llvm/IR/Dominators.h>
 
 #include "OXiGenPass.h"
 #include "ProcessingScheduler.h"
@@ -25,16 +26,15 @@ OXiGenPass::OXiGenPass(std::string functionName) : FunctionPass(ID){ this->funct
 bool OXiGenPass::runOnFunction(Function &F) {
         
         std::cout << "Running test pass on a function" << std::endl;
-        
+
         //get scalar evolution and loop analysis
         ScalarEvolution* SE = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();
         LoopInfo* LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
         SCEVAAResult* SEAA = &getAnalysis<SCEVAAWrapperPass>().getResult();
-        
+
         DefaultScheduler* scheduler = new DefaultScheduler(functionName, &F, SE ,LI, SEAA);
-        
         scheduler->executeComponentsQueue();
-        
+
         return false;
 }
 
@@ -44,3 +44,4 @@ void OXiGenPass::getAnalysisUsage(AnalysisUsage &AU) const {
     AU.addRequiredTransitive<ScalarEvolutionWrapperPass>();
     AU.addRequiredTransitive<SCEVAAWrapperPass>();
 }
+

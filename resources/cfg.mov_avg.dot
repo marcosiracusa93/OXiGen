@@ -1,0 +1,14 @@
+digraph "CFG for 'mov_avg' function" {
+	label="CFG for 'mov_avg' function";
+
+	Node0x3f554b0 [shape=record,label="{%2:\l  br label %3\l}"];
+	Node0x3f554b0 -> Node0x3f55670;
+	Node0x3f55670 [shape=record,label="{%3:\l\l  %.0 = phi i32 [ 1, %2 ], [ %23, %22 ]\l  %4 = icmp slt i32 %.0, 99\l  br i1 %4, label %5, label %24\l|{<s0>T|<s1>F}}"];
+	Node0x3f55670:s0 -> Node0x3f556c0;
+	Node0x3f55670:s1 -> Node0x3f55760;
+	Node0x3f556c0 [shape=record,label="{%5:\l\l  %6 = sub nsw i32 %.0, 1\l  %7 = sext i32 %6 to i64\l  %8 = getelementptr inbounds i32, i32* %0, i64 %7\l  %9 = load i32, i32* %8, align 4\l  %10 = sext i32 %.0 to i64\l  %11 = getelementptr inbounds i32, i32* %0, i64 %10\l  %12 = load i32, i32* %11, align 4\l  %13 = add nsw i32 %9, %12\l  %14 = add nsw i32 %.0, 1\l  %15 = sext i32 %14 to i64\l  %16 = getelementptr inbounds i32, i32* %0, i64 %15\l  %17 = load i32, i32* %16, align 4\l  %18 = add nsw i32 %13, %17\l  %19 = sdiv i32 %18, 3\l  %20 = sext i32 %.0 to i64\l  %21 = getelementptr inbounds i32, i32* %1, i64 %20\l  store i32 %19, i32* %21, align 4\l  br label %22\l}"];
+	Node0x3f556c0 -> Node0x3f55710;
+	Node0x3f55710 [shape=record,label="{%22:\l\l  %23 = add nsw i32 %.0, 1\l  br label %3\l}"];
+	Node0x3f55710 -> Node0x3f55670;
+	Node0x3f55760 [shape=record,label="{%24:\l\l  ret void\l}"];
+}

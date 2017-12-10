@@ -1,0 +1,5 @@
+digraph "CFG for 'pow2' function" {
+	label="CFG for 'pow2' function";
+
+	Node0x3040f60 [shape=record,label="{%1:\l  %2 = fmul float %0, %0\l  %3 = fadd float %2, %0\l  ret float %3\l}"];
+}

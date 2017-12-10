@@ -1,0 +1,23 @@
+digraph "CFG for 'nested_test_1' function" {
+	label="CFG for 'nested_test_1' function";
+
+	Node0x3f5a5c0 [shape=record,label="{%3:\l  br label %4\l}"];
+	Node0x3f5a5c0 -> Node0x3f5a610;
+	Node0x3f5a610 [shape=record,label="{%4:\l\l  %.01 = phi i32 [ 0, %3 ], [ %23, %22 ]\l  %5 = icmp slt i32 %.01, 100\l  br i1 %5, label %6, label %24\l|{<s0>T|<s1>F}}"];
+	Node0x3f5a610:s0 -> Node0x3f5a660;
+	Node0x3f5a610:s1 -> Node0x3f5a840;
+	Node0x3f5a660 [shape=record,label="{%6:\l\l  br label %7\l}"];
+	Node0x3f5a660 -> Node0x3f5a6b0;
+	Node0x3f5a6b0 [shape=record,label="{%7:\l\l  %.0 = phi i32 [ 0, %6 ], [ %20, %19 ]\l  %8 = icmp slt i32 %.0, 10\l  br i1 %8, label %9, label %21\l|{<s0>T|<s1>F}}"];
+	Node0x3f5a6b0:s0 -> Node0x3f5a700;
+	Node0x3f5a6b0:s1 -> Node0x3f5a7a0;
+	Node0x3f5a700 [shape=record,label="{%9:\l\l  %10 = sext i32 %.01 to i64\l  %11 = getelementptr inbounds i32, i32* %0, i64 %10\l  %12 = load i32, i32* %11, align 4\l  %13 = sext i32 %.0 to i64\l  %14 = getelementptr inbounds i32, i32* %1, i64 %13\l  %15 = load i32, i32* %14, align 4\l  %16 = add nsw i32 %12, %15\l  %17 = sext i32 %.01 to i64\l  %18 = getelementptr inbounds i32, i32* %2, i64 %17\l  store i32 %16, i32* %18, align 4\l  br label %19\l}"];
+	Node0x3f5a700 -> Node0x3f5a750;
+	Node0x3f5a750 [shape=record,label="{%19:\l\l  %20 = add nsw i32 %.0, 1\l  br label %7\l}"];
+	Node0x3f5a750 -> Node0x3f5a6b0;
+	Node0x3f5a7a0 [shape=record,label="{%21:\l\l  br label %22\l}"];
+	Node0x3f5a7a0 -> Node0x3f5a7f0;
+	Node0x3f5a7f0 [shape=record,label="{%22:\l\l  %23 = add nsw i32 %.01, 1\l  br label %4\l}"];
+	Node0x3f5a7f0 -> Node0x3f5a610;
+	Node0x3f5a840 [shape=record,label="{%24:\l\l  ret void\l}"];
+}

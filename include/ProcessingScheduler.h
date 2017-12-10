@@ -15,6 +15,9 @@
 
 namespace oxigen{
 
+    class DFGNode;
+    static  std::vector<DFGNode*> globalNodesList;
+
 	enum SchedulerType { Default = 1, Abstract = 0 };
     
     class FunctionAnalysisResult;
@@ -83,13 +86,15 @@ namespace oxigen{
 		void execute(StreamsAnalyzer* streamsAnalyzer);
 		void execute(DFGConstructor* dfgConstructor);
 		void execute(DFGLinker* dfgLinker);
+		void execute(SubloopHandler* subloopHandler);
 		void execute(DFGStreamsOverlapHandler* overlapHandler);
 		void execute(DFGTranslator* dfgTranslator);
 
 		llvm::LoopInfo* getLoopInfo(){ return this->LI; }
             
 	};
-	
+
+
 } // End OXiGen namespace
 
 #endif

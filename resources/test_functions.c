@@ -162,3 +162,77 @@ void func_test(float* in, float* out){
         out[i] = log(exp(in[i]));
     }
 }
+
+void cond_test(int a,int* in,int* out){
+
+    for(int i = 0; i < N; i++){
+        out[i] = a > 3 ? 5 : 10;
+    }
+}
+
+void nested_test_1(int* in,int* v,int* out){
+
+    for(int i = 0; i < N; i++){
+        for (int j = 0; j < N/10; j++) {	//NESTED LOOP #2
+            out[i] = in[i] + v[j];
+        }
+    }
+}
+
+void unroll_test(int* in,int* v,int* out){
+    for(int j = 0; j < 1000; j++){
+        *in = v[j] + 3;
+    }
+}
+
+void counter_test(int* in, int* out){
+
+    for(int i = 2; i < N-2; i++){
+        out[i-2] = in[i-2] + i;
+    }
+}
+
+void acc_test(int* in, int* out){
+
+    int acc = 3;
+    for(int i = 0; i < N; i++){
+        out[i] = in[i]*acc;
+        acc = 2*acc;
+    }
+}
+
+void acc_test_2(int* in, int* out){
+	
+	int sum = 0;
+	for(int i = 0; i < N; i++){
+		sum += in[i];	
+		out[i] = sum*2;
+	}
+
+}
+
+void newton_raphson(float* in,float* out){
+
+    for (int i = 0; i < N; i++) {
+
+        float v = 2.9142 - 2*in[i];
+
+        for (int j=0; j< 4; j++) {
+            v = v * (2.0 - in[i] * v);
+        }
+        out[i] = v;
+    }
+}
+
+void two_loops(float* in, float* out,float* out1){
+
+    for(int i = 0; i < N; i++){
+
+        for(int j = 0; j < 4; j++){
+            out1[i] = in[i] + 4;
+        }
+        for(int j = 0; j < 4; j++){
+            out[i] = out1[i] + 5;
+        }
+    }
+}

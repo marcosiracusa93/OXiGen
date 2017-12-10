@@ -82,8 +82,10 @@ namespace oxigen{
     private:
         typedef std::map<std::string,std::string> OpcodeMap;
         typedef std::map<std::string,std::pair<bool,std::string>> ImportMap;
+        typedef std::map<int,std::string> CmpPredMap;
         static OpcodeMap opcodeMap;
         static OpcodeMap funcLibMap;
+        static CmpPredMap cmpPredMap;
         llvm::ScalarEvolution* SE;
         
     public:
@@ -92,8 +94,12 @@ namespace oxigen{
         static ImportMap libImports;
         static std::string kernelSignature;
         static std::string kernelSignatureClosing;
+        std::string nestingTabs;
         
-        MaxJInstructionPrinter(llvm::ScalarEvolution* SE){ this->SE = SE; }
+        MaxJInstructionPrinter(llvm::ScalarEvolution* SE){
+            this->SE = SE;
+            this->nestingTabs = "";
+        }
         
         /**
          * @param inputs - a std::vector of DFGReadNode pointers, corresponding to
@@ -138,7 +144,10 @@ namespace oxigen{
         std::string appendInstruction(DFGNode* node);
 
         std::string getTmpStoreInstructionString(DFGNode* node);
-        
+
+        std::string translateAsJavaLoop(DFGLoopNode* loopNode);
+
+        void fixAccumulNodeNaming(DFGAccNode* n,DFGLoopNode* loopNode);
     };
 
     /**

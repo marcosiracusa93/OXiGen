@@ -1,0 +1,5 @@
+digraph "CFG for 'getTime' function" {
+	label="CFG for 'getTime' function";
+
+	Node0x3042440 [shape=record,label="{%0:\l  %1 = alloca %struct.timeval, align 8\l  %2 = call i32 @gettimeofday(%struct.timeval* %1, %struct.timezone* null) #4\l  %3 = getelementptr inbounds %struct.timeval, %struct.timeval* %1, i32 0, i32\l... 0\l  %4 = load i64, i64* %3, align 8\l  %5 = mul nsw i64 %4, 1000\l  %6 = mul nsw i64 %5, 1000\l  %7 = getelementptr inbounds %struct.timeval, %struct.timeval* %1, i32 0, i32\l... 1\l  %8 = load i64, i64* %7, align 8\l  %9 = add nsw i64 %6, %8\l  ret i64 %9\l}"];
+}
