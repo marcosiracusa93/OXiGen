@@ -473,13 +473,10 @@ std::string MaxJInstructionPrinter::translateAsJavaLoop(DFGLoopNode* loopNode){
 
         dfg->orderNodes(endNode, startingPos, sortedNodes,0);
 
-        llvm::errs() << "\nOEDERED NODES\n";
 
         for(DFGNode* n : sortedNodes) {
             if (n->getType() == NodeType::AccumulNode)
                 fixAccumulNodeNaming((DFGAccNode *) n, loopNode);
-            n->getValue()->dump();
-            llvm::errs() << "Pred size: " << n->getPredecessors().size() << "\n";
         }
 
         //append instructions
@@ -525,11 +522,8 @@ std::string MaxJInstructionPrinter::appendInstruction(DFGNode* node){
 
     } else if(node->getType() == NodeType::AccumulNode){
 
-        currentInstr =  nestingTabs + std::string("\t\t") + node->getName() + std::string(" = ");
-        if(llvm::dyn_cast<llvm::PHINode>(node->getValue())){
-            std:: string init_node = node->getCrossScopePredecessors().at(0)->getName();
-            currentInstr.append(init_node + ";\n");
-        } else{
+        currentInstr =  "";
+        if(!llvm::dyn_cast<llvm::PHINode>(node->getValue())){
             llvm::errs() << "ERROR: non phi accumul not supported, terimating...\n";
             exit(EXIT_FAILURE);
         }
@@ -694,6 +688,10 @@ std::string MaxJInstructionPrinter::appendInstruction(DFGNode* node){
                                         std::string(", ") + std::to_string(offset) +
                                         std::string(");\n");
         currentInstr.append(offsetDeclaration);
+    }
+
+    for(DFGNode* succ : node->getLoopCarriedSuccessors()){
+        currentInstr.append(nestingTabs + "\t\t"+ succ->getName() + " = " + node->getName() + ";\n");
     }
     return currentInstr;
 }

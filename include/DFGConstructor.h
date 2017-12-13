@@ -79,11 +79,12 @@ namespace oxigen{
         llvm::Value* node;
         std::vector<DFGNode*> predecessors;
         std::vector<DFGNode*> successors;
+        std::vector<DFGNode*> loopCarriedPredecessors;
+        std::vector<DFGNode*> loopCarriedSuccessors;
         DFGLoopNode* loop;
         
         std::string name;
         bool markedFlag;
-        bool passedFlag;
         bool isDeclared;
         int position;
         int loopDepth;
@@ -119,7 +120,11 @@ namespace oxigen{
         llvm::Value* getValue();
 
         std::vector<DFGNode*> &getPredecessors(){ return predecessors; }
-        
+
+        std::vector<DFGNode*> getLoopCarriedSuccessors(){ return loopCarriedSuccessors; }
+
+        std::vector<DFGNode*> getLoopCarriedPredecessors(){ return  loopCarriedPredecessors; }
+
         std::vector<DFGNode*> getSuccessors(){ return successors; }
 
         std::vector<DFGNode*> getCrossScopePredecessors();
@@ -133,8 +138,6 @@ namespace oxigen{
         std::string getName();
 
         bool getFlag() { return markedFlag; }
-
-        bool getPassedFlag(){ return passedFlag; }
 
         bool isAlreadyDeclared(){ return isDeclared; }
         
@@ -164,13 +167,16 @@ namespace oxigen{
         
         void setFlag(bool value){ this->markedFlag = value; }
 
-        void setPassedFlag(bool value){ this->passedFlag = value; }
-
         void setIsDeclared(){ this->isDeclared = true; }
 
         void setSuccessor(DFGNode* succ){
             if(std::find(successors.begin(),successors.end(),succ) == successors.end())
                 successors.push_back(succ);
+        }
+        void setLoopCarriedSuccessor(DFGNode* succ){
+            if(std::find(loopCarriedSuccessors.begin(),loopCarriedSuccessors.end(),succ) == loopCarriedSuccessors.end()){
+                loopCarriedSuccessors.push_back(succ);
+            }
         }
         
         /**
@@ -201,10 +207,49 @@ namespace oxigen{
             if(!isDuplicateConstant)
                 pred->setSuccessor(this);
         }
+
+        void linkLoopCarriedPredecessor(DFGNode* pred){
+
+            bool isDuplicateConstant = false;
+            if(loopCarriedPredecessors.size() == 0)
+                loopCarriedPredecessors.push_back(pred);
+            else {
+
+                if(llvm::dyn_cast<llvm::Constant>(pred->getValue())){
+                    for(DFGNode* p : loopCarriedPredecessors){
+                        if(p->equals(pred)){
+                            isDuplicateConstant = true;
+                        }
+                    }
+                }
+                if (std::find(loopCarriedPredecessors.begin(), loopCarriedPredecessors.end(), pred)
+                    == loopCarriedPredecessors.end() && !isDuplicateConstant)
+
+                    loopCarriedPredecessors.insert(loopCarriedPredecessors.begin(), pred);
+            }
+            if(!isDuplicateConstant)
+                pred->setLoopCarriedSuccessor(this);
+        }
+
         void linkPredecessor(DFGNode* pred,int pos){
-            if(std::find(predecessors.begin(),predecessors.end(),pred) == predecessors.end())
-                predecessors.insert(predecessors.begin()+pos,pred);
+
+            bool isDuplicateConstant = false;
             pred->setSuccessor(this);
+
+            if(llvm::dyn_cast<llvm::Constant>(pred->getValue())) {
+                for (DFGNode *p : predecessors) {
+                    if (p->equals(pred)) {
+                        isDuplicateConstant = true;
+                    }
+                }
+            }
+
+            if (std::find(predecessors.begin(), predecessors.end(), pred) == predecessors.end()
+                    && !isDuplicateConstant)
+                predecessors.insert(predecessors.begin()+pos,pred);
+
+            if(!isDuplicateConstant)
+                pred->setSuccessor(this);
         }
 
         void forgetSuccessor(int pos){
@@ -767,10 +812,7 @@ namespace oxigen{
 
         void resetMarkedFlags(DFGNode* node);
 
-        void resetPassedFlags(DFGNode* node);
-        
-        void orderNodes(DFGNode* n, int &pos, std::vector<DFGNode*> &sorted,
-                        int baseSize=0,std::vector<DFGNode*>* passedNodes = nullptr);
+        void orderNodes(DFGNode* n, int &pos, std::vector<DFGNode*> &sorted, int baseSize=0);
 
         void setDFGFlags();
 
@@ -883,6 +925,12 @@ namespace oxigen{
 
             void populateDFG(DFGNode* node, IOStreams* IOs, int loopTripCount,
                              llvm::Loop* loop);
+
+            void constructNodeForOperands(std::vector<llvm::Value*> instructionOperands,DFGNode* node,
+                                          llvm::Loop* loop, DFGNodeFactory* nodeFactory, IOStreams* IOs, int loopTripCount);
+
+            DFGNode* constructNode(llvm::Value* value,DFGNode* parentNode, llvm::Loop* loop, DFGNodeFactory* nodeFactory,
+                               IOStreams* IOs, int loopTripCount);
 
             DFG* computeDFGFromBase(DFGWriteNode* baseNode, IOStreams* IOs,int loopTripCount,llvm::Loop* loop);
 
