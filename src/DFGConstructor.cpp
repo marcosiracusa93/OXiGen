@@ -783,15 +783,14 @@ std::vector<DFGWriteNode*> DFG::getUniqueWriteNodes(DFGNode* baseNode){
     return uniqueWriteNodes;
 }
 
-std::vector<DFGNode*> DFG::getScalarArguments(DFGNode* baseNode){
+std::vector<DFGNode*> DFG::getScalarArguments(DFGNode* baseNode,llvm::Function* F){
 
     llvm::errs() << "\n----------\n";
-    int startingPos = 0;
-    std::vector<DFGNode*> sortedNodes(getNodesCount());
+    std::vector<DFGNode*> sortedNodes;
     std::vector<DFGNode*> scalarArgs;
     
     resetFlags(baseNode);
-    orderNodes(baseNode,startingPos,sortedNodes);
+    sortedNodes = orderNodesWithFunc(F);
     
     for(DFGNode* n : sortedNodes)
     {
@@ -811,12 +810,12 @@ std::vector<DFGNode*> DFG::getScalarArguments(DFGNode* baseNode){
     return scalarArgs;
 }
 
-std::vector<DFGNode*> DFG::getUniqueScalarArguments(DFGNode* baseNode){
+std::vector<DFGNode*> DFG::getUniqueScalarArguments(DFGNode* baseNode,llvm::Function *F){
     
     std::vector<DFGNode*> scalarArguments;
     std::vector<DFGNode*> uniqueScalarArguments;
     
-    scalarArguments = getScalarArguments(baseNode);
+    scalarArguments = getScalarArguments(baseNode,F);
     
     for(DFGNode* node : scalarArguments){
         for(DFGNode* n : scalarArguments)
@@ -846,33 +845,9 @@ std::vector<DFGNode*> DFG::getUniqueScalarArguments(DFGNode* baseNode){
 }
 
 void DFG::fuseIdenticalNodes(){
-
+    //TODO delete this method
     resetFlags(endNode);
 
-    int pos = 0;
-    std::vector<DFGNode*> exceptionVector = std::vector<DFGNode*>();
-    std::vector<DFGNode*> orderedNodes = std::vector<DFGNode*>(getNodesCount());
-
-    resetFlags(endNode);
-
-    orderNodes(endNode,pos,orderedNodes,0);
-
-    for(DFGNode* n_1 : orderedNodes){
-        for(DFGNode* n_2 : orderedNodes){
-            if(n_1 == nullptr || n_2 == nullptr)
-                break;
-            if(n_1 != n_2 && n_1->getValue() == n_2->getValue()){
-                if(std::find(exceptionVector.begin(),
-                             exceptionVector.end(),
-                             n_1) == exceptionVector.end())
-                {
-                    oxigen::fuseNodes(n_1,n_2,exceptionVector);
-                    //oxigen::replaceNodeIfEqual(n_2, orderedNodes);
-                    exceptionVector.push_back(n_1);
-                }
-            }
-        }
-    }
 }
 
 int DFG::getNodesCount(){
@@ -884,7 +859,7 @@ int DFG::getNodesCount(){
     count = DFG::simpleCount(DFG::endNode);
     llvm::errs() << "Count end: " << count << "\n";
     DFG::resetFlags(DFG::endNode);
-    DFG::resetFlags(DFG::endNode);
+
     return count;
 }
 
@@ -1174,8 +1149,6 @@ int DFG::simpleCount(DFGNode *n) {
 
     int count = 1;
     n->setFlag(true);
-    llvm::errs() << "Counted: ";
-    n->getValue()->dump();
 
     for(DFGNode* succ : n->getSuccessors()){
         if(!succ->getFlag())
@@ -1313,6 +1286,57 @@ void DFG::orderNodes(DFGNode* n, int &pos, std::vector<DFGNode*> &sorted, int ba
 
 }
 
+std::vector<DFGNode*> DFG::orderNodesWithFunc(llvm::Function *F) {
+
+    std::vector<DFGNode*> nodes = getGraphNodes();
+    std::vector<DFGNode*> sortedNodes;
+
+    for(llvm::BasicBlock &BB : *F){
+        for(llvm::Instruction &instr : BB){
+            for(DFGNode* n : nodes){
+                if(&instr == n->getValue() && !n->getFlag()) {
+                    for(DFGNode* pred : n->getPredecessors())
+                        if(!pred->getFlag()) {
+                            pred->setFlag(true);
+                            sortedNodes.push_back(pred);
+                        }
+                    n->setFlag(true);
+                    sortedNodes.push_back(n);
+                    break;
+                }
+
+            }
+        }
+    }
+    resetFlags(endNode);
+    return sortedNodes;
+}
+
+std::vector<DFGNode*> DFG::getGraphNodes() {
+
+    std::vector<DFGNode*> nodes;
+
+    resetFlags(endNode);
+    collectNode(endNode,nodes);
+    resetFlags(endNode);
+
+    return nodes;
+}
+
+void DFG::collectNode(DFGNode *n, std::vector<DFGNode*> &nodes) {
+
+    n->setFlag(true);
+    nodes.push_back(n);
+
+    for(DFGNode* pred : n->getPredecessors())
+        if(!pred->getFlag())
+            collectNode(pred,nodes);
+
+    for(DFGNode* succ : n->getSuccessors())
+        if(!succ->getFlag())
+            collectNode(succ,nodes);
+}
+
 void DFG::getUniqueOrderedNodes(DFGNode* n, int &pos, std::vector<DFGNode*> &sorted,int baseSize){
 
     orderNodes(n,pos,sorted,baseSize);
@@ -1346,8 +1370,26 @@ std::vector<DFG*> DFGConstructor::computeIOStreamBasedDFG(llvm::Loop* topLevelLo
 
     //TODO: chech if dfgs are indipendent
 
-    if(computedDFGs.size() > 1){
-        DFGConstructor::scheduler->schedule(new DFGLinker(computedDFGs));
+    std::vector<DFG*> indipendentGraphs;
+
+    for(DFG* dfg : computedDFGs)
+        dfg->resetFlags(dfg->getEndNode());
+
+    for(DFG* dfg : computedDFGs){
+
+        if(!dfg->getEndNode()->getFlag())
+            indipendentGraphs.push_back(dfg);
+
+        dfg->setDFGFlags();
+    }
+
+    computedDFGs = indipendentGraphs;
+
+    for(DFG* dfg : indipendentGraphs)
+        dfg->resetFlags(dfg->getEndNode());
+
+    if(computedDFGs.size() != 0){
+        DFGConstructor::scheduler->schedule(new DFGLinker(computedDFGs,F));
         DFGConstructor::scheduler->executeNextComponent();
         
         return DFGConstructor::scheduler->dataflowGraph;
@@ -2206,26 +2248,22 @@ std::vector<DFG*> DFGLinker::linkDFG(){
     std::vector<DFGNode*>  nodesOrder;
     std::vector<DFGReadNode*> readNodes;
     std::vector<DFGWriteNode*> writeNodes;
-    int baseSize = 0;
     
     for(DFG* dfg : DFGLinker::dfgs)
     {
-        int graphSize = dfg->getNodesCount();
         DFGNode* base = dfg->getEndNode();
         std::vector<DFGReadNode*> rNodes;
         std::vector<DFGWriteNode*> wNodes;
-        std::vector<DFGNode*> sortedNodes(graphSize);
+        std::vector<DFGNode*> sortedNodes;
         
         dfg->getWriteNodes(base,wNodes);
         dfg->getReadNodes(base,rNodes);
         
         dfg->resetFlags(dfg->getEndNode());
 
-        dfg->orderNodes(dfg->getEndNode(),baseSize,sortedNodes,baseSize);
+        sortedNodes = dfg->orderNodesWithFunc(F);
         
         nodesOrder.insert(nodesOrder.end(),sortedNodes.begin(),sortedNodes.end());
-
-        baseSize += graphSize;
         
         readNodes.insert(readNodes.end(),rNodes.begin(),rNodes.end());
         writeNodes.insert(writeNodes.end(),wNodes.begin(),wNodes.end());
@@ -2281,7 +2319,7 @@ std::vector<DFG*> DFGLinker::linkDFG(){
                             wp->getValue()->dump();
                         }
                         std::vector<DFGNode*> &linkedNodes = readSucc->getPredecessors();
-                        int linkedSize = linkedNodes.size();
+
 
                         int pos = std::find(linkedNodes.begin(),linkedNodes.end(),readNode)-linkedNodes.begin();
                         readSucc->linkPredecessor(writeNode->getPredecessors().at(0),pos);

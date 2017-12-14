@@ -30,10 +30,10 @@ DefaultScheduler::DefaultScheduler(std::string functionName, llvm::Function* F,
 
     AnalysisManager* am = new AnalysisManager();
     StreamsAnalyzer* sa = new StreamsAnalyzer();
-    DFGConstructor* dfgc = new DFGConstructor();
+    DFGConstructor* dfgc = new DFGConstructor(F);
     DFGStreamsOverlapHandler* ovHandler = new DFGStreamsOverlapHandler();
     SubloopHandler* subhdl = new SubloopHandler();
-    DFGTranslator* dfgt = new DFGTranslator(SE);
+    DFGTranslator* dfgt = new DFGTranslator(SE,F);
 
     schedule(dfgt);
     schedule(subhdl);
@@ -163,7 +163,7 @@ void DefaultScheduler::execute(DFGConstructor* dfgConstructor){
     if(dfgs.size() > 1){
         std::vector<DFG*> revDfgs(dfgs.size());
         std::reverse_copy(std::begin(dfgs),std::end(dfgs),std::begin(revDfgs));
-        schedule(new DFGLinker(revDfgs));
+        schedule(new DFGLinker(revDfgs,F));
         executeNextComponent();
 
     }else{

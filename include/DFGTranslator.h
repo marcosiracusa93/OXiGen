@@ -87,6 +87,7 @@ namespace oxigen{
         static OpcodeMap funcLibMap;
         static CmpPredMap cmpPredMap;
         llvm::ScalarEvolution* SE;
+        llvm::Function* F;
         
     public:
     
@@ -97,8 +98,9 @@ namespace oxigen{
         std::string nestingTabs;
         std::string loopHeadDeclarations;
         
-        MaxJInstructionPrinter(llvm::ScalarEvolution* SE){
+        MaxJInstructionPrinter(llvm::ScalarEvolution* SE,llvm::Function* F){
             this->SE = SE;
+            this->F = F;
             this->nestingTabs = "";
         }
         
@@ -160,11 +162,16 @@ namespace oxigen{
      * @brief 
      */
     class DFGTranslator : public ProcessingComponent{
+
+        private:
+
+            llvm::Function* F;
         
         public:
 
-            DFGTranslator(llvm::ScalarEvolution* SE){
+            DFGTranslator(llvm::ScalarEvolution* SE,llvm::Function* F){
                 this->SE = SE;
+                this->F = F;
             }
         
             void acceptExecutor(ProcessingScheduler* scheduler){

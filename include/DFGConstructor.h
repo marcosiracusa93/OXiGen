@@ -767,15 +767,19 @@ namespace oxigen{
         std::vector<DFGWriteNode*> getUniqueWriteNodes(DFGNode* baseNode);
 
         void getUniqueOrderedNodes(DFGNode* n, int &pos, std::vector<DFGNode*> &sorted,int baseSize);
+
+        std::vector<DFGNode*> getGraphNodes();
+
+        std::vector<DFGNode*> orderNodesWithFunc(llvm::Function* F);
         
         /**
          * @brief Returns the DFGNodes containing llvm::Arguments as values
          * @param baseNode - the base node for this graph
          * @return a srd::vector of DFGNodes containing llvm::Arguments as values
          */
-        std::vector<DFGNode*> getScalarArguments(DFGNode* baseNode);
+        std::vector<DFGNode*> getScalarArguments(DFGNode* baseNode,llvm::Function* F);
         
-        std::vector<DFGNode*> getUniqueScalarArguments(DFGNode* baseNode);
+        std::vector<DFGNode*> getUniqueScalarArguments(DFGNode* baseNode,llvm::Function *F);
         
         /**
          * @brief Counts the number of nodes in this graph
@@ -819,10 +823,7 @@ namespace oxigen{
         void fuseIdenticalNodes();
     
     private:
-        
-        /**
-         * @brief Recursive method used in the count of the nodes of a DFG
-         */
+
         int countChildren(DFGNode* parent, int count);
 
         int simpleCount(DFGNode* n);
@@ -849,6 +850,8 @@ namespace oxigen{
 
         void descendAndSet(DFGNode* node);
 
+        void collectNode(DFGNode* n,std::vector<DFGNode*> &nodes);
+
         std::pair<int,int> getMinWindowInSubgraph(DFGNode* start);
 
         std::pair<int,int> getResultingWindow(std::pair<int,int> w_1,std::pair<int,int> w_2);
@@ -867,10 +870,13 @@ namespace oxigen{
     protected:
         std::vector<DFG*> dfgs;
         ProcessingScheduler* scheduler;
+        llvm::Function* F;
     
     public:
     
-        DFGLinker(std::vector<DFG*> dfgs){ this->dfgs = dfgs;
+        DFGLinker(std::vector<DFG*> dfgs,llvm::Function* F){
+            this->dfgs = dfgs;
+            this->F = F;
             llvm::errs() << "graphs to link:\n";
         for(DFG* d : dfgs )
             d->printDFG();
@@ -900,9 +906,14 @@ namespace oxigen{
         
             ProcessingScheduler* scheduler;
             std::vector<CounterPair> loopCounters;
+            llvm::Function* F;
       
         public:
-    
+
+            DFGConstructor(llvm::Function* F){
+                this->F = F;
+            }
+
             void acceptExecutor(ProcessingScheduler* scheduler){
                 this->scheduler = scheduler;
                 scheduler->execute(this);

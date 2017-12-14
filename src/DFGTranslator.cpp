@@ -461,9 +461,7 @@ std::string MaxJInstructionPrinter::translateAsJavaLoop(DFGLoopNode* loopNode){
     for(DFG* dfg : dfgs) {
 
         DFGNode *endNode = dfg->getEndNode();
-        std::vector<DFGNode*> sortedNodes(dfg->getNodesCount());
-
-        int startingPos = 0;
+        std::vector<DFGNode*> sortedNodes;
 
         dfg->resetFlags(endNode);
 
@@ -472,7 +470,7 @@ std::string MaxJInstructionPrinter::translateAsJavaLoop(DFGLoopNode* loopNode){
 
         dfg->resetFlags(endNode);
 
-        dfg->orderNodes(endNode, startingPos, sortedNodes,0);
+        sortedNodes = dfg->orderNodesWithFunc(F);
 
 
         for(DFGNode* n : sortedNodes) {
@@ -749,7 +747,7 @@ std::string DFGTranslator::generateKernelString(std::string kernelName,std::stri
     std::string kernelNamePlaceholder = "<kernelName>";
     std::string kernelSignatureTmpl = MaxJInstructionPrinter::kernelSignature;
     
-    MaxJInstructionPrinter* maxjPrinter = new MaxJInstructionPrinter(SE);
+    MaxJInstructionPrinter* maxjPrinter = new MaxJInstructionPrinter(SE,F);
     
     //append pakage
     kernelAsString.append(std::string("package ") + packageName + endl);
@@ -788,7 +786,7 @@ std::string DFGTranslator::generateKernelString(std::string kernelName,std::stri
         DFGNode *endNode = dfg->getEndNode();
         std::vector<DFGReadNode*> rNodes = dfg->getUniqueReadNodes(endNode);
         std::vector<DFGWriteNode*> wNodes = dfg->getUniqueWriteNodes(endNode);
-        std::vector<DFGNode*> aNodes = dfg->getUniqueScalarArguments(endNode);
+        std::vector<DFGNode*> aNodes = dfg->getUniqueScalarArguments(endNode,F);
 
         readNodes.insert(readNodes.end(),rNodes.begin(),rNodes.end());
         writeNodes.insert(writeNodes.end(),wNodes.begin(),wNodes.end());
@@ -821,13 +819,11 @@ std::string DFGTranslator::generateKernelString(std::string kernelName,std::stri
     for(DFG* dfg : dfgs) {
 
         DFGNode *endNode = dfg->getEndNode();
-        std::vector<DFGNode*> sortedNodes(dfg->getNodesCount());
-
-        int startingPos = 0;
+        std::vector<DFGNode*> sortedNodes;
 
         dfg->resetFlags(endNode);
 
-        dfg->orderNodes(endNode, startingPos, sortedNodes,0);
+        sortedNodes = dfg->orderNodesWithFunc(F);
 
         llvm::errs() << "\nSorted nodes:\n";
 
