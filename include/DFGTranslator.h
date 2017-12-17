@@ -7,6 +7,8 @@
 
 namespace oxigen{
 
+    enum MaxLoopTranslationMode { JavaLoop = 0, AutoLoop = 1 };
+
 /**
      * @class SequentialNamesManager
      * @author Francesco Peverelli, Marco Siracusa
@@ -95,9 +97,13 @@ namespace oxigen{
         static ImportMap libImports;
         static std::string kernelSignature;
         static std::string kernelSignatureClosing;
+        MaxLoopTranslationMode translationMode;
         std::string nestingTabs;
         std::string loopHeadDeclarations;
-        
+        std::string currentLoopIndex;
+        std::map<llvm::Value*,std::pair<std::string,std::string>> declaredNestedVectors;
+        std::map<DFGLoopNode*,std::string> loopIndexes;
+
         MaxJInstructionPrinter(llvm::ScalarEvolution* SE,llvm::Function* F){
             this->SE = SE;
             this->F = F;
@@ -146,12 +152,11 @@ namespace oxigen{
         
         std::string appendInstruction(DFGNode* node);
 
-        std::string getTmpStoreInstructionString(DFGNode* node);
-
         std::string translateAsJavaLoop(DFGLoopNode* loopNode);
 
-        void fixAccumulNodeNaming(DFGAccNode *n, DFGLoopNode *loopNode,
-                                  SequentialNamesManager* nm,std::string loopPrefix);
+        bool isNestedVectorWrite(DFGNode* node);
+
+        llvm::AllocaInst* getVectorBasePointer(DFGNode* node);
     };
 
     /**
@@ -190,6 +195,7 @@ namespace oxigen{
             void assignNodeNames();
             
             std::string generateKernelString(std::string kernelName,std::string packageName);
+
     };
 } // End OXiGen namespace
 

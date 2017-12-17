@@ -624,6 +624,15 @@ void DFG::getReadNodes(DFGNode* baseNode,std::vector<DFGReadNode*> &readNodes){
 
 }
 
+void DFG::getReadNodes(std::vector<DFGNode*> graphNodes, std::vector<DFGReadNode*> &readNodes) {
+
+    for(DFGNode* n : graphNodes){
+        if(n->getType() == NodeType::ReadNode || n->getType() == NodeType::OffsetRead){
+            readNodes.push_back((DFGReadNode*)n);
+        }
+    }
+}
+
 void DFG::collectReadNodes(DFGNode* baseNode,std::vector<DFGReadNode*> &readNodes){
     
     if((baseNode->getType() == NodeType::ReadNode || baseNode->getType() == NodeType::OffsetRead)
@@ -662,7 +671,16 @@ void DFG::descendAndCollectReads(DFGNode* node, std::vector<DFGReadNode*> &readN
         if((startingNode->getType() == NodeType::ReadNode || startingNode->getType() == NodeType::OffsetRead)
            && !startingNode->getFlag())
             readNodes.push_back((DFGReadNode*)startingNode);
-}    
+}
+
+void DFG::getWriteNodes(std::vector<DFGNode *> graphNodes, std::vector<DFGWriteNode *> &writeNodes) {
+
+    for(DFGNode* n : graphNodes){
+        if(n->getType() == NodeType::WriteNode || n->getType() == NodeType::OffsetWrite){
+            writeNodes.push_back((DFGWriteNode*)n);
+        }
+    }
+}
 
 void DFG::getWriteNodes(DFGNode* baseNode,std::vector<DFGWriteNode*> &writeNodes){
     
@@ -916,6 +934,32 @@ void DFG::simpleSetNames(std::vector<std::string> &nodeNames, DFGNode *node) {
 
     if(!node->getFlag()){
 
+        if(node->getType() == NodeType::LoopNode){
+            DFGLoopNode* loopNode = (DFGLoopNode*)node;
+
+            for(DFGNode* n : loopNode->getInPortOuterNodes()){
+
+                if(llvm::ConstantFP* CFP = llvm::dyn_cast<llvm::ConstantFP>(n->getValue()))
+                {
+                    if(CFP->getType()->isDoubleTy()) {
+                        double val = CFP->getValueAPF().convertToDouble();
+                        n->setName(std::to_string(val));
+                    }else{
+                        float val = CFP->getValueAPF().convertToFloat();
+                        n->setName(std::to_string(val));
+                    }
+                }else if(llvm::ConstantInt* CFP = llvm::dyn_cast<llvm::ConstantInt>(n->getValue()))
+                {
+                    if(node->getType() == NodeType::Offset){
+                        n->setName(nodeNames.back());
+                        nodeNames.pop_back();
+                    }else{
+                        n->setName(std::to_string(CFP->getSExtValue()));
+                    }
+                }
+            }
+        }
+
         //account for different llvm::Value subtypes
 
         if(llvm::dyn_cast<llvm::Instruction>(node->getValue()))
@@ -947,11 +991,10 @@ void DFG::simpleSetNames(std::vector<std::string> &nodeNames, DFGNode *node) {
                 node->setName(nodeNames.back());
                 nodeNames.pop_back();
             }else{
-                node->setName(std::to_string(CFP->getZExtValue()));
+                node->setName(std::to_string(CFP->getSExtValue()));
                 nodeNames.pop_back();
             }
         }
-
     }
 
     node->setFlag(true);
@@ -2247,17 +2290,16 @@ std::vector<DFG*> DFGLinker::linkDFG(){
     
     for(DFG* dfg : DFGLinker::dfgs)
     {
-        DFGNode* base = dfg->getEndNode();
         std::vector<DFGReadNode*> rNodes;
         std::vector<DFGWriteNode*> wNodes;
         std::vector<DFGNode*> sortedNodes;
         
-        dfg->getWriteNodes(base,wNodes);
-        dfg->getReadNodes(base,rNodes);
-        
         dfg->resetFlags(dfg->getEndNode());
 
         sortedNodes = dfg->orderNodesWithFunc(F);
+
+        dfg->getWriteNodes(sortedNodes,wNodes);
+        dfg->getReadNodes(sortedNodes,rNodes);
         
         nodesOrder.insert(nodesOrder.end(),sortedNodes.begin(),sortedNodes.end());
         

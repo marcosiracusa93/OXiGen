@@ -739,6 +739,8 @@ namespace oxigen{
          * @param baseNode - the base node of this graph
          */
         void getReadNodes(DFGNode* baseNode,std::vector<DFGReadNode*> &readNodes);
+
+        void getReadNodes(std::vector<DFGNode*> graphNodes,std::vector<DFGReadNode*> &readNodes);
         
         /**
          * @brief Used to retrieve the DFGWriteNode in this graph. It
@@ -750,6 +752,8 @@ namespace oxigen{
          * @param baseNode - the base node of this graph
          */
         void getWriteNodes(DFGNode* baseNode,std::vector<DFGWriteNode*> &writeNodes);
+
+        void getWriteNodes(std::vector<DFGNode*> graphNodes,std::vector<DFGWriteNode*> &writeNodes);
         
         /**
          * @brief This method used the DFG::getReadNodes method to retrieve
