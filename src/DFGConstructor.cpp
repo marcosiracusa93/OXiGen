@@ -1598,7 +1598,7 @@ DFGNode* DFGConstructor::constructNode(llvm::Value *value, DFGNode *parentNode, 
                 //Node initialization for a generic instruction
 
                 if (llvm::PHINode *phi = llvm::dyn_cast<llvm::PHINode>(operandAsInstr)) {
-                    if (oxigen::isCounterForLoop(phi, loop)) {
+                    if (oxigen::isCounterForLoop(phi, loop) ) {
 
                         DFGCounterNode *loopCounter = nodeFactory->createDFGCounterNode(phi);
 
@@ -2122,6 +2122,19 @@ void oxigen::insertNode(DFGNode* n,DFGNode* pred,DFGNode* succ,bool areConsecuti
 
 }
 
+bool oxigen::isExitPhi(llvm::PHINode *phi) {
+
+    llvm::Value* v = phi->getParent()->getTerminator()->getOperand(0);
+
+    if(llvm::Instruction* i = llvm::dyn_cast<llvm::Instruction>(v)){
+        for(llvm::Value* op : i->operands()){
+            if(op == phi)
+                return true;
+        }
+    }
+    return false;
+}
+
 bool oxigen::isCounterForLoop(llvm::PHINode *phi, llvm::Loop *L) {
 
     for(auto it = L->getHeader()->begin(); it != L->getHeader()->end(); ++it) {
@@ -2234,6 +2247,8 @@ std::vector<DFGNode*> oxigen::getElementarPredecessors(std::vector<DFGNode*> nod
     }
     return predecessors;
 }
+
+
 
 std::vector<DFGNode*> oxigen::getNodePredecessors(DFGNode* n,NodeType type,DFGNode* succNode){
 

@@ -972,6 +972,8 @@ namespace oxigen{
 
     bool isCounterForLoop(llvm::PHINode* phi,llvm::Loop* L);
 
+    bool isExitPhi(llvm::PHINode* phi);
+
     llvm::PHINode* getLoopCounterIfAny(llvm::Loop* loop);
 
     std::vector<DFGNode*> getElementarPredecessors(std::vector<DFGNode*> nodes,DFGNode* succNode);

@@ -627,8 +627,14 @@ std::string MaxJInstructionPrinter::appendInstruction(DFGNode* node){
             exit(EXIT_FAILURE);
         }
 
+        std::string initVal = initPred->getName();
+
+        if(std::isdigit(initVal[0]) || initVal[0] == '-'){
+            initVal = "constant.var(" + initVal + ")";
+        }
+
         loopHeadDeclarations.append("\t\t"+ varType + varName +
-                                    assignmentType + initPred->getName() + ";\n");
+                                    assignmentType + initVal + ";\n");
 
         if(!llvm::dyn_cast<llvm::PHINode>(node->getValue())){
             llvm::errs() << "ERROR: non phi accumul not supported, terimating...\n";
@@ -756,6 +762,13 @@ std::string MaxJInstructionPrinter::appendInstruction(DFGNode* node){
                     }
                 }
 
+                if(std::isdigit(trueAlt[0]) || trueAlt[0] == '-'){
+                    trueAlt = "constant.var(" + trueAlt + ")";
+                }
+                if(std::isdigit(falseAlt[0]) || falseAlt[0] == '-'){
+                    falseAlt = "constant.var(" + falseAlt + ")";
+                }
+
                 currentInstr = nestingTabs + std::string("\t\t"+ varType) + varName +
                                assignmentType + cond + std::string(" ? ") +
                                trueAlt + std::string(" : ") + falseAlt + std::string(";\n");
@@ -799,6 +812,15 @@ std::string MaxJInstructionPrinter::appendInstruction(DFGNode* node){
     for(DFGNode* succ : node->getLoopCarriedSuccessors()){
         currentInstr.append(nestingTabs + "\t\t"+ succ->getName() + assignmentType + varName + ";\n");
     }
+
+    for(DFGNode* pred : node->getCrossScopePredecessors()){
+        std::string predName = pred->getName();
+        if(isNestedVectorWrite(pred) && translationMode == MaxLoopTranslationMode::JavaLoop){
+            size_t firstrachet = predName.find_first_of('[');
+            pred->setName(predName.substr(0,firstrachet));
+        }
+    }
+
     return currentInstr;
 }
 
