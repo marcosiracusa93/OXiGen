@@ -409,12 +409,21 @@ namespace oxigen{
 
     class DFGAccNode : public DFGNode {
 
+    private:
+
+        bool isCounter;
+
     public:
 
         DFGAccNode(llvm::Value* value,int loopTripCount = -1) : DFGNode(value,loopTripCount) {
 
             this->typeID = NodeType::AccumulNode;
+            this->isCounter = false;
         }
+
+        bool getIsCounter(){ return isCounter; }
+
+        void setIsCounter(bool value){ this->isCounter = value; }
     };
 
     class DFGOffsetNode : public DFGNode {
@@ -974,6 +983,8 @@ namespace oxigen{
 
     bool isExitPhi(llvm::PHINode* phi);
 
+    bool isNestedVectorWrite(DFGNode *node);
+
     llvm::PHINode* getLoopCounterIfAny(llvm::Loop* loop);
 
     std::vector<DFGNode*> getElementarPredecessors(std::vector<DFGNode*> nodes,DFGNode* succNode);
@@ -983,6 +994,8 @@ namespace oxigen{
     bool  isComposite(NodeType type);
 
     std::vector<NodeType> getCompositeTypes();
+
+    std::vector<DFGNode*> getLoopCarriedDependencies(DFG* dfg);
 
 } // End OXiGen namespace
 

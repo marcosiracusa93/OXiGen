@@ -2,12 +2,16 @@
 #define DFGTRANSLATOR_H
 
 #include "DFGConstructor.h"
+#include "LoopReplicationManager.h"
 #include "ProcessingScheduler.h"
 #include "ProcessingComponent.h"
+#include <fstream>
 
 namespace oxigen{
 
     enum MaxLoopTranslationMode { JavaLoop = 0, AutoLoop = 1 };
+
+    const std::string GLOBAL_TILING = "global_tiling";
 
 /**
      * @class SequentialNamesManager
@@ -88,19 +92,38 @@ namespace oxigen{
         static OpcodeMap opcodeMap;
         static OpcodeMap funcLibMap;
         static CmpPredMap cmpPredMap;
+
+        ImportMap oxigenFunctions;
         llvm::ScalarEvolution* SE;
         llvm::Function* F;
+
+        std::string oxigenClassPath = "../resources/MaxJOXiGenFunctions.txt";
         
     public:
     
         static std::vector<std::string> imports;
         static ImportMap libImports;
-        static std::string kernelSignature;
+        static std::string kernelSignature_1;
+        static std::string kernelSignature_2;
         static std::string kernelSignatureClosing;
+
+        std::vector<std::string> kernelOptimizations;
+        LoopDependencyGraph* dependencyGraph;
+
         MaxLoopTranslationMode translationMode;
+
+        int FLOAT_MANTISSA = 24;
+        int FLOAT_EXP = 8;
+        int DOUBLE_MANTISSA = 53;
+        int DOUBLE_EXP = 11;
+        int currentGlobalDelay;
+
+        std::string globalVariables;
+        std::string globalDFEVars;
         std::string nestingTabs;
         std::string loopHeadDeclarations;
         std::string currentLoopIndex;
+
         std::map<llvm::Value*,std::pair<std::string,std::string>> declaredNestedVectors;
         std::map<DFGLoopNode*,std::string> loopIndexes;
 
@@ -108,7 +131,21 @@ namespace oxigen{
             this->SE = SE;
             this->F = F;
             this->nestingTabs = "";
+            this->currentGlobalDelay = 0;
+
+            std::string oxigenClass;
+            std::ifstream file(oxigenClassPath.c_str());
+            std::string temp;
+            while(std::getline(file, temp)) {
+                oxigenClass.append(temp+"\n");
+            }
+
+            oxigenFunctions.insert(
+                    std::pair<std::string,std::pair<bool,std::string>>(
+                            "Ncdf",std::pair<bool,std::string>(false,oxigenClass)));
         }
+
+        ImportMap getOxigenFunctions(){ return oxigenFunctions; }
         
         /**
          * @param inputs - a std::vector of DFGReadNode pointers, corresponding to
@@ -154,9 +191,11 @@ namespace oxigen{
 
         std::string translateAsJavaLoop(DFGLoopNode* loopNode);
 
-        bool isNestedVectorWrite(DFGNode* node);
-
         llvm::AllocaInst* getVectorBasePointer(DFGNode* node);
+
+        std::vector<std::string> translateFunctionArguments(llvm::Function* F,std::vector<std::string> funcArgs);
+
+        std::string getFullNameIfConstant(DFGNode* var);
     };
 
     /**
@@ -183,11 +222,16 @@ namespace oxigen{
                 scheduler->execute(this);
             }
             
-            void printDFGAsKernel(std::vector<DFG*> dfg, std::string kernelName, std::string packageName);
-            
+            void printDFGAsKernel(std::vector<DFG*> dfg,std::vector<LoopDependencyGraph*> dependencyGraph, std::string kernelName, std::string packageName);
+
+            void setKernelOptimizations(std::vector<std::string> kernelOptimizations){
+                this->kernelOptimizations = kernelOptimizations;
+            }
         protected:
             
             std::vector<DFG*> dfgs;
+            std::vector<LoopDependencyGraph*> dependencyGraph;
+            std::vector<std::string> kernelOptimizations;
             llvm::ScalarEvolution* SE;
             
         private:

@@ -11,9 +11,10 @@ std::vector<std::string> MaxJInstructionPrinter::imports = {
 };
 
 //default kernel signature
-std::string MaxJInstructionPrinter::kernelSignature = 
-    std::string("class <kernelName> extends Kernel {\n\n")            +
-    std::string("\t<kernelName>(KernelParameters parameters) {\n")    +
+std::string MaxJInstructionPrinter::kernelSignature_1 =
+    std::string("class <kernelName> extends Kernel {\n\n");
+
+std::string MaxJInstructionPrinter::kernelSignature_2 = std::string("\t<kernelName>(KernelParameters parameters) {\n")    +
     std::string("\t\tsuper(parameters);\n\n");
    
 //default kernel signature closing 
@@ -54,16 +55,20 @@ MaxJInstructionPrinter::OpcodeMap MaxJInstructionPrinter::funcLibMap = {
         {"exp","KernelMath"},
         {"min","KernelMath"},
         {"max","KernelMath"},
-        {"Ncdf", "FunctionHart"}
+        {"Ncdf", "OXiGen"}
 };
 
 MaxJInstructionPrinter::ImportMap MaxJInstructionPrinter::libImports = {
+
         {"KernelMath",std::pair<bool,std::string>(
                 false,"com.maxeler.maxcompiler.v2.kernelcompiler.stdlib.KernelMath")},
-        {"FunctionHart",std::pair<bool,std::string>(
-                false,"com.maxeler.maxblox.funceval.FunctionHart")},
+        {"OXigen",std::pair<bool,std::string>(
+                false,"")},
+        {"Reductions",std::pair<bool,std::string>(
+                false,"com.maxeler.maxcompiler.v2.kernelcompiler.stdlib.Reductions"
+        )},
         {"DFEVector",std::pair<bool,std::string>(
-                false,"com.maxeler.maxcompiler.v2.kernelcompiler.types.composite.DFEVector"
+                false,"com.maxeler.maxcompiler.v2.kernelcompiler.types.composite.DFEVector;\nimport com.maxeler.maxcompiler.v2.kernelcompiler.types.composite.DFEVectorType"
         )}
 };
 
@@ -132,7 +137,13 @@ std::string SequentialNamesManager::generateNextName(){
 std::string MaxJInstructionPrinter::getInputStreamsDeclarations(std::vector<DFGReadNode*> inputs){
     
     std::string declarations;
+    std::string inputEnable = "";
     std::vector<DFGReadNode*> tmp;
+
+    if(std::find(kernelOptimizations.begin(),kernelOptimizations.end(),GLOBAL_TILING)
+                    != kernelOptimizations.end()){
+        inputEnable = ",tileCounter.eq(0)";
+    }
 
     for(auto it_r = inputs.rbegin(); it_r != inputs.rend(); ++it_r){
 
@@ -150,20 +161,30 @@ std::string MaxJInstructionPrinter::getInputStreamsDeclarations(std::vector<DFGR
 
     for(DFGReadNode* inputNode : inputs)
     {
-        //TODO : check correctness
+        inputNode->setGlobalDelay(0);
         auto inputStream = inputNode->getReadingStream();
         llvm::Type* inputStreamType = inputStream.first->getType()->getPointerElementType();
         std::string nodeName = inputNode->getName();
         
         if(inputStreamType->isFloatingPointTy())
         {
-            int size = inputStreamType->getPrimitiveSizeInBits();
-            int mantissa = inputStreamType->getFPMantissaWidth();
+            int exp;
+            int mantissa;
+
+            if(inputStreamType->isDoubleTy()){
+                mantissa = DOUBLE_MANTISSA;
+                exp = DOUBLE_EXP;
+            }else{
+                mantissa = FLOAT_MANTISSA;
+                exp = FLOAT_EXP;
+            }
+
             
             std::string decl = std::string("\t\tDFEVar ") + nodeName +
                         std::string(" = io.input(\"") + nodeName + 
-                        std::string("\", dfeFloat(") + std::to_string(size-mantissa) +
-                        std::string(", ") + std::to_string(mantissa) + std::string("));\n");
+                        std::string("\", dfeFloat(") + std::to_string(exp) +
+                        std::string(", ") + std::to_string(mantissa) + std::string(")") + inputEnable +
+                        std::string(");\n");
             
             declarations.append(decl);
         }
@@ -173,8 +194,8 @@ std::string MaxJInstructionPrinter::getInputStreamsDeclarations(std::vector<DFGR
             
             std::string decl = std::string("\t\tDFEVar ") + nodeName +
                         std::string(" = io.input(\"") + nodeName + 
-                        std::string("\", dfeInt(") + std::to_string(bitWidth) + 
-                        std::string("));\n");
+                        std::string("\", dfeInt(") + std::to_string(bitWidth) +
+                        std::string(")") + inputEnable + std::string(");\n");
                         
             declarations.append(decl);
         }
@@ -280,7 +301,16 @@ std::string MaxJInstructionPrinter::getConstantInputOffsetsDeclarations(std::vec
 std::string MaxJInstructionPrinter::getOutputStreamsDeclarations(std::vector<DFGWriteNode*> outputs){
     
     std::string declarations;
+    std::string outputEnable = "";
     std::vector<DFGWriteNode*> tmp;
+
+    if(std::find(kernelOptimizations.begin(),kernelOptimizations.end(),GLOBAL_TILING)
+       != kernelOptimizations.end()){
+
+        int delay = MaxJInstructionPrinter::dependencyGraph->getFinalDelay();
+
+        outputEnable = ",tileCounter.eq(" + std::to_string(delay) + " % tilingFactor)";
+    }
 
     for(auto it_r = outputs.rbegin(); it_r != outputs.rend(); ++it_r){
 
@@ -316,13 +346,22 @@ std::string MaxJInstructionPrinter::getOutputStreamsDeclarations(std::vector<DFG
         
         if(outputStreamType->isFloatingPointTy())
         {
-            int size = outputStreamType->getPrimitiveSizeInBits();
-            int mantissa = outputStreamType->getFPMantissaWidth();
+            int exp;
+            int mantissa;
+
+            if(outputStreamType->isDoubleTy()){
+                mantissa = DOUBLE_MANTISSA;
+                exp = DOUBLE_EXP;
+            }else{
+                mantissa = FLOAT_MANTISSA;
+                exp = FLOAT_EXP;
+            }
             
             std::string decl = std::string("\t\tio.output(\"") + nodeName + 
                         std::string("\", ") + resultName + std::string(", dfeFloat(") + 
-                        std::to_string(size-mantissa) + std::string(", ") +
-                        std::to_string(mantissa) + std::string("));\n");
+                        std::to_string(exp) + std::string(", ") +
+                        std::to_string(mantissa) + std::string(")") + outputEnable +
+                        std::string(");\n");
                         
             declarations.append(decl);
         }
@@ -332,7 +371,8 @@ std::string MaxJInstructionPrinter::getOutputStreamsDeclarations(std::vector<DFG
             
             std::string decl = std::string("\t\tio.output(\"") + nodeName + 
                         std::string("\", ") + resultName + std::string(", dfeInt(") + 
-                        std::to_string(bitWidth) + std::string("));\n");
+                        std::to_string(bitWidth) + std::string(")") + outputEnable +
+                        std::string(");\n");
                         
             declarations.append(decl);
         }
@@ -369,12 +409,20 @@ std::string MaxJInstructionPrinter::getScalarInputsDeclarations(std::vector<DFGN
         
         if(argType->isFloatingPointTy())
         {
-            int size = argType->getPrimitiveSizeInBits();
-            int mantissa = argType->getFPMantissaWidth();
+            int exp;
+            int mantissa;
+
+            if(argType->isDoubleTy()){
+                mantissa = DOUBLE_MANTISSA;
+                exp = DOUBLE_EXP;
+            }else{
+                mantissa = FLOAT_MANTISSA;
+                exp = FLOAT_EXP;
+            }
             
             std::string decl = std::string("\t\tDFEVar ") + nodeName +
                         std::string(" = io.scalarInput(\"") + nodeName + 
-                        std::string("\", dfeFloat(") + std::to_string(size-mantissa) +
+                        std::string("\", dfeFloat(") + std::to_string(exp) +
                         std::string(", ") + std::to_string(mantissa) + std::string("));\n");
                         
             declarations.append(decl);
@@ -411,6 +459,7 @@ std::string MaxJInstructionPrinter::translateAsJavaLoop(DFGLoopNode* loopNode){
 
     SequentialNamesManager* loopNamesManager = new SequentialNamesManager();
     loopHeadDeclarations = "";
+    LoopGraphNode* dependencyGraphNode = MaxJInstructionPrinter::dependencyGraph->getNodeForLoop(loopNode);
 
     for(DFGNode* endNode : loopNode->getEndNodes()){
         DFG* dfg = new DFG(endNode);
@@ -438,8 +487,14 @@ std::string MaxJInstructionPrinter::translateAsJavaLoop(DFGLoopNode* loopNode){
         dfg->setNameVector(nodeNames,dfg->getEndNode());
     }
 
-    int iterations = loopNode->getTripCount();
+    int iterations;
+    int tilingFactor = dependencyGraphNode->getTilingFactor();
 
+    if(!tilingFactor) {
+        iterations = loopNode->getTripCount();
+    }else{
+        iterations = loopNode->getTripCount() / tilingFactor;
+    }
     if(iterations < 0){
         llvm::errs() << "ERROR: trip count is not constant\n";
         exit(EXIT_FAILURE);
@@ -476,38 +531,46 @@ std::string MaxJInstructionPrinter::translateAsJavaLoop(DFGLoopNode* loopNode){
 
         dfg->resetFlags(endNode);
 
-        llvm::errs() << "\nLOOP GRAPH\n";
-        dfg->printDFG();
-
-        dfg->resetFlags(endNode);
-
         sortedNodes = dfg->orderNodesWithFunc(F);
 
         //append instructions
         loopBody.append(generateInstructionsString(sortedNodes));
-
         loopBody.append("\n");
 
     }
     nestingTabs = "";
 
-    return std::string(loopHeadDeclarations +forHeader+loopBody+forClosure);
-}
+    std::string closingDeclarations = "";
 
-bool MaxJInstructionPrinter::isNestedVectorWrite(DFGNode *node) {
+    if(dependencyGraphNode->getLoopType() == LoopType::Accumul &&
+            std::find(kernelOptimizations.begin(),kernelOptimizations.end(),GLOBAL_TILING)
+            != kernelOptimizations.end()){
 
-    if(node->getLoopDepth() < 2)
-        return false;
+        int tilingFactor = dependencyGraphNode->getTilingFactor();
 
-    for(DFGNode* s : node->getSuccessors()){
-        if(llvm::StoreInst* store = llvm::dyn_cast<llvm::StoreInst>(s->getValue())){
-            if(llvm::GetElementPtrInst* gep = llvm::dyn_cast<llvm::GetElementPtrInst>(store->getPointerOperand())) {
-                if (llvm::dyn_cast<llvm::AllocaInst>(gep->getPointerOperand()))
-                    return true;
+        forHeader = "\n\t\tfor(int tile_n = 0; tile_n < " +
+                    std::to_string(tilingFactor)+"; tile_n += 1){\n" + forHeader;
+        forClosure = forClosure + "\n\t\t}\n";
+
+        for(DFGNode* n : loopNode->getOutPortInnerNodes()){
+            if(n->getType() == NodeType::AccumulNode){
+
+                libImports["Reductions"].first = true;
+                int tilingDelay = dependencyGraphNode->getTilingDelay();
+
+
+                closingDeclarations.append(nestingTabs + "\t\tDFEVar " +  n->getName() + "_hold"
+                 " = " + "Reductions.streamHold(" + n->getName() + ", tileCounter.eq(" +
+                std::to_string(( tilingDelay + tilingFactor -1) % tilingFactor) + "));\n");
+                n->setName(n->getName() + "_hold");
             }
+
         }
+
+        MaxJInstructionPrinter::currentGlobalDelay = currentGlobalDelay + tilingFactor - 1;
     }
-    return false;
+
+    return std::string(loopHeadDeclarations +forHeader+loopBody+forClosure + closingDeclarations);
 }
 
 llvm::AllocaInst* MaxJInstructionPrinter::getVectorBasePointer(DFGNode *node) {
@@ -525,23 +588,135 @@ llvm::AllocaInst* MaxJInstructionPrinter::getVectorBasePointer(DFGNode *node) {
     return vectorBasePointer;
 }
 
+std::vector<std::string> MaxJInstructionPrinter::translateFunctionArguments(llvm::Function* F,
+                                                               std::vector<std::string> funcArgs) {
+
+    if(F->getName() == std::string("log")){
+        llvm::Type *argType = (*(F->getArgumentList().begin())).getType();
+        std::string argTypeStr;
+
+        if(argType->isFloatingPointTy()){
+
+            int exp;
+            int mantissa;
+
+            if(argType->isDoubleTy()){
+                mantissa = DOUBLE_MANTISSA;
+                exp = DOUBLE_EXP;
+            }else{
+                mantissa = FLOAT_MANTISSA;
+                exp = FLOAT_EXP;
+            }
+
+            argTypeStr = std::string(" dfeFloat(") + std::to_string(exp) +
+                               std::string(", ") + std::to_string(mantissa) + std::string(")");
+
+        }
+        if(argType->isIntegerTy())
+        {
+            int bitWidth = argType->getIntegerBitWidth();
+
+            argTypeStr = std::string("dfeInt(") + std::to_string(bitWidth) +
+                                     std::string("));\n");
+        }
+        funcArgs.push_back(argTypeStr);
+    }
+    return funcArgs;
+}
+
+std::string MaxJInstructionPrinter::getFullNameIfConstant(DFGNode* var) {
+
+    if(llvm::ConstantFP* CFP = llvm::dyn_cast<llvm::ConstantFP>(var->getValue()))
+    {
+        if(CFP->getType()->isDoubleTy()) {
+            double val = CFP->getValueAPF().convertToDouble();
+            return "constant.var(dfeFloat(" + std::to_string(DOUBLE_EXP) + "," +
+                    std::to_string(DOUBLE_MANTISSA) + ")," + std::to_string(val) + ")";
+        }else{
+            float val = CFP->getValueAPF().convertToFloat();
+            return "constant.var(dfeFloat(" + std::to_string(FLOAT_EXP) + "," +
+                   std::to_string(FLOAT_MANTISSA) + ")," + std::to_string(val) + ")";
+        }
+    }else if(llvm::ConstantInt* CI = llvm::dyn_cast<llvm::ConstantInt>(var->getValue()))
+    {
+        int val = CI->getSExtValue();
+        int bitWidth = CI->getBitWidth();
+        if(var->getType() == NodeType::Offset){
+            return var->getName();
+        }else{
+            return "constant.var(dfeInt(" + std::to_string(bitWidth) + ")," + std::to_string(val) + ")";
+        }
+    }else{
+        return var->getName();
+    }
+}
+
 std::string MaxJInstructionPrinter::appendInstruction(DFGNode* node){
 
     std::string currentInstr = "";
     std::string varType = "DFEVar ";
     std::string assignmentType = " = ";
     std::string varName = node->getName();
+    node->setGlobalDelay(MaxJInstructionPrinter::currentGlobalDelay);
+
+    std::map<std::string,std::string> vectorPredNamesMap = std::map<std::string,std::string>();
+
+    for(DFGNode* pred : node->getCrossScopePredecessors()){
+
+        if(pred->getType() == NodeType::ReadNode || pred->getType() == NodeType::OffsetRead){
+            pred->setGlobalDelay(0);
+        }
+
+        std::string tmpName = "";
+
+        if(isNestedVectorWrite(pred) && translationMode == MaxLoopTranslationMode::JavaLoop) {
+            tmpName = pred->getName() + "[" + currentLoopIndex + "]";
+        }else{
+            tmpName = pred->getName();
+        }
+
+        if(std::find(kernelOptimizations.begin(),kernelOptimizations.end(),GLOBAL_TILING)
+           != kernelOptimizations.end() && translationMode == MaxLoopTranslationMode::JavaLoop) {
+
+            if(pred->getLoop() != nullptr && node->getLoop() != nullptr) {
+
+                LoopGraphNode* predLoopNode =
+                        MaxJInstructionPrinter::dependencyGraph->getNodeForLoop(pred->getLoop());
+                LoopGraphNode* nodeLoopNode =
+                        MaxJInstructionPrinter::dependencyGraph->getNodeForLoop(node->getLoop());
+
+                for(auto succ : predLoopNode->getSuccessors()) {
+                    if(succ->getLoopNode() == node->getLoop()) {
+                        if (nodeLoopNode->getLoopType() == LoopType::Accumul &&
+                            predLoopNode->getLoopType() == LoopType::Expansion) {
+
+                            int tilingFactor = nodeLoopNode->getTilingFactor();
+
+                            tmpName = "stream.offset(" + tmpName + "," +
+                                      std::to_string(-(tilingFactor - 1)) + " + tile_n)";
+                        }
+                    }
+                }
+            }
+
+            if(pred->getGlobalDelay() != node->getGlobalDelay() && pred->getType() != NodeType::AccumulNode){
+                tmpName = "stream.offset(" + tmpName + "," +
+                          std::to_string(pred->getGlobalDelay()-node->getGlobalDelay()) + ")";
+            }
+        }
+        if(tmpName != pred->getName()){
+            vectorPredNamesMap.insert(std::pair<std::string,std::string>(tmpName,pred->getName()));
+            pred->setName(tmpName);
+        }
+    }
 
     node->setIsDeclared();
 
-    llvm::errs() << "node: ";
-    node->getValue()->dump();
-    llvm::errs() << "Node type: " << node->getType() << "\n";
-
-    if(isNestedVectorWrite(node) && translationMode == MaxLoopTranslationMode::JavaLoop){
+    if(oxigen::isNestedVectorWrite(node) && translationMode == MaxLoopTranslationMode::JavaLoop){
 
         llvm::AllocaInst* basePtr = getVectorBasePointer(node);
         DFGLoopNode* loopNode = node->getLoop();
+        LoopGraphNode* loopDependencyGraphNode = MaxJInstructionPrinter::dependencyGraph->getNodeForLoop(loopNode);
         std::string vectorName;
         libImports["DFEVector"].first = true;
 
@@ -561,7 +736,14 @@ std::string MaxJInstructionPrinter::appendInstruction(DFGNode* node){
             std::string baseType;
 
             int bitWidth = dataType->getScalarSizeInBits();
-            int size = loopNode->getTripCount();
+            int tilingFactor = loopDependencyGraphNode->getTilingFactor();
+            int size;
+
+            if(!tilingFactor){
+                size = loopNode->getTripCount();
+            }else{
+                size = loopNode->getTripCount() / tilingFactor;
+            }
 
             if(dataType->isIntegerTy()){
 
@@ -569,8 +751,18 @@ std::string MaxJInstructionPrinter::appendInstruction(DFGNode* node){
 
             }else if(dataType->isFloatingPointTy()){
 
-                int mantissa = dataType->getFPMantissaWidth();
-                baseType = "dfeFloat(" + std::to_string(bitWidth-mantissa) + "," + std::to_string(mantissa) +
+                int exp;
+                int mantissa;
+
+                if(dataType->isDoubleTy()){
+                    mantissa = DOUBLE_MANTISSA;
+                    exp = DOUBLE_EXP;
+                }else{
+                    mantissa = FLOAT_MANTISSA;
+                    exp = FLOAT_EXP;
+                }
+
+                baseType = "dfeFloat(" + std::to_string(exp) + "," + std::to_string(mantissa) +
                            ")," + std::to_string(size) + ").newInstance(this)";
             }
             decl.append(baseType + ";\n");
@@ -584,12 +776,6 @@ std::string MaxJInstructionPrinter::appendInstruction(DFGNode* node){
         varName = vectorName + "[" + currentLoopIndex + "]";
         node->setName(vectorName);
         assignmentType = " <== ";
-    }
-
-    for(DFGNode* pred : node->getCrossScopePredecessors()){
-        if(isNestedVectorWrite(pred) && translationMode == MaxLoopTranslationMode::JavaLoop){
-            pred->setName(pred->getName() + "[" + currentLoopIndex + "]");
-        }
     }
 
     if(node->getType() == NodeType::LoopNode){
@@ -614,9 +800,9 @@ std::string MaxJInstructionPrinter::appendInstruction(DFGNode* node){
     } else if(node->getType() == NodeType::AccumulNode){
 
         DFGNode* initPred = nullptr;
+        llvm::PHINode* phi = (llvm::PHINode*)node->getValue();
 
         for(DFGNode* pred : node->getCrossScopePredecessors()){
-            llvm::PHINode* phi = (llvm::PHINode*)node->getValue();
             pred->getValue()->dump();
             phi->getIncomingValue(0)->dump();
             if(pred->getValue() == phi->getIncomingValue(0))
@@ -627,14 +813,32 @@ std::string MaxJInstructionPrinter::appendInstruction(DFGNode* node){
             exit(EXIT_FAILURE);
         }
 
-        std::string initVal = initPred->getName();
+        std::string initVal = getFullNameIfConstant(initPred);
 
-        if(std::isdigit(initVal[0]) || initVal[0] == '-'){
-            initVal = "constant.var(" + initVal + ")";
+        DFGAccNode* accNode = (DFGAccNode*)node;
+
+        if(accNode->getIsCounter()){
+
+            if(std::find(kernelOptimizations.begin(),kernelOptimizations.end(),GLOBAL_TILING) != kernelOptimizations.end()) {
+                DFGLoopNode *loopNode = node->getLoop();
+                LoopGraphNode *loopDependencyGraphNode =
+                        MaxJInstructionPrinter::dependencyGraph->getNodeForLoop(loopNode);
+                int iterations = loopNode->getTripCount();
+                int tilingFactor = loopDependencyGraphNode->getTilingFactor();
+
+                currentInstr.append("\t\t"+ nestingTabs + varType + varName +
+                                    assignmentType + "constant.var(dfeInt(32)," + currentLoopIndex + ")" +
+                                    " + (tileCounter * " + std::to_string(iterations/tilingFactor) + ").cast(dfeInt(32));\n");
+
+            }else{
+                currentInstr.append("\t\t"+ nestingTabs + varType + varName +
+                                    assignmentType + "constant.var(dfeInt(32)," + currentLoopIndex + ")" + ";\n");
+            }
+
+        }else{
+            loopHeadDeclarations.append("\t\t" + varType + varName +
+                                        assignmentType + initVal + ";\n");
         }
-
-        loopHeadDeclarations.append("\t\t"+ varType + varName +
-                                    assignmentType + initVal + ";\n");
 
         if(!llvm::dyn_cast<llvm::PHINode>(node->getValue())){
             llvm::errs() << "ERROR: non phi accumul not supported, terimating...\n";
@@ -675,25 +879,36 @@ std::string MaxJInstructionPrinter::appendInstruction(DFGNode* node){
             if(llvm::CastInst* castInst = llvm::dyn_cast<llvm::CastInst>(instr)){
 
                 std::string opcode = MaxJInstructionPrinter::opcodeMap[instr->getOpcodeName()];
-                int destTypeSize = castInst->getDestTy()->getScalarSizeInBits();
-                int split_1 = 8;
-                int split_2 = destTypeSize - split_1;
+                llvm::Type* destType = castInst->getDestTy();
+
                 std::string castTarget = node->getCrossScopePredecessors().at(0)->getName();
 
                 if(opcode == std::string("float")){
 
+                    int exp;
+                    int mantissa;
+
+                    if(destType->isDoubleTy()){
+                        mantissa = DOUBLE_MANTISSA;
+                        exp = DOUBLE_EXP;
+                    }else{
+                        mantissa = FLOAT_MANTISSA;
+                        exp = FLOAT_EXP;
+                    }
+
                     currentInstr = nestingTabs + std::string("\t\t"+ varType) + varName +
                                    assignmentType + castTarget +
-                                   std::string(".cast(dfeFloat(") + std::to_string(split_1)+
-                                   std::string(",") + std::to_string(split_2) +
+                                   std::string(".cast(dfeFloat(") + std::to_string(exp)+
+                                   std::string(",") + std::to_string(mantissa) +
                                    std::string("));\n");
                 }
 
                 if(opcode == std::string("int")){
 
+                    int bitWidth = destType->getScalarSizeInBits();
                     currentInstr = nestingTabs + std::string("\t\t"+ varType) + varName +
                                    assignmentType + castTarget +
-                                   std::string(".cast(dfeInt(") + std::to_string(destTypeSize) +
+                                   std::string(".cast(dfeInt(") + std::to_string(bitWidth) +
                                    std::string("));\n");
                 }
 
@@ -704,12 +919,14 @@ std::string MaxJInstructionPrinter::appendInstruction(DFGNode* node){
                 std::vector<std::string> funcArgs = std::vector<std::string>();
 
                 for(DFGNode* pred : node->getCrossScopePredecessors()){
-                    funcArgs.push_back(pred->getName());
+                    funcArgs.push_back(getFullNameIfConstant(pred));
                 }
+
+                std::vector<std::string> argsList = translateFunctionArguments(callInstr->getCalledFunction(),funcArgs);
 
                 std::string argsSig = "(";
 
-                for(std::string arg : funcArgs){
+                for(std::string arg : argsList){
                     argsSig.append(arg + std::string(","));
                 }
 
@@ -728,6 +945,12 @@ std::string MaxJInstructionPrinter::appendInstruction(DFGNode* node){
                                assignmentType + funcLib + std::string(".") +
                                funcName + argsSig + std::string(";\n");
 
+                if(libImports["OXiGen"].first){
+                    if(oxigenFunctions.count(funcName)){
+                        oxigenFunctions[funcName].first = true;
+                    }
+                }
+
             } else if (llvm::ICmpInst* iCmp = llvm::dyn_cast<llvm::ICmpInst>(instr)){
 
                 std::string condOpCode = MaxJInstructionPrinter::cmpPredMap[iCmp->getPredicate()];
@@ -736,7 +959,7 @@ std::string MaxJInstructionPrinter::appendInstruction(DFGNode* node){
 
                 for(DFGNode* pred : node->getCrossScopePredecessors()){
                     if(pred->getValue() == iCmp->getOperand(0)){
-                        firstTerm = pred->getName();
+                        firstTerm = getFullNameIfConstant(pred);
                     }else if(pred->getValue() == iCmp->getOperand(1)){
                         secondTerm = pred->getName();
                     }
@@ -756,17 +979,10 @@ std::string MaxJInstructionPrinter::appendInstruction(DFGNode* node){
                     if(pred->getValue() == selInstr->getCondition()){
                         cond = pred->getName();
                     }else if(pred->getValue() == selInstr->getTrueValue()){
-                        trueAlt = pred->getName();
+                        trueAlt = getFullNameIfConstant(pred);
                     }else if(pred->getValue() == selInstr->getFalseValue()){
-                        falseAlt = pred->getName();
+                        falseAlt = getFullNameIfConstant(pred);
                     }
-                }
-
-                if(std::isdigit(trueAlt[0]) || trueAlt[0] == '-'){
-                    trueAlt = "constant.var(" + trueAlt + ")";
-                }
-                if(std::isdigit(falseAlt[0]) || falseAlt[0] == '-'){
-                    falseAlt = "constant.var(" + falseAlt + ")";
                 }
 
                 currentInstr = nestingTabs + std::string("\t\t"+ varType) + varName +
@@ -781,17 +997,65 @@ std::string MaxJInstructionPrinter::appendInstruction(DFGNode* node){
                 currentInstr = nestingTabs + std::string("\t\t"+ varType) + varName +
                                assignmentType;
 
-                std::reverse(predecessors.begin(), predecessors.end());
+                if(llvm::Instruction* instr = llvm::dyn_cast<llvm::Instruction>(node->getValue())){
 
-                for (DFGNode *pred : predecessors) {
-                    currentInstr.append(pred->getName());
-                    currentInstr.append(opcode);
+                    std::string firstOperand = "";
+                    std::string secondOperand = "";
+                    bool existsUnmatchedOperand = false;
+
+                    if(predecessors.size() == 2) {
+                        for (DFGNode *pred : predecessors) {
+                            if (pred->getValue() == instr->getOperand(0)) {
+                                firstOperand = getFullNameIfConstant(pred);
+                            } else if (pred->getValue() == instr->getOperand(1)) {
+                                secondOperand = getFullNameIfConstant(pred);
+                            }
+                        }
+
+                        for (DFGNode *pred : predecessors) {
+                            if (pred->getName() != firstOperand && secondOperand.size() == 0) {
+                                secondOperand = getFullNameIfConstant(pred);
+                            } else if (pred->getName() != secondOperand && firstOperand.size() == 0) {
+                                firstOperand = getFullNameIfConstant(pred);
+                            }
+                        }
+
+                        if(firstOperand.size() == 0 || secondOperand.size() == 0){
+                            existsUnmatchedOperand = true;
+                        }
+
+
+                        if(!existsUnmatchedOperand)
+                            currentInstr.append(firstOperand + opcode + secondOperand);
+                        else{
+                            for (DFGNode *pred : predecessors) {
+                                currentInstr.append(getFullNameIfConstant(pred));
+                                currentInstr.append(opcode);
+                            }
+
+                            currentInstr = currentInstr.substr(0, currentInstr.size() - opcode.size());
+                        }
+
+                    }else if(predecessors.size() == 1){
+                        firstOperand = getFullNameIfConstant(predecessors.at(0));
+                        currentInstr.append(firstOperand + opcode + firstOperand);
+                    }else{
+                        llvm::errs() << "ERROR: Unexpected ternary instruction:\n";
+                        node->getValue()->dump();
+                        exit(EXIT_FAILURE);
+                    }
+
+                }else{
+
+                    for (DFGNode *pred : predecessors) {
+                        currentInstr.append(getFullNameIfConstant(pred));
+                        currentInstr.append(opcode);
+                    }
+
+                    currentInstr = currentInstr.substr(0, currentInstr.size() - opcode.size());
                 }
-
-                currentInstr = currentInstr.substr(0, currentInstr.size() - opcode.size());
                 currentInstr.append(";\n");
             }
-
         }
 
     }else if(node->getType() == NodeType::Offset) {
@@ -814,10 +1078,9 @@ std::string MaxJInstructionPrinter::appendInstruction(DFGNode* node){
     }
 
     for(DFGNode* pred : node->getCrossScopePredecessors()){
-        std::string predName = pred->getName();
-        if(isNestedVectorWrite(pred) && translationMode == MaxLoopTranslationMode::JavaLoop){
-            size_t firstrachet = predName.find_first_of('[');
-            pred->setName(predName.substr(0,firstrachet));
+        if(vectorPredNamesMap[pred->getName()].size()){
+
+            pred->setName(vectorPredNamesMap[pred->getName()]);
         }
     }
 
@@ -826,9 +1089,11 @@ std::string MaxJInstructionPrinter::appendInstruction(DFGNode* node){
 
 //DFGTranslator methods implementation
 
-void DFGTranslator::printDFGAsKernel(std::vector<DFG*> dfg, std::string kernelName, std::string packageName){
+void DFGTranslator::printDFGAsKernel(std::vector<DFG*> dfg,std::vector<LoopDependencyGraph*> dependencyGraph,
+                                     std::string kernelName, std::string packageName){
     
         DFGTranslator::dfgs = dfg;
+        DFGTranslator::dependencyGraph = dependencyGraph;
         std::string kernelString = generateKernelString(kernelName,packageName);
         llvm::errs() << kernelString;
 }
@@ -852,12 +1117,45 @@ void DFGTranslator::assignNodeNames(){
 
 std::string DFGTranslator::generateKernelString(std::string kernelName,std::string packageName){
 
+    llvm::errs() << "INFO: printing dfg as kernel\n";
+    llvm::errs() << "INFO: active kernel optimizations:\n\n";
+
+    for(auto opt : kernelOptimizations)
+        llvm::errs() << opt << "\n";
+
+    MaxJInstructionPrinter* maxjPrinter = new MaxJInstructionPrinter(SE,F);
+
+    maxjPrinter->kernelOptimizations.insert(maxjPrinter->kernelOptimizations.begin(),
+                                            kernelOptimizations.begin(),kernelOptimizations.end());
+
+    //TODO: revise this structure
+    if(std::find(kernelOptimizations.begin(),kernelOptimizations.end(),GLOBAL_TILING) != kernelOptimizations.end()){
+
+        if(DFGTranslator::dependencyGraph.size() == 0){
+            llvm::errs() << "ERROR: no dependency graph available\n";
+            exit(EXIT_FAILURE);
+        }else if(DFGTranslator::dependencyGraph.size() > 1){
+            llvm::errs() << "WARNING: multiple indipendent dependency graph. Tiling factor must be applicable to all\n";
+        }
+
+        int tilingFactor = dependencyGraph.at(0)->getBeginLoopNodes().at(0)->getTilingFactor();
+
+        maxjPrinter->globalVariables.append("\t\tpublic static final int tilingFactor = " +
+            std::to_string(tilingFactor) + ";\n\n");
+        maxjPrinter->globalDFEVars.append("\t\tDFEVar tileCounter = control.count.simpleCounter(32, tilingFactor);\n");
+    }
+    //TODO: end of structure
+
+    llvm::errs() << "\n";
+
     std::string kernelAsString = "\n";
     std::string endl = std::string(";\n");
     std::string kernelNamePlaceholder = "<kernelName>";
-    std::string kernelSignatureTmpl = MaxJInstructionPrinter::kernelSignature;
-    
-    MaxJInstructionPrinter* maxjPrinter = new MaxJInstructionPrinter(SE,F);
+
+    std::string kernelSignatureTmpl = MaxJInstructionPrinter::kernelSignature_1 +
+                                      maxjPrinter->globalVariables              +
+                                      MaxJInstructionPrinter::kernelSignature_2;
+
     maxjPrinter->translationMode = MaxLoopTranslationMode::JavaLoop;
     
     //append pakage
@@ -882,6 +1180,8 @@ std::string DFGTranslator::generateKernelString(std::string kernelName,std::stri
 
     //append kernel signature
     kernelBody.append(kernelSignatureTmpl);
+
+    kernelBody.append(maxjPrinter->globalDFEVars);
     
     //identify inputs and outputs
     assignNodeNames();
@@ -919,6 +1219,7 @@ std::string DFGTranslator::generateKernelString(std::string kernelName,std::stri
         }
     }
 
+
     //append input declarations
     kernelBody.append(maxjPrinter->getInputStreamsDeclarations(readNodes));
 
@@ -927,6 +1228,9 @@ std::string DFGTranslator::generateKernelString(std::string kernelName,std::stri
     kernelBody.append("\n");
 
     //print instructions
+
+    int dfgIndex = 0;
+
     for(DFG* dfg : dfgs) {
 
         DFGNode *endNode = dfg->getEndNode();
@@ -944,6 +1248,9 @@ std::string DFGTranslator::generateKernelString(std::string kernelName,std::stri
 
         llvm::errs() << "\nEnd sorted nodes\n";
 
+        maxjPrinter->dependencyGraph = DFGTranslator::dependencyGraph.at(dfgIndex);
+        dfgIndex++;
+
         //append instructions
         kernelBody.append(maxjPrinter->generateInstructionsString(sortedNodes));
 
@@ -957,13 +1264,26 @@ std::string DFGTranslator::generateKernelString(std::string kernelName,std::stri
     //append kernel signature closing
     kernelBody.append(MaxJInstructionPrinter::kernelSignatureClosing);
 
+    if(MaxJInstructionPrinter::libImports["OXiGen"].first) {
+        MaxJInstructionPrinter::libImports["KernelMath"].first = true;
+        MaxJInstructionPrinter::libImports["OXiGen"].first = false;
+    }
+
     for(auto libImport : MaxJInstructionPrinter::libImports){
-        if(libImport.second.first == true)
+        if(libImport.second.first && libImport.first != std::string("OXiGen"))
             kernelAsString.append(std::string("import ") + libImport.second.second + endl);
     }
 
     kernelAsString.append("\n");
 
+    for(auto oxigenFunction : maxjPrinter->getOxigenFunctions()){
+        if(oxigenFunction.second.first == true){
+            kernelAsString.append(oxigenFunction.second.second);
+            break;
+        }
+    }
+
+    kernelAsString.append("\n");
     kernelAsString.append(kernelBody);
     
     return kernelAsString;

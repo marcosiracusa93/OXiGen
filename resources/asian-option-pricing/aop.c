@@ -129,7 +129,7 @@ void Calculation(int *Type, Data_Type *S, Data_Type *X, Data_Type *t1,
 
 		tmp0 = ave[j] - 1.0;
 
-		tmp1 = v[j] * v[j];//
+		tmp1 = v[j] * v[j];
 
 		tmp3 = b[j] - tmp1 * 0.5;
 

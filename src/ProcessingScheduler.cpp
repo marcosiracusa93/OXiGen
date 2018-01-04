@@ -6,6 +6,8 @@
 #include "DFGStreamsOverlapHandler.h"
 #include "SubloopHandler.h"
 #include "DFGTranslator.h"
+#include <iostream>
+#include "LoopReplicationManager.h"
 
 
 using namespace oxigen;
@@ -33,9 +35,11 @@ DefaultScheduler::DefaultScheduler(std::string functionName, llvm::Function* F,
     DFGConstructor* dfgc = new DFGConstructor(F);
     DFGStreamsOverlapHandler* ovHandler = new DFGStreamsOverlapHandler();
     SubloopHandler* subhdl = new SubloopHandler(F);
+    LoopReplicationManager* rlm = new LoopReplicationManager(F);
     DFGTranslator* dfgt = new DFGTranslator(SE,F);
 
     schedule(dfgt);
+    schedule(rlm);
     schedule(subhdl);
     schedule(ovHandler);
     schedule(dfgc);
@@ -76,6 +80,10 @@ void ProcessingScheduler::execute(SubloopHandler* subloopHandler){
 
 void ProcessingScheduler::execute(DFGStreamsOverlapHandler* overlapHandler){
     llvm::errs() << "DFGStreamsOverlapHandler executing\n";
+}
+
+void ProcessingScheduler::execute(LoopReplicationManager *loopReplicationManager) {
+    llvm::errs() << "LoopReplicationManager executing\n";
 }
 
 void ProcessingScheduler::execute(DFGTranslator* dfgTranslator){
@@ -199,6 +207,41 @@ void DefaultScheduler::execute(SubloopHandler *subloopHandler) {
 
 }
 
+void DefaultScheduler::execute(LoopReplicationManager *loopReplicationManager) {
+
+    llvm::errs() << "\nINFO: executing loop replication manager\n\n";
+
+    for(DFG* dfg : dataflowGraph){
+        dependencyGraph.push_back(loopReplicationManager->analyzeDFGLoops(dfg));
+    }
+
+    ///set global tiling opt
+
+    int TILING_FACTOR;
+    char ans;
+
+    std::cout << "Apply global tiling optimization for kernel? (y/n)\n";
+    std::cin >> ans;
+
+    if(ans == 'y'){
+
+        std::cout << "Insert tiling factor\n";
+        std::cin >> TILING_FACTOR;
+
+        DefaultScheduler::kernelOptimizations.push_back("global_tiling");
+
+        for(auto graph : dependencyGraph){
+            for(auto n : graph->getBeginLoopNodes()){
+                n->setTilingFactor(TILING_FACTOR);
+            }
+            graph->setTilingDelay();
+            graph->printDependencyGraph();
+        }
+        llvm::errs() << "WARNING: global tiling enabled\nWARNING: tiling factor: " << TILING_FACTOR << "\n";
+    }
+
+}
+
 void DefaultScheduler::execute(DFGStreamsOverlapHandler *overlapHandler) {
 
     for(DFG* dfg : dataflowGraph){
@@ -227,5 +270,9 @@ void DefaultScheduler::execute(DFGStreamsOverlapHandler *overlapHandler) {
 
 void DefaultScheduler::execute(DFGTranslator* dfgTranslator){
 
-    dfgTranslator->printDFGAsKernel(DefaultScheduler::dataflowGraph,functionName+"Kernel",functionName);
+    dfgTranslator->setKernelOptimizations(DefaultScheduler::kernelOptimizations);
+
+    dfgTranslator->printDFGAsKernel(DefaultScheduler::dataflowGraph,DefaultScheduler::dependencyGraph,
+                                    functionName+"Kernel",functionName);
+
 }

@@ -31,7 +31,7 @@ file (GLOB SOURCES
         )
 
 # The executable to build
-add_executable(main ${SOURCES})
+add_executable(main ${SOURCES} )
 
 # Set the path for binaries
 set( EXECUTABLE_OUTPUT_PATH "${PROJECT_SOURCE_DIR}/bin" )

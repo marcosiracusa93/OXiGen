@@ -27,9 +27,11 @@ namespace oxigen{
     class DFGConstructor;
     class DFGLinker;
     class DFG;
+	class LoopDependencyGraph;
     class SubloopHandler;
     class DFGTranslator;
 	class DFGStreamsOverlapHandler;
+	class LoopReplicationManager;
     class ProcessingComponent;
     
 	class ProcessingScheduler{
@@ -44,6 +46,10 @@ namespace oxigen{
             FunctionAnalysisResult* analysisResult;
 			std::vector<IOStreams*> ioStreams; 
 			std::vector<DFG*> dataflowGraph;
+			std::vector<LoopDependencyGraph*> dependencyGraph;
+
+			std::vector<std::string> kernelOptimizations;
+
 			std::string kernelCode;
         
             void schedule(ProcessingComponent* processingComponent);
@@ -57,6 +63,7 @@ namespace oxigen{
 			virtual void execute(DFGStreamsOverlapHandler* overlapHandler);
 			virtual void execute(SubloopHandler* subloopHandler);
 			virtual void execute(DFGTranslator* dfgTranslator);
+			virtual void execute(LoopReplicationManager* loopReplicationManager);
             
             FunctionAnalysisResult* getAnalysisResult(){ return analysisResult; }
             std::vector<IOStreams*> getIOStreams() { return ioStreams; }
@@ -89,6 +96,7 @@ namespace oxigen{
 		void execute(SubloopHandler* subloopHandler);
 		void execute(DFGStreamsOverlapHandler* overlapHandler);
 		void execute(DFGTranslator* dfgTranslator);
+		void execute(LoopReplicationManager* loopReplicationManager);
 
 		llvm::LoopInfo* getLoopInfo(){ return this->LI; }
             

@@ -865,9 +865,7 @@ int DFG::getNodesCount(){
     int count;
 
     DFG::resetFlags(DFG::endNode);
-    //count = DFG::countChildren(DFG::endNode,count);
     count = DFG::simpleCount(DFG::endNode);
-    llvm::errs() << "Count end: " << count << "\n";
     DFG::resetFlags(DFG::endNode);
 
     return count;
@@ -1597,29 +1595,16 @@ DFGNode* DFGConstructor::constructNode(llvm::Value *value, DFGNode *parentNode, 
             } else {
                 //Node initialization for a generic instruction
 
-                if (llvm::PHINode *phi = llvm::dyn_cast<llvm::PHINode>(operandAsInstr)) {
-                    if (oxigen::isCounterForLoop(phi, loop) ) {
+                if (llvm::dyn_cast<llvm::PHINode>(operandAsInstr)) {
 
-                        DFGCounterNode *loopCounter = nodeFactory->createDFGCounterNode(phi);
+                    DFGAccNode* accVariable = nodeFactory->createDFGAccNode(operandAsInstr);
+                    parentNode->linkPredecessor(accVariable);
 
-                        if(parentNode != nullptr)
-                            parentNode->linkPredecessor(loopCounter);
-
-                        loopCounters.push_back(CounterPair(loop, loopCounter));
-                        populateDFG(loopCounter, IOs, loopTripCount, loop);
-                        return loopCounter;
-
-                    }else{
-
-                        DFGAccNode* accVariable = nodeFactory->createDFGAccNode(operandAsInstr);
+                    if(parentNode != nullptr)
                         parentNode->linkPredecessor(accVariable);
 
-                        if(parentNode != nullptr)
-                            parentNode->linkPredecessor(accVariable);
-
-                        populateDFG(accVariable, IOs, loopTripCount, loop);
-                        return accVariable;
-                    }
+                    populateDFG(accVariable, IOs, loopTripCount, loop);
+                    return accVariable;
 
                 } else {
 
@@ -1750,8 +1735,22 @@ void DFGConstructor::populateDFG(DFGNode* node, IOStreams* IOs,int loopTripCount
             node->setFlag(true);
             operands.push_back(phiNode->getIncomingValue(0));
             llvm::Value *dependenceCarryingPredecessor = phiNode->getIncomingValue(1);
-            DFGNode* childNode = constructNode(dependenceCarryingPredecessor,nullptr,loop,nodeFactory,IOs,loopTripCount);
-            node->linkLoopCarriedPredecessor(childNode);
+
+            if(!oxigen::isCounterForLoop(phiNode,loop)){
+                DFGNode* childNode = constructNode(dependenceCarryingPredecessor,nullptr,loop,nodeFactory,IOs,loopTripCount);
+                node->linkLoopCarriedPredecessor(childNode);
+
+            }else{
+
+                if(node->getType() == NodeType::AccumulNode){
+                    DFGAccNode* accNode = (DFGAccNode*)node;
+                    accNode->setIsCounter(true);
+                }
+
+            }
+
+
+
             constructNodeForOperands(operands,node,loop,nodeFactory,IOs,loopTripCount);
         }
 
@@ -1841,6 +1840,7 @@ DFGNode* DFGConstructor::shortcutSoreGetelementPtr(DFGWriteNode* storeNode,IOStr
                 storeNode->linkPredecessor(loopCounter);
                 loopCounters.push_back(CounterPair(loop, loopCounter));
                 return loopCounter;
+
             }else{
                 //TODO: check graph continuation after acc var
                 DFGAccNode* accVariable = nodeFactory->createDFGAccNode(operandAsInstr);
@@ -2135,20 +2135,43 @@ bool oxigen::isExitPhi(llvm::PHINode *phi) {
     return false;
 }
 
+bool oxigen::isNestedVectorWrite(DFGNode *node) {
+
+    if(node->getLoopDepth() < 2)
+        return false;
+
+    for(DFGNode* s : node->getSuccessors()){
+        if(llvm::StoreInst* store = llvm::dyn_cast<llvm::StoreInst>(s->getValue())){
+            if(llvm::GetElementPtrInst* gep = llvm::dyn_cast<llvm::GetElementPtrInst>(store->getPointerOperand())) {
+                if (llvm::dyn_cast<llvm::AllocaInst>(gep->getPointerOperand()))
+                    return true;
+            }
+        }
+    }
+    return false;
+}
+
 bool oxigen::isCounterForLoop(llvm::PHINode *phi, llvm::Loop *L) {
+
+    bool retVal = false;
 
     for(auto it = L->getHeader()->begin(); it != L->getHeader()->end(); ++it) {
 
         if (llvm::BranchInst *br = llvm::dyn_cast<llvm::BranchInst>(it)) {
             if (llvm::CmpInst *cmp = llvm::dyn_cast<llvm::CmpInst>(br->getCondition())) {
                 if (llvm::PHINode *exitPhi = llvm::dyn_cast<llvm::PHINode>(cmp->getOperand(0))) {
-                    if(exitPhi == phi)
-                        return true;
+                    if(exitPhi == phi){
+                        retVal = true;
+                    }
                 }
             }
         }
     }
-    return false;
+
+    for(llvm::Loop* subloop : L->getSubLoops())
+        retVal = retVal || isCounterForLoop(phi,subloop);
+
+    return retVal;
 }
 
 llvm::PHINode* oxigen::getLoopCounterIfAny(llvm::Loop* loop){
@@ -2249,7 +2272,6 @@ std::vector<DFGNode*> oxigen::getElementarPredecessors(std::vector<DFGNode*> nod
 }
 
 
-
 std::vector<DFGNode*> oxigen::getNodePredecessors(DFGNode* n,NodeType type,DFGNode* succNode){
 
     std::vector<DFGNode*> predecessors;
@@ -2287,6 +2309,18 @@ std::vector<NodeType> oxigen::getCompositeTypes() {
         }
     }
     return c;
+}
+
+std::vector<DFGNode*> oxigen::getLoopCarriedDependencies(DFG *dfg) {
+
+    std::vector<DFGNode*> nodes = dfg->getGraphNodes();
+    std::vector<DFGNode*> loopDependentNodes;
+
+    for(DFGNode* n : nodes){
+        std::vector<DFGNode*> loopCarriedSucc = n->getLoopCarriedSuccessors();
+        loopDependentNodes.insert(loopDependentNodes.end(),loopCarriedSucc.begin(),loopCarriedSucc.end());
+    }
+    return loopDependentNodes;
 }
 
 //DFGLinker methods implementation
