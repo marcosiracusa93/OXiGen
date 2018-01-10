@@ -43,6 +43,12 @@ namespace oxigen {
         int getTilingFactor(){ return tilingFactor; }
         int getTilingDelay(){ return tilingDelay; }
 
+        int getReplication(){
+
+            int iters = loopNode->getTripCount();
+            return iters % tilingFactor ? (iters / tilingFactor + 1) : iters / tilingFactor;
+        }
+
         void insertPredecessor(LoopGraphNode* node){ precedingLoops.push_back(node); }
         void insertSuccessor(LoopGraphNode* node){ succedingLoops.push_back(node); }
         void setLoopType(LoopType type){ this->typeID = type; }
@@ -53,9 +59,7 @@ namespace oxigen {
             tilingFactor = T;
 
             if(loopNode->getTripCount() % tilingFactor){
-                llvm::errs() << "ERROR: illegal tiling factor for ";
-                loopNode->getValue()->dump();
-                exit(EXIT_FAILURE);
+                llvm::errs() << "INFO: replication will be rounded up\n";
             }
 
             for(auto succ : succedingLoops){

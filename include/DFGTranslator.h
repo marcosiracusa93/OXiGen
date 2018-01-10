@@ -193,7 +193,7 @@ namespace oxigen{
 
         llvm::AllocaInst* getVectorBasePointer(DFGNode* node);
 
-        std::vector<std::string> translateFunctionArguments(llvm::Function* F,std::vector<std::string> funcArgs);
+        std::pair<std::string,std::vector<std::string>> translateFunctionArguments(llvm::Function* F,std::vector<std::string> funcArgs);
 
         std::string getFullNameIfConstant(DFGNode* var);
     };

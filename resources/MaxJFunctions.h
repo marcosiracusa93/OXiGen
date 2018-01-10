@@ -2,6 +2,8 @@
 #ifndef OXIGEN_MAXJFUNCTIONS_H
 #define OXIGEN_MAXJFUNCTIONS_H
 
+float fmin(float x, float y);
+
 float exp(float x){ return x*x+x; }
 
 float log(float x){ return x*x+x; }

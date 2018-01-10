@@ -2445,6 +2445,13 @@ std::vector<DFG*> DFGLinker::linkDFG(){
                             oxigen::insertNode(offsetNode,wPred,readSucc,true);
                         }
 
+
+                        readSucc->unlinkPredecessor(readNode);
+                        llvm::errs() << "\nRSP2\n";
+                        for(DFGNode* rs : readSucc->getPredecessors()){
+                            rs->getValue()->dump();
+                        }
+
                         j = 0;
                     }
                 }

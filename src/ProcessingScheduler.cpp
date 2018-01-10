@@ -7,8 +7,7 @@
 #include "SubloopHandler.h"
 #include "DFGTranslator.h"
 #include <iostream>
-#include "LoopReplicationManager.h"
-
+#include <ResourceEstimationModule.h>
 
 using namespace oxigen;
 
@@ -36,9 +35,11 @@ DefaultScheduler::DefaultScheduler(std::string functionName, llvm::Function* F,
     DFGStreamsOverlapHandler* ovHandler = new DFGStreamsOverlapHandler();
     SubloopHandler* subhdl = new SubloopHandler(F);
     LoopReplicationManager* rlm = new LoopReplicationManager(F);
+    ResourceEstimator* res = new ResourceEstimator(F);
     DFGTranslator* dfgt = new DFGTranslator(SE,F);
 
     schedule(dfgt);
+    schedule(res);
     schedule(rlm);
     schedule(subhdl);
     schedule(ovHandler);
@@ -83,6 +84,10 @@ void ProcessingScheduler::execute(DFGStreamsOverlapHandler* overlapHandler){
 }
 
 void ProcessingScheduler::execute(LoopReplicationManager *loopReplicationManager) {
+    llvm::errs() << "LoopReplicationManager executing\n";
+}
+
+void ProcessingScheduler::execute(ResourceEstimator *resourceEstimator){
     llvm::errs() << "LoopReplicationManager executing\n";
 }
 
@@ -171,7 +176,7 @@ void DefaultScheduler::execute(DFGConstructor* dfgConstructor){
     if(dfgs.size() > 1){
         std::vector<DFG*> revDfgs(dfgs.size());
         std::reverse_copy(std::begin(dfgs),std::end(dfgs),std::begin(revDfgs));
-        schedule(new DFGLinker(revDfgs,F));
+        schedule(new DFGLinker(dfgs,F));
         executeNextComponent();
 
     }else{
@@ -265,6 +270,15 @@ void DefaultScheduler::execute(DFGStreamsOverlapHandler *overlapHandler) {
         std::vector<DFG*> tmp(dataflowGraph.size());
         std::reverse_copy(std::begin(dataflowGraph),std::end(dataflowGraph),std::begin(tmp));
         dataflowGraph = tmp;
+    }
+}
+
+void DefaultScheduler::execute(ResourceEstimator *resourceEstimator) {
+
+    int dfgIndex = 0;
+    for(DFG* dfg : dataflowGraph){
+        resourceEstimator->countOperations(dfg,dependencyGraph.at(dfgIndex));
+        dfgIndex++;
     }
 }
 

@@ -32,6 +32,7 @@ namespace oxigen{
     class DFGTranslator;
 	class DFGStreamsOverlapHandler;
 	class LoopReplicationManager;
+	class ResourceEstimator;
     class ProcessingComponent;
     
 	class ProcessingScheduler{
@@ -63,6 +64,7 @@ namespace oxigen{
 			virtual void execute(DFGStreamsOverlapHandler* overlapHandler);
 			virtual void execute(SubloopHandler* subloopHandler);
 			virtual void execute(DFGTranslator* dfgTranslator);
+			virtual void execute(ResourceEstimator* resourceEstimator);
 			virtual void execute(LoopReplicationManager* loopReplicationManager);
             
             FunctionAnalysisResult* getAnalysisResult(){ return analysisResult; }
@@ -96,6 +98,7 @@ namespace oxigen{
 		void execute(SubloopHandler* subloopHandler);
 		void execute(DFGStreamsOverlapHandler* overlapHandler);
 		void execute(DFGTranslator* dfgTranslator);
+		void execute(ResourceEstimator* resourceEstimator);
 		void execute(LoopReplicationManager* loopReplicationManager);
 
 		llvm::LoopInfo* getLoopInfo(){ return this->LI; }

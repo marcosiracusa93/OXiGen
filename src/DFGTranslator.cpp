@@ -36,6 +36,7 @@ MaxJInstructionPrinter::OpcodeMap MaxJInstructionPrinter::opcodeMap = {
     {"fpext","float"},
     {"fptrunc","float"},
     {"sext","int"},
+    {"zext","int"},
     {"fptosi","int"},
     {"sitrunc","int"}
     
@@ -45,6 +46,7 @@ MaxJInstructionPrinter::OpcodeMap MaxJInstructionPrinter::funcLibMap = {
 
         {"ceil","KernelMath"},
         {"abs","KernelMath"},
+        {"fabs","KernelMath"},
         {"floor","KernelMath"},
         {"sqrt","KernelMath"},
         {"log2","KernelMath"},
@@ -55,6 +57,8 @@ MaxJInstructionPrinter::OpcodeMap MaxJInstructionPrinter::funcLibMap = {
         {"exp","KernelMath"},
         {"min","KernelMath"},
         {"max","KernelMath"},
+        {"fmin","KernelMath"},
+        {"fmax","KernelMath"},
         {"Ncdf", "OXiGen"}
 };
 
@@ -493,7 +497,7 @@ std::string MaxJInstructionPrinter::translateAsJavaLoop(DFGLoopNode* loopNode){
     if(!tilingFactor) {
         iterations = loopNode->getTripCount();
     }else{
-        iterations = loopNode->getTripCount() / tilingFactor;
+        iterations = dependencyGraphNode->getReplication();
     }
     if(iterations < 0){
         llvm::errs() << "ERROR: trip count is not constant\n";
@@ -512,13 +516,30 @@ std::string MaxJInstructionPrinter::translateAsJavaLoop(DFGLoopNode* loopNode){
     loopIndexes[loopNode] = l_idx;
     currentLoopIndex = l_idx;
 
-    for(auto el = loopIndexes.begin(); el != loopIndexes.end();++el){
-        llvm::errs() << "index: " + el->second << "\n";
+    if(dependencyGraphNode->getLoopType() == LoopType::Accumul &&
+       std::find(kernelOptimizations.begin(),kernelOptimizations.end(),GLOBAL_TILING)
+       != kernelOptimizations.end()) {
+
+        iterations = loopNode->getTripCount();
     }
 
     std::string forHeader = std::string("\n"+nestingTabs+"\tfor(int "+l_idx+" = 0; "+l_idx+" < " +
                                         std::to_string(iterations)+"; "+l_idx+" += 1){\n");
     std::string forClosure = std::string(nestingTabs+"\t}\n");
+
+    if(dependencyGraphNode->getLoopType() == LoopType::Accumul &&
+       std::find(kernelOptimizations.begin(),kernelOptimizations.end(),GLOBAL_TILING)
+       != kernelOptimizations.end()){
+
+        std::string accumul_idx = currentLoopIndex + "_r";
+
+        forHeader.append("\n" + nestingTabs + "\t\tint tile_n = " + currentLoopIndex + " / " +
+                         std::to_string(dependencyGraphNode->getReplication()) + ";\n" + nestingTabs + "\t\tint " + accumul_idx + " = " +
+                         currentLoopIndex + " % " + std::to_string(dependencyGraphNode->getReplication()) + ";\n\n");
+
+        loopIndexes[loopNode] = accumul_idx;
+        currentLoopIndex = accumul_idx;
+    }
 
     std::vector<DFG*> dfgs = loopNode->getIndipendentLoopGraphs();
 
@@ -547,10 +568,6 @@ std::string MaxJInstructionPrinter::translateAsJavaLoop(DFGLoopNode* loopNode){
             != kernelOptimizations.end()){
 
         int tilingFactor = dependencyGraphNode->getTilingFactor();
-
-        forHeader = "\n\t\tfor(int tile_n = 0; tile_n < " +
-                    std::to_string(tilingFactor)+"; tile_n += 1){\n" + forHeader;
-        forClosure = forClosure + "\n\t\t}\n";
 
         for(DFGNode* n : loopNode->getOutPortInnerNodes()){
             if(n->getType() == NodeType::AccumulNode){
@@ -588,10 +605,19 @@ llvm::AllocaInst* MaxJInstructionPrinter::getVectorBasePointer(DFGNode *node) {
     return vectorBasePointer;
 }
 
-std::vector<std::string> MaxJInstructionPrinter::translateFunctionArguments(llvm::Function* F,
-                                                               std::vector<std::string> funcArgs) {
+std::pair<std::string,std::vector<std::string>> MaxJInstructionPrinter::translateFunctionArguments(llvm::Function* F,
 
-    if(F->getName() == std::string("log")){
+                                                               std::vector<std::string> funcArgs) {
+    std::string funcName = F->getName();
+    std::pair<std::string,std::vector<std::string>> returnSignature;
+
+    if(funcName == std::string("fmin")){
+        funcName = "min";
+    }else if (funcName == std::string("fmax")){
+        funcName = "max";
+    }else if(funcName == std::string("fabs")){
+        funcName = "abs";
+    }else if(funcName == std::string("log")){
         llvm::Type *argType = (*(F->getArgumentList().begin())).getType();
         std::string argTypeStr;
 
@@ -621,7 +647,10 @@ std::vector<std::string> MaxJInstructionPrinter::translateFunctionArguments(llvm
         }
         funcArgs.push_back(argTypeStr);
     }
-    return funcArgs;
+
+    returnSignature.second = funcArgs;
+    returnSignature.first = funcName;
+    return returnSignature;
 }
 
 std::string MaxJInstructionPrinter::getFullNameIfConstant(DFGNode* var) {
@@ -742,7 +771,7 @@ std::string MaxJInstructionPrinter::appendInstruction(DFGNode* node){
             if(!tilingFactor){
                 size = loopNode->getTripCount();
             }else{
-                size = loopNode->getTripCount() / tilingFactor;
+                size = loopDependencyGraphNode->getReplication();
             }
 
             if(dataType->isIntegerTy()){
@@ -823,12 +852,10 @@ std::string MaxJInstructionPrinter::appendInstruction(DFGNode* node){
                 DFGLoopNode *loopNode = node->getLoop();
                 LoopGraphNode *loopDependencyGraphNode =
                         MaxJInstructionPrinter::dependencyGraph->getNodeForLoop(loopNode);
-                int iterations = loopNode->getTripCount();
-                int tilingFactor = loopDependencyGraphNode->getTilingFactor();
 
                 currentInstr.append("\t\t"+ nestingTabs + varType + varName +
                                     assignmentType + "constant.var(dfeInt(32)," + currentLoopIndex + ")" +
-                                    " + (tileCounter * " + std::to_string(iterations/tilingFactor) + ").cast(dfeInt(32));\n");
+                                    " + (tileCounter * " + std::to_string(loopDependencyGraphNode->getReplication()) + ").cast(dfeInt(32));\n");
 
             }else{
                 currentInstr.append("\t\t"+ nestingTabs + varType + varName +
@@ -922,8 +949,12 @@ std::string MaxJInstructionPrinter::appendInstruction(DFGNode* node){
                     funcArgs.push_back(getFullNameIfConstant(pred));
                 }
 
-                std::vector<std::string> argsList = translateFunctionArguments(callInstr->getCalledFunction(),funcArgs);
+                std::pair<std::string,std::vector<std::string>> newSignature;
 
+                newSignature = translateFunctionArguments(callInstr->getCalledFunction(),funcArgs);
+
+                funcName = newSignature.first;
+                std::vector<std::string> argsList = newSignature.second;
                 std::string argsSig = "(";
 
                 for(std::string arg : argsList){
@@ -935,6 +966,11 @@ std::string MaxJInstructionPrinter::appendInstruction(DFGNode* node){
 
                 if(funcLib.length() == 0 || funcLib == std::string("Unknown")){
                     llvm::errs() << "ERROR: unknown function was called, terminating...\n";
+                    llvm::errs() << "INFO: signature --> " << newSignature.first << " <--\n";
+                    for(auto arg : newSignature.second){
+                        llvm::errs() << arg;
+                    }
+                    llvm::errs() << "\n";
                     exit(EXIT_FAILURE);
                 }
 
