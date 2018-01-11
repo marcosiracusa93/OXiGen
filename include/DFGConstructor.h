@@ -868,6 +868,8 @@ namespace oxigen{
         std::pair<int,int> getMinWindowInSubgraph(DFGNode* start);
 
         std::pair<int,int> getResultingWindow(std::pair<int,int> w_1,std::pair<int,int> w_2);
+
+        void orderMissingNode(DFGNode* n,std::vector<DFGNode*> &sortedNodes);
         
     };
     

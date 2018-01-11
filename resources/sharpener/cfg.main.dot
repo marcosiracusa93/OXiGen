@@ -1,0 +1,21 @@
+digraph "CFG for 'main' function" {
+	label="CFG for 'main' function";
+
+	Node0x3d82500 [shape=record,label="{%2:\l  %3 = alloca [172800 x [3 x i8]], align 16\l  %4 = alloca [172800 x [3 x i8]], align 16\l  %5 = alloca [172800 x i8], align 16\l  %6 = alloca [172800 x i8], align 16\l  %7 = alloca [172800 x i8], align 16\l  %8 = alloca [172800 x i8], align 16\l  %9 = alloca [172800 x i8], align 16\l  %10 = alloca [172800 x i8], align 16\l  %11 = icmp slt i32 %0, 3\l  br i1 %11, label %12, label %14\l|{<s0>T|<s1>F}}"];
+	Node0x3d82500:s0 -> Node0x3d82cb0;
+	Node0x3d82500:s1 -> Node0x3d83130;
+	Node0x3d82cb0 [shape=record,label="{%12:\l\l  %13 = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([76 x i8], [76\l... x i8]* @.str, i32 0, i32 0))\l  call void @exit(i32 1) #5\l  unreachable\l}"];
+	Node0x3d83130 [shape=record,label="{%14:\l\l  %15 = getelementptr inbounds i8*, i8** %1, i64 1\l  %16 = load i8*, i8** %15, align 8\l  %17 = getelementptr inbounds i8*, i8** %1, i64 2\l  %18 = load i8*, i8** %17, align 8\l  %19 = getelementptr inbounds [172800 x [3 x i8]], [172800 x [3 x i8]]* %3,\l... i32 0, i32 0\l  %20 = bitcast [3 x i8]* %19 to i8*\l  call void @read_bmp(i8* %16, i8* %20)\l  %21 = getelementptr inbounds [172800 x [3 x i8]], [172800 x [3 x i8]]* %3,\l... i32 0, i32 0\l  %22 = getelementptr inbounds [172800 x i8], [172800 x i8]* %5, i32 0, i32 0\l  %23 = getelementptr inbounds [172800 x i8], [172800 x i8]* %6, i32 0, i32 0\l  %24 = getelementptr inbounds [172800 x i8], [172800 x i8]* %7, i32 0, i32 0\l  call void @deinterleave([3 x i8]* %21, i8* %22, i8* %23, i8* %24)\l  %25 = getelementptr inbounds [172800 x i8], [172800 x i8]* %5, i32 0, i32 0\l  %26 = getelementptr inbounds [172800 x i8], [172800 x i8]* %6, i32 0, i32 0\l  %27 = getelementptr inbounds [172800 x i8], [172800 x i8]* %7, i32 0, i32 0\l  %28 = getelementptr inbounds [172800 x i8], [172800 x i8]* %8, i32 0, i32 0\l  %29 = getelementptr inbounds [172800 x i8], [172800 x i8]* %9, i32 0, i32 0\l  %30 = getelementptr inbounds [172800 x i8], [172800 x i8]* %10, i32 0, i32 0\l  call void @sharpen(i8* %25, i8* %26, i8* %27, i8* %28, i8* %29, i8* %30)\l  %31 = getelementptr inbounds [172800 x [3 x i8]], [172800 x [3 x i8]]* %4,\l... i32 0, i32 0\l  %32 = getelementptr inbounds [172800 x i8], [172800 x i8]* %8, i32 0, i32 0\l  %33 = getelementptr inbounds [172800 x i8], [172800 x i8]* %9, i32 0, i32 0\l  %34 = getelementptr inbounds [172800 x i8], [172800 x i8]* %10, i32 0, i32 0\l  call void @interleave([3 x i8]* %31, i8* %32, i8* %33, i8* %34)\l  %35 = getelementptr inbounds [172800 x [3 x i8]], [172800 x [3 x i8]]* %4,\l... i32 0, i32 0\l  %36 = bitcast [3 x i8]* %35 to i8*\l  call void @write_bmp(i8* %18, i8* %36)\l  %37 = icmp sge i32 %0, 4\l  br i1 %37, label %38, label %45\l|{<s0>T|<s1>F}}"];
+	Node0x3d83130:s0 -> Node0x3d85660;
+	Node0x3d83130:s1 -> Node0x3d856f0;
+	Node0x3d85660 [shape=record,label="{%38:\l\l  %39 = getelementptr inbounds i8*, i8** %1, i64 3\l  %40 = load i8*, i8** %39, align 8\l  %41 = call i32 @validate_result(i8* %40, i8* %18, i32 1)\l  %42 = icmp ne i32 %41, 0\l  br i1 %42, label %44, label %43\l|{<s0>T|<s1>F}}"];
+	Node0x3d85660:s0 -> Node0x3d83ad0;
+	Node0x3d85660:s1 -> Node0x3d9d6b0;
+	Node0x3d9d6b0 [shape=record,label="{%43:\l\l  br label %46\l}"];
+	Node0x3d9d6b0 -> Node0x3d9d7d0;
+	Node0x3d83ad0 [shape=record,label="{%44:\l\l  br label %45\l}"];
+	Node0x3d83ad0 -> Node0x3d856f0;
+	Node0x3d856f0 [shape=record,label="{%45:\l\l  br label %46\l}"];
+	Node0x3d856f0 -> Node0x3d9d7d0;
+	Node0x3d9d7d0 [shape=record,label="{%46:\l\l  %.0 = phi i32 [ 0, %45 ], [ 1, %43 ]\l  ret i32 %.0\l}"];
+}

@@ -1346,6 +1346,28 @@ std::vector<DFGNode*> DFG::orderNodesWithFunc(llvm::Function *F) {
         }
     }
     resetFlags(endNode);
+
+    for(auto it = sortedNodes.begin(); it != sortedNodes.end();++it){
+        (*it)->setPosition(it-sortedNodes.begin());
+    }
+
+    for(DFGNode* n : nodes){
+        if(std::find(sortedNodes.begin(),sortedNodes.end(),n) == sortedNodes.end()) {
+            llvm::errs() << "WARNING: missed node in ordering ";
+            n->getValue()->dump();
+            DFG::orderMissingNode(n,sortedNodes);
+        }
+    }
+
+    for(DFGNode* n : nodes){
+        if(std::find(sortedNodes.begin(),sortedNodes.end(),n) == sortedNodes.end()){
+            llvm::errs() << "ERROR: did not place ";
+            n->getValue()->dump();
+        }
+
+    }
+    resetFlags(endNode);
+
     return sortedNodes;
 }
 
@@ -1383,6 +1405,40 @@ void DFG::getUniqueOrderedNodes(DFGNode* n, int &pos, std::vector<DFGNode*> &sor
             if(*n_it != n_2 && (*n_it)->getValue() == n_2->getValue()) {
                 sorted.erase(std::remove(sorted.begin(), sorted.end(), n_2), sorted.end());
             }
+}
+
+void DFG::orderMissingNode(DFGNode *n, std::vector<DFGNode *> &sortedNodes) {
+
+    int maxPredPosition = 0;
+
+    for(DFGNode* p : n->getPredecessors()){
+        if(std::find(sortedNodes.begin(),sortedNodes.end(),p) == sortedNodes.end()){
+            orderMissingNode(p,sortedNodes);
+        }
+    }
+
+    for(DFGNode* p : n->getPredecessors()){
+        if(std::find(sortedNodes.begin(),sortedNodes.end(),p) != sortedNodes.end() &&
+                maxPredPosition < p->getPosition()){
+            maxPredPosition = p->getPosition();
+        }
+    }
+
+    if(!maxPredPosition){
+        llvm::errs() << "ERROR: DFG::orderMissingNode could node determine node ordering\n";
+        n->printNode();
+        exit(EXIT_FAILURE);
+    }
+
+    for(auto it = sortedNodes.begin()+maxPredPosition; it != sortedNodes.end(); ++it){
+        (*it)->setPosition((*it)->getPosition()+1);
+    }
+    sortedNodes.insert(sortedNodes.begin()+maxPredPosition +1,n);
+    n->setPosition(maxPredPosition+1);
+
+    llvm::errs() << "INFO:Node ";
+    n->getValue()->dump();
+    llvm::errs() << "INFO: placed at position " << n->getPosition() << "\n";
 }
 
 //DFGConstructor methods implementation
@@ -2409,7 +2465,42 @@ std::vector<DFG*> DFGLinker::linkDFG(){
 
 
                         int pos = std::find(linkedNodes.begin(),linkedNodes.end(),readNode)-linkedNodes.begin();
-                        readSucc->linkPredecessor(writeNode->getPredecessors().at(0),pos);
+                        DFGNode* writePredecessor = writeNode->getPredecessors().at(0);
+                        std::vector<DFGNode*> pVec;
+                        pVec = readSucc->getPredecessors();
+
+                        auto oldPredPos = std::find(pVec.begin(),pVec.end(),writePredecessor);
+                        if(oldPredPos != pVec.end()){
+                            llvm::errs() << "\nPOTENTIAL OVERLAP\n";
+
+                        }
+
+                        if(writeNode->getStreamWindow().first != 0 &&
+                           writeNode->getPredecessors().at(0)->getType() != NodeType::Offset){
+
+                            DFGOffsetNode* offsetNode = nodeFactory->createDFGOffsetNode(writeNode);
+
+                            oxigen::insertNode(offsetNode,writePredecessor,writeNode,true);
+                            oxigen::transferSuccessors(writePredecessor,offsetNode);
+
+                            llvm::errs() << "OFFSET NODE TRANSFER: \n";
+                            writePredecessor->getValue()->dump();
+                            offsetNode->getValue()->dump();
+                            writePredecessor = offsetNode;
+                        }
+
+                        if(readNode->getStreamWindow().first != 0){
+                            DFGOffsetNode* offsetNode = nodeFactory->createDFGOffsetNode(readNode);
+
+                            oxigen::insertNode(offsetNode,readNode,readSucc,true);
+
+                            llvm::errs() << "OFFSET NODE TRANSFER: \n";
+                            readSucc->getValue()->dump();
+                            offsetNode->getValue()->dump();
+                            readSucc = offsetNode;
+                        }
+
+                        readSucc->linkPredecessor(writePredecessor,pos);
 
                         //update stream window
                         writeNode->getPredecessors().at(0)->setStreamWindow(
@@ -2422,31 +2513,12 @@ std::vector<DFG*> DFGLinker::linkDFG(){
                         }
 
                         readSucc->unlinkPredecessor(readNode);
-                        llvm::errs() << "\nRSP\n";
+                        llvm::errs() << "\nRSP_AFTER\n";
                         for(DFGNode* rs : readSucc->getPredecessors()){
                             rs->getValue()->dump();
                         }
 
 
-                        if(writeNode->getStreamWindow().first != 0 &&
-                           writeNode->getPredecessors().at(0)->getType() != NodeType::Offset){
-
-                            DFGOffsetNode* offsetNode = nodeFactory->createDFGOffsetNode(writeNode);
-                            DFGNode* wPred = writeNode->getPredecessors().at(0);
-
-                            oxigen::insertNode(offsetNode,wPred,writeNode,true);
-                            oxigen::transferSuccessors(wPred,offsetNode);
-                        }
-
-                        if(readNode->getStreamWindow().first != 0){
-                            DFGOffsetNode* offsetNode = nodeFactory->createDFGOffsetNode(readNode);
-                            DFGNode* wPred = writeNode->getPredecessors().at(0);
-
-                            oxigen::insertNode(offsetNode,wPred,readSucc,true);
-                        }
-
-
-                        readSucc->unlinkPredecessor(readNode);
                         llvm::errs() << "\nRSP2\n";
                         for(DFGNode* rs : readSucc->getPredecessors()){
                             rs->getValue()->dump();

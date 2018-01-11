@@ -257,7 +257,7 @@ void DefaultScheduler::execute(DFGStreamsOverlapHandler *overlapHandler) {
         overlapHandler->addInitialReadsOffsets(dfg);
 
         //llvm::errs() << "\nCOMPUTING GLOBAL DELAY\n";
-        //overlapHandler->computeGlobalDelay(dfg);
+        overlapHandler->computeGlobalDelay(dfg);
         //llvm::errs() << "\nOFFSET COMPUTATION TERMINATED\n";
         llvm::errs() << "WARNING: global delay computation temporary suspended\n";
     }

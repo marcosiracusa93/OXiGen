@@ -38,6 +38,7 @@ MaxJInstructionPrinter::OpcodeMap MaxJInstructionPrinter::opcodeMap = {
     {"sext","int"},
     {"zext","int"},
     {"fptosi","int"},
+    {"fptoui","int"},
     {"sitrunc","int"}
     
 };
@@ -688,6 +689,8 @@ std::string MaxJInstructionPrinter::appendInstruction(DFGNode* node){
     std::string varName = node->getName();
     node->setGlobalDelay(MaxJInstructionPrinter::currentGlobalDelay);
 
+    llvm::errs() << "\nNODE NAME: " << varName << "\n";
+
     std::map<std::string,std::string> vectorPredNamesMap = std::map<std::string,std::string>();
 
     for(DFGNode* pred : node->getCrossScopePredecessors()){
@@ -1049,9 +1052,9 @@ std::string MaxJInstructionPrinter::appendInstruction(DFGNode* node){
                         }
 
                         for (DFGNode *pred : predecessors) {
-                            if (pred->getName() != firstOperand && secondOperand.size() == 0) {
+                            if (getFullNameIfConstant(pred) != firstOperand && secondOperand.size() == 0) {
                                 secondOperand = getFullNameIfConstant(pred);
-                            } else if (pred->getName() != secondOperand && firstOperand.size() == 0) {
+                            } else if (getFullNameIfConstant(pred) != secondOperand && firstOperand.size() == 0) {
                                 firstOperand = getFullNameIfConstant(pred);
                             }
                         }
@@ -1141,6 +1144,7 @@ void DFGTranslator::assignNodeNames(){
     for(DFG* dfg : dfgs){
 
         int nodesCount = dfg->getNodesCount();
+        llvm::errs() << "DEBUG: nodes count: " << nodesCount << "\n";
         std::vector<std::string> nodeNames;
 
         for(int i = 0; i < nodesCount; i++)
