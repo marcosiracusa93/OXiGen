@@ -623,6 +623,8 @@ namespace oxigen{
             sourceStream.first->dump();
 
         }
+
+        bool isSigned();
     };
 
 

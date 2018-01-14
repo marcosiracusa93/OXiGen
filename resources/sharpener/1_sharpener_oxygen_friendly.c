@@ -87,9 +87,6 @@ void sharpen(
 		sharpen[i] = fabs(2 * gray[i] - blur_x[i]);
 	}
 
-
-
-
 	for(int i = WIDTH; i < SIZE - WIDTH; i++) {
 		ratio[i] = sharpen[i] / (gray[i] + 1);
 	}

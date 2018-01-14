@@ -29,50 +29,52 @@ IndVarAccess AnalysisManager::identifyAccessType(llvm::Function *F, llvm::Scalar
             for (llvm::Instruction &instr : BB->getInstList()) {
 
                 if(llvm::GetElementPtrInst* gep = llvm::dyn_cast<llvm::GetElementPtrInst>(&instr)){
-                    for(auto idx = gep->idx_begin(); idx != gep->idx_end(); ++idx){
 
-                        bool isOffset = true;
+                    if(llvm::dyn_cast<llvm::GetElementPtrInst>(gep->getPointerOperand())){
+                        llvm::errs() << "Additional dimension access ignored...\n";
+                    }else{
 
-                        if(llvm::Instruction* inst = llvm::dyn_cast<llvm::Instruction>(*idx)){
-                            llvm::Value* indexValue = inst;
-                            if(inst->isCast())
-                                indexValue = inst->getOperand(0);
+                        for(auto idx = gep->idx_begin(); idx != gep->idx_end(); ++idx) {
 
-                            if(llvm::dyn_cast<llvm::PHINode>(indexValue))
-                                isOffset = false;
+                            bool isOffset = true;
 
-                        }else if(llvm::Constant* c = llvm::dyn_cast<llvm::Constant>(*idx)){
-                            isOffset = !(c->isZeroValue());
-                        }
-                        if(isOffset){
-                            idx->get()->dump();
-                            const llvm::SCEV* scev_access = SE->getSCEV(*idx);
+                            if (llvm::Instruction *inst = llvm::dyn_cast<llvm::Instruction>(*idx)) {
+                                llvm::Value *indexValue = inst;
+                                if (inst->isCast())
+                                    indexValue = inst->getOperand(0);
 
-                            if(const llvm::SCEVAddRecExpr* addRec = llvm::dyn_cast<llvm::SCEVAddRecExpr>(scev_access)){
-                                if(addRec->getStepRecurrence(*SE)->isOne()){
+                                if (llvm::dyn_cast<llvm::PHINode>(indexValue))
+                                    isOffset = false;
 
-                                    const llvm::SCEV* start = addRec->getStart();
+                            } else if (llvm::Constant *c = llvm::dyn_cast<llvm::Constant>(*idx)) {
+                                isOffset = !(c->isZeroValue());
+                            }
+                            if (isOffset) {
+                                idx->get()->dump();
+                                const llvm::SCEV *scev_access = SE->getSCEV(*idx);
 
-                                    if(llvm::dyn_cast<llvm::SCEVConstant>(start)){
-                                        llvm::errs() << "Attributed constant access... ";
-                                        accessType = IndVarAccess::Constant;
-                                    } else{
-                                        llvm::errs() << "Non constant access... ";
-                                        exit(EXIT_FAILURE);
+                                if (const llvm::SCEVAddRecExpr *addRec = llvm::dyn_cast<llvm::SCEVAddRecExpr>(
+                                        scev_access)) {
+                                    if (addRec->getStepRecurrence(*SE)->isOne()) {
+
+                                        const llvm::SCEV *start = addRec->getStart();
+
+                                        if (llvm::dyn_cast<llvm::SCEVConstant>(start)) {
+                                            llvm::errs() << "Attributed constant access...\n ";
+                                        } else {
+                                            llvm::errs() << "Non constant access...\n ";
+                                        }
+                                    } else {
+                                        llvm::errs() << "Non constant access...\n ";
                                     }
-                                } else{
-                                    llvm::errs() << "Non constant access... ";
-                                    exit(EXIT_FAILURE);
+                                } else {
+                                    llvm::errs() << "Non add-rec based access...\n";
                                 }
-                            }else{
-                                llvm::errs() << "Non add-rec based access... ";
-                                exit(EXIT_FAILURE);
                             }
                         }
                     }
                 }
             }
-
         }
     }
 

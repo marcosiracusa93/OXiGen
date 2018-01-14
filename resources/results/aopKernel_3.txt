@@ -1,0 +1,187 @@
+class CalculationKernel extends Kernel {
+
+		public static final int tilingFactor = 10;
+
+	CalculationKernel(KernelParameters parameters) {
+		super(parameters);
+
+		DFEVar tileCounter = control.count.simpleCounter(32, tilingFactor);
+		DFEVar a = io.input("a", dfeInt(32),tileCounter.eq(0));
+		DFEVar na = io.input("na", dfeFloat(8, 24),tileCounter.eq(0));
+		DFEVar qa = io.input("qa", dfeFloat(8, 24),tileCounter.eq(0));
+		DFEVar ta = io.input("ta", dfeFloat(8, 24),tileCounter.eq(0));
+		DFEVar eb = io.input("eb", dfeFloat(8, 24),tileCounter.eq(0));
+		DFEVar fa = io.input("fa", dfeFloat(8, 24),tileCounter.eq(0));
+		DFEVar rd = io.input("rd", dfeInt(16),tileCounter.eq(0));
+		DFEVar wd = io.input("wd", dfeInt(16),tileCounter.eq(0));
+		DFEVar ce = io.input("ce", dfeFloat(8, 24),tileCounter.eq(0));
+		DFEVar de = io.input("de", dfeFloat(8, 24),tileCounter.eq(0));
+
+		DFEVar hb = wd.cast(dfeInt(32));
+		DFEVar ib = hb.cast(dfeFloat(11,53));
+		DFEVar kb = ib - constant.var(dfeFloat(11,53),1.000000);
+		DFEVar lb = kb.cast(dfeFloat(8,24));
+		DFEVar ua = ta * ta;
+		DFEVar ra = qa.cast(dfeFloat(11,53));
+		DFEVar va = ua.cast(dfeFloat(11,53));
+		DFEVar xa = va * constant.var(dfeFloat(11,53),0.500000);
+		DFEVar ya = ra - xa;
+		DFEVar za = ya.cast(dfeFloat(8,24));
+		DFEVar fb = de - eb;
+		DFEVar hc = fb / lb;
+		DFEVar oa = KernelMath.log(na, dfeFloat(8, 24));
+		DFEVar q = wd.cast(dfeInt(32));
+		DFEVar r = q.cast(dfeFloat(11,53));
+		DFEVar s = constant.var(dfeFloat(11,53),2.000000) * r;
+		DFEVar t = constant.var(dfeFloat(11,53),1.000000) / s;
+		DFEVar u = t.cast(dfeFloat(8,24));
+		DFEVar pa = oa.cast(dfeFloat(11,53));
+		DFEVar ab = za.cast(dfeFloat(11,53));
+		DFEVar cb = eb.cast(dfeFloat(11,53));
+		DFEVar ic = lb * hc;
+		DFEVar jc = ic.cast(dfeFloat(11,53));
+		DFEVar lc = jc * constant.var(dfeFloat(11,53),0.500000);
+		DFEVar mc = cb + lc;
+		DFEVar nc = ab * mc;
+		DFEVar oc = pa + nc;
+		DFEVar pc = oc.cast(dfeFloat(8,24));
+		DFEVar zb = eb.cast(dfeFloat(11,53));
+		DFEVar gc = hc * lb;
+		DFEVar fc = gc.cast(dfeFloat(11,53));
+		DFEVar ob = wd.cast(dfeInt(32));
+		DFEVar pb = constant.var(dfeInt(32),2) * ob;
+		DFEVar qb = pb.cast(dfeFloat(11,53));
+		DFEVar sb = qb - constant.var(dfeFloat(11,53),1.000000);
+		DFEVar ec = fc * sb;
+		DFEVar vb = wd.cast(dfeInt(32));
+		DFEVar wb = vb.cast(dfeFloat(11,53));
+		DFEVar xb = constant.var(dfeFloat(11,53),6.000000) * wb;
+		DFEVar dc = ec / xb;
+		DFEVar cc = zb + dc;
+		DFEVar bc = cc.cast(dfeFloat(8,24));
+		DFEVar ac = KernelMath.sqrt(bc);
+		DFEVar uc = ta * ac;
+		DFEVar tc = uc * uc;
+		DFEVar sc = constant.var(dfeFloat(8,24),1.000000) / tc;
+		DFEVar ma = KernelMath.log(fa, dfeFloat(8, 24));
+		DFEVar qc = ma - pc;
+		DFEVar rc = sc * qc;
+		DFEVector<DFEVar> l_gdwh = new DFEVectorType<DFEVar>(dfeFloat(8,24),3).newInstance(this);
+		DFEVector<DFEVar> l_gdoh = new DFEVectorType<DFEVar>(dfeFloat(8,24),3).newInstance(this);
+		DFEVector<DFEVar> l_gdfi = new DFEVectorType<DFEVar>(dfeFloat(8,24),3).newInstance(this);
+
+		for(int gd_idx = 0; gd_idx < 3; gd_idx += 1){
+			DFEVar l_gdeh = constant.var(dfeInt(32),gd_idx) + (tileCounter * 3).cast(dfeInt(32));
+			DFEVar l_gddh = l_gdeh.cast(dfeFloat(8,24));
+			DFEVar l_gdwg = l_gdeh + constant.var(dfeInt(32),1);
+			DFEVar l_gdxg = l_gdwg * l_gdeh;
+			DFEVar l_gdyg = l_gdxg.cast(dfeFloat(8,24));
+			DFEVar l_gdzg = l_gdyg * u;
+			DFEVar l_gdch = l_gddh - l_gdzg;
+			DFEVar l_gdbh = hc * l_gdch;
+			DFEVar l_gdfh = l_gdeh.cast(dfeFloat(8,24));
+			DFEVar l_gdgh = l_gdfh * hc;
+			DFEVar l_gdhh = eb + l_gdgh;
+			DFEVar l_gdih = KernelMath.sqrt(l_gdhh);
+			DFEVar l_gdjh = ta * l_gdih;
+			DFEVar l_gdkh = l_gdjh * l_gdjh;
+			DFEVar l_gdah = eb + l_gdbh;
+			l_gdwh[gd_idx] <== ua * l_gdah;
+			DFEVar l_gdvg = l_gdeh.cast(dfeFloat(8,24));
+			DFEVar l_gdug = l_gdvg * hc;
+			DFEVar l_gdtg = eb + l_gdug;
+			DFEVar l_gdsg = za * l_gdtg;
+			DFEVar l_gdrh = oa + l_gdsg;
+			DFEVar l_gdqh = l_gdrh.cast(dfeFloat(11,53));
+			DFEVar l_gdlh = l_gdkh.cast(dfeFloat(11,53));
+			DFEVar l_gdmh = l_gdlh * constant.var(dfeFloat(11,53),0.500000);
+			DFEVar l_gdph = l_gdqh + l_gdmh;
+			l_gdoh[gd_idx] <== l_gdph.cast(dfeFloat(8,24));
+			DFEVar l_gduh = l_gdwh[gd_idx] * rc;
+			DFEVar l_gdth = l_gdrh + l_gduh;
+			DFEVar l_gdsh = l_gdth.cast(dfeFloat(11,53));
+			DFEVar l_gdxh = l_gdwh[gd_idx] * l_gdwh[gd_idx];
+			DFEVar l_gdyh = l_gdxh * sc;
+			DFEVar l_gdzh = l_gdkh - l_gdyh;
+			DFEVar l_gdai = l_gdzh.cast(dfeFloat(11,53));
+			DFEVar l_gdbi = l_gdai * constant.var(dfeFloat(11,53),0.500000);
+			DFEVar l_gdci = l_gdsh + l_gdbi;
+			DFEVar l_gddi = l_gdci.cast(dfeFloat(8,24));
+			l_gdfi[gd_idx] <== KernelMath.exp(l_gddi);
+
+		}
+		DFEVar l_fdd = constant.var(dfeFloat(8,24),0.000000);
+
+		for(int fd_idx = 0; fd_idx < 30; fd_idx += 1){
+
+			int tile_n = fd_idx / 3;
+			int fd_idx_r = fd_idx % 3;
+
+			DFEVar l_fdc = l_fdd + stream.offset(l_gdfi[fd_idx_r],-9 + tile_n);
+			l_fdd = l_fdc;
+
+		}
+		DFEVar l_fdd_hold = Reductions.streamHold(l_fdd, tileCounter.eq(9));
+		DFEVar ga = stream.offset(fa,-9).cast(dfeFloat(11,53));
+		DFEVar ha = constant.var(dfeFloat(11,53),2.000000) * ga;
+		DFEVar ca = stream.offset(wd,-9).cast(dfeInt(32));
+		DFEVar da = ca.cast(dfeFloat(8,24));
+		DFEVar ed = l_fdd_hold / da;
+		DFEVar dd = ed.cast(dfeFloat(11,53));
+		DFEVar cd = ha - dd;
+		DFEVar bd = cd.cast(dfeFloat(8,24));
+		DFEVar ad = KernelMath.log(bd, dfeFloat(8, 24));
+		DFEVar wc = constant.var(dfeFloat(8,24),1.000000) / stream.offset(uc,-9);
+		DFEVar zc = stream.offset(pc,-9) - ad;
+		DFEVar yc = zc * wc;
+		DFEVar c = stream.offset(a,-9) === 0;
+		DFEVar f = c ? constant.var(dfeInt(32),1) : constant.var(dfeInt(32),-1);
+		DFEVar od = f.cast(dfeFloat(8,24));
+		DFEVar xc = od * yc;
+		DFEVar vc = od * wc;
+		DFEVector<DFEVar> l_hdl = new DFEVectorType<DFEVar>(dfeFloat(8,24),3).newInstance(this);
+
+		for(int hd_idx = 0; hd_idx < 3; hd_idx += 1){
+			DFEVar l_hdh = vc * stream.offset(l_gdwh[hd_idx],-9);
+			DFEVar l_hdi = xc + l_hdh;
+			DFEVar l_hdj = OXiGen.Ncdf(l_hdi);
+			DFEVar l_hdg = KernelMath.exp(stream.offset(l_gdoh[hd_idx],-9));
+			l_hdl[hd_idx] <== l_hdg * l_hdj;
+
+		}
+		DFEVar l_idd = constant.var(dfeFloat(8,24),0.000000);
+
+		for(int id_idx = 0; id_idx < 30; id_idx += 1){
+
+			int tile_n = id_idx / 3;
+			int id_idx_r = id_idx % 3;
+
+			DFEVar l_idc = l_idd + stream.offset(l_hdl[id_idx_r],-9 + tile_n);
+			l_idd = l_idc;
+
+		}
+		DFEVar l_idd_hold = Reductions.streamHold(l_idd, tileCounter.eq(8));
+		DFEVar nd = stream.offset(od,-9) * stream.offset(yc,-9);
+		DFEVar md = OXiGen.Ncdf(nd);
+		DFEVar ee = stream.offset(ce,-18) * stream.offset(de,-18);
+		DFEVar fe = KernelMath.exp(ee);
+		DFEVar ge = constant.var(dfeFloat(8,24),1.000000) / fe;
+		DFEVar i = stream.offset(wd,-18).cast(dfeInt(32));
+		DFEVar j = i.cast(dfeFloat(8,24));
+		DFEVar jd = l_idd_hold / j;
+		DFEVar ld = stream.offset(fa,-18) * md;
+		DFEVar kd = jd - ld;
+		DFEVar qd = stream.offset(wd,-18).cast(dfeInt(32));
+		DFEVar sd = stream.offset(rd,-18).cast(dfeInt(32));
+		DFEVar td = qd - sd;
+		DFEVar ud = td.cast(dfeFloat(8,24));
+		DFEVar vd = stream.offset(od,-9) * ud;
+		DFEVar xd = stream.offset(wd,-18).cast(dfeInt(32));
+		DFEVar yd = xd.cast(dfeFloat(8,24));
+		DFEVar zd = vd / yd;
+		DFEVar ae = kd * zd;
+		DFEVar he = ae * ge;
+
+		io.output("ie", he, dfeFloat(8, 24),tileCounter.eq(18 % tilingFactor));
+	}
+}

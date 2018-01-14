@@ -148,16 +148,16 @@ void DefaultScheduler::execute(DFGConstructor* dfgConstructor){
 
         std::vector<DFG*> loopGraphs;
 
-        std::vector<DFG*> staticGraphs =  dfgConstructor->computeStaticDFG(
-                ioStreams.at(loopIndex),SE,LI,F,currentBlock);
+        /*std::vector<DFG*> staticGraphs =  dfgConstructor->computeStaticDFG(
+                ioStreams.at(loopIndex),SE,LI,F,currentBlock);*/
 
         std::vector<DFG*> graphs = dfgConstructor->computeIOStreamBasedDFG(
                 loop,ioStreams.at(loopIndex),SE,loopIndex);
 
-        std::vector<DFG*> revStatic(staticGraphs.size());
-        std::reverse_copy(std::begin(staticGraphs),std::end(staticGraphs),std::begin(revStatic));
+        /*std::vector<DFG*> revStatic(staticGraphs.size());
+        std::reverse_copy(std::begin(staticGraphs),std::end(staticGraphs),std::begin(revStatic));*/
 
-        loopGraphs.insert(loopGraphs.begin(),revStatic.begin(),revStatic.end());
+        /*loopGraphs.insert(loopGraphs.begin(),revStatic.begin(),revStatic.end());*/
         loopGraphs.insert(loopGraphs.begin(),graphs.begin(),graphs.end());
 
         currentBlock = loop->getExitBlock();
@@ -165,13 +165,13 @@ void DefaultScheduler::execute(DFGConstructor* dfgConstructor){
         dfgs.insert(dfgs.begin(),loopGraphs.begin(),loopGraphs.end());
     }
 
-    std::vector<DFG*> staticGraphs =  dfgConstructor->computeStaticDFG(
-            ioStreams.at(loopIndex-1),SE,LI,F,currentBlock);
+    /*std::vector<DFG*> staticGraphs =  dfgConstructor->computeStaticDFG(
+            ioStreams.at(loopIndex-1),SE,LI,F,currentBlock);*/
 
-    std::vector<DFG*> revStatic(staticGraphs.size());
-    std::reverse_copy(std::begin(staticGraphs),std::end(staticGraphs),std::begin(revStatic));
+   /* std::vector<DFG*> revStatic(staticGraphs.size());
+    std::reverse_copy(std::begin(staticGraphs),std::end(staticGraphs),std::begin(revStatic));*/
 
-    dfgs.insert(dfgs.begin(),revStatic.begin(),revStatic.end());
+    /*dfgs.insert(dfgs.begin(),revStatic.begin(),revStatic.end());*/
 
     if(dfgs.size() > 1){
         std::vector<DFG*> revDfgs(dfgs.size());
@@ -253,11 +253,12 @@ void DefaultScheduler::execute(DFGStreamsOverlapHandler *overlapHandler) {
         dfg->printDFG();
         llvm::errs() << "\nComputing initial r/w offsets for graph with base ";
         dfg->getEndNode()->getValue()->dump();
+        dfg->resetFlags(dfg->getEndNode());
         overlapHandler->addFinalStoreOffsets(dfg);
         overlapHandler->addInitialReadsOffsets(dfg);
 
         //llvm::errs() << "\nCOMPUTING GLOBAL DELAY\n";
-        overlapHandler->computeGlobalDelay(dfg);
+        //overlapHandler->computeGlobalDelay(dfg);
         //llvm::errs() << "\nOFFSET COMPUTATION TERMINATED\n";
         llvm::errs() << "WARNING: global delay computation temporary suspended\n";
     }

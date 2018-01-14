@@ -1,9 +1,9 @@
 digraph "CFG for 'write_bmp' function" {
 	label="CFG for 'write_bmp' function";
 
-	Node0x3da83f0 [shape=record,label="{%2:\l  %3 = alloca [54 x i8], align 16\l  %4 = bitcast [54 x i8]* %3 to i8*\l  call void @llvm.memcpy.p0i8.p0i8.i64(i8* %4, i8* getelementptr inbounds ([54\l... x i8], [54 x i8]* @write_bmp.header, i32 0, i32 0), i64 54, i32 16, i1 false)\l  %5 = getelementptr inbounds [54 x i8], [54 x i8]* %3, i64 0, i64 18\l  %6 = bitcast i8* %5 to i32*\l  store i32 360, i32* %6, align 2\l  %7 = getelementptr inbounds [54 x i8], [54 x i8]* %3, i64 0, i64 22\l  %8 = bitcast i8* %7 to i32*\l  store i32 480, i32* %8, align 2\l  %9 = call %struct._IO_FILE* @fopen(i8* %0, i8* getelementptr inbounds ([3 x\l... i8], [3 x i8]* @.str.1, i32 0, i32 0))\l  %10 = icmp ne %struct._IO_FILE* %9, null\l  br i1 %10, label %13, label %11\l|{<s0>T|<s1>F}}"];
-	Node0x3da83f0:s0 -> Node0x3da9580;
-	Node0x3da83f0:s1 -> Node0x3da9610;
-	Node0x3da9610 [shape=record,label="{%11:\l\l  %12 = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([33 x i8], [33\l... x i8]* @.str.2, i32 0, i32 0), i8* %0)\l  call void @exit(i32 1) #5\l  unreachable\l}"];
-	Node0x3da9580 [shape=record,label="{%13:\l\l  %14 = getelementptr inbounds [54 x i8], [54 x i8]* %3, i32 0, i32 0\l  %15 = call i64 @fwrite(i8* %14, i64 1, i64 54, %struct._IO_FILE* %9)\l  %16 = sext i32 518400 to i64\l  %17 = call i64 @fwrite(i8* %1, i64 1, i64 %16, %struct._IO_FILE* %9)\l  %18 = call i32 @fclose(%struct._IO_FILE* %9)\l  ret void\l}"];
+	Node0x2e753f0 [shape=record,label="{%2:\l  %3 = alloca [54 x i8], align 16\l  %4 = bitcast [54 x i8]* %3 to i8*\l  call void @llvm.memcpy.p0i8.p0i8.i64(i8* %4, i8* getelementptr inbounds ([54\l... x i8], [54 x i8]* @write_bmp.header, i32 0, i32 0), i64 54, i32 16, i1 false)\l  %5 = getelementptr inbounds [54 x i8], [54 x i8]* %3, i64 0, i64 18\l  %6 = bitcast i8* %5 to i32*\l  store i32 360, i32* %6, align 2\l  %7 = getelementptr inbounds [54 x i8], [54 x i8]* %3, i64 0, i64 22\l  %8 = bitcast i8* %7 to i32*\l  store i32 480, i32* %8, align 2\l  %9 = call %struct._IO_FILE* @fopen(i8* %0, i8* getelementptr inbounds ([3 x\l... i8], [3 x i8]* @.str.1, i32 0, i32 0))\l  %10 = icmp ne %struct._IO_FILE* %9, null\l  br i1 %10, label %13, label %11\l|{<s0>T|<s1>F}}"];
+	Node0x2e753f0:s0 -> Node0x2e76580;
+	Node0x2e753f0:s1 -> Node0x2e76610;
+	Node0x2e76610 [shape=record,label="{%11:\l\l  %12 = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([33 x i8], [33\l... x i8]* @.str.2, i32 0, i32 0), i8* %0)\l  call void @exit(i32 1) #5\l  unreachable\l}"];
+	Node0x2e76580 [shape=record,label="{%13:\l\l  %14 = getelementptr inbounds [54 x i8], [54 x i8]* %3, i32 0, i32 0\l  %15 = call i64 @fwrite(i8* %14, i64 1, i64 54, %struct._IO_FILE* %9)\l  %16 = sext i32 518400 to i64\l  %17 = call i64 @fwrite(i8* %1, i64 1, i64 %16, %struct._IO_FILE* %9)\l  %18 = call i32 @fclose(%struct._IO_FILE* %9)\l  ret void\l}"];
 }

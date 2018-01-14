@@ -196,6 +196,7 @@ std::string MaxJInstructionPrinter::getInputStreamsDeclarations(std::vector<DFGR
         if(inputStreamType->isIntegerTy())
         {
             int bitWidth = inputStreamType->getIntegerBitWidth();
+
             
             std::string decl = std::string("\t\tDFEVar ") + nodeName +
                         std::string(" = io.input(\"") + nodeName + 
@@ -933,13 +934,45 @@ std::string MaxJInstructionPrinter::appendInstruction(DFGNode* node){
                                    std::string("));\n");
                 }
 
-                if(opcode == std::string("int")){
+                if(opcode == std::string("int")) {
 
                     int bitWidth = destType->getScalarSizeInBits();
-                    currentInstr = nestingTabs + std::string("\t\t"+ varType) + varName +
-                                   assignmentType + castTarget +
-                                   std::string(".cast(dfeInt(") + std::to_string(bitWidth) +
-                                   std::string("));\n");
+
+                    if (llvm::FPToUIInst *fptui = llvm::dyn_cast<llvm::FPToUIInst>(node->getValue())){
+
+                        currentInstr = nestingTabs + std::string("\t\t" + varType) + varName + "_u" +
+                                       assignmentType + castTarget + std::string(".cast(dfeUInt(") +
+                                       std::to_string(fptui->getDestTy()->getScalarSizeInBits()) + "));\n" +
+                                       nestingTabs + std::string("\t\t" + varType) + varName + "_r" +
+                                       assignmentType + varName + "_r" + std::string(".cast(dfeRawBits(") +
+                                       std::to_string(fptui->getDestTy()->getScalarSizeInBits()) + "));\n" +
+                                       nestingTabs + std::string("\t\t" + varType) + varName +
+                                       assignmentType + castTarget +
+                                       std::string(".cast(dfeInt(") + std::to_string(bitWidth) +
+                                       std::string("));\n");
+
+                    } else if (llvm::ZExtInst *zext = llvm::dyn_cast<llvm::ZExtInst>(node->getValue())) {
+
+                        currentInstr = nestingTabs + std::string("\t\t" + varType) + varName + "_r" +
+                                       assignmentType + castTarget + std::string(".cast(dfeRawBits(") +
+                                       std::to_string(zext->getSrcTy()->getScalarSizeInBits()) + "));\n" +
+                                       nestingTabs + std::string("\t\t" + varType) + varName + "_u" +
+                                       assignmentType + varName + "_r" + std::string(".cast(dfeUInt(") +
+                                       std::to_string(zext->getSrcTy()->getScalarSizeInBits()) + "));\n" +
+                                       nestingTabs + std::string("\t\t" + varType) + varName +
+                                       assignmentType + castTarget +
+                                       std::string(".cast(dfeInt(") + std::to_string(bitWidth) +
+                                       std::string("));\n");
+
+                    } else {
+
+
+                        currentInstr = nestingTabs + std::string("\t\t" + varType) + varName +
+                                       assignmentType + castTarget +
+                                       std::string(".cast(dfeInt(") + std::to_string(bitWidth) +
+                                       std::string("));\n");
+
+                    }
                 }
 
             }else if(llvm::CallInst* callInstr = llvm::dyn_cast<llvm::CallInst>(instr)){

@@ -1,0 +1,84 @@
+package sharpen;
+
+import com.maxeler.maxcompiler.v2.kernelcompiler.Kernel;
+import com.maxeler.maxcompiler.v2.kernelcompiler.KernelParameters;
+import com.maxeler.maxcompiler.v2.kernelcompiler.types.base.DFEVar;
+import com.maxeler.maxcompiler.v2.kernelcompiler.stdlib.KernelMath;
+
+
+class sharpenKernel extends Kernel {
+
+	sharpenKernel(KernelParameters parameters) {
+		super(parameters);
+
+		DFEVar b = io.input("b", dfeInt(8));
+		DFEVar g = io.input("g", dfeInt(8));
+		DFEVar m = io.input("m", dfeInt(8));
+
+		DFEVar c = b.cast(dfeInt(32));
+		DFEVar d = c.cast(dfeFloat(11,53));
+		DFEVar e = constant.var(dfeFloat(11,53),0.100000) * d;
+		DFEVar h = g.cast(dfeInt(32));
+		DFEVar i = h.cast(dfeFloat(11,53));
+		DFEVar j = constant.var(dfeFloat(11,53),0.600000) * i;
+		DFEVar k = e + j;
+		DFEVar n = m.cast(dfeInt(32));
+		DFEVar o = n.cast(dfeFloat(11,53));
+		DFEVar p = constant.var(dfeFloat(11,53),0.300000) * o;
+		DFEVar q = k + p;
+		DFEVar sa = q.cast(dfeFloat(8,24));
+		DFEVar r = stream.offset(sa, 360);
+		DFEVar qa = sa + r;
+		DFEVar s = stream.offset(sa, 720);
+		DFEVar pa = qa + s;
+		DFEVar oa = pa / constant.var(dfeFloat(8,24),3.000000);
+		DFEVar na = stream.offset(oa, -360);
+		DFEVar la = stream.offset(na, 359);
+		DFEVar u = stream.offset(na, 360);
+		DFEVar ka = la + u;
+		DFEVar v = stream.offset(na, 361);
+		DFEVar ja = ka + v;
+		DFEVar ia = ja / constant.var(dfeFloat(8,24),3.000000);
+		DFEVar ha = stream.offset(ia, -360);
+		DFEVar fa = stream.offset(ha, 360);
+		DFEVar y = stream.offset(sa, 360);
+		DFEVar z = constant.var(dfeFloat(8,24),2.000000) * y;
+		DFEVar ea = z - fa;
+		DFEVar da = KernelMath.abs(ea);
+		DFEVar ca = stream.offset(da, -360);
+		DFEVar aa = stream.offset(ca, 360);
+		DFEVar ta = stream.offset(sa, 360);
+		DFEVar va = ta + constant.var(dfeFloat(8,24),1.000000);
+		DFEVar wa = aa / va;
+		DFEVar ub = stream.offset(wa, -360);
+		DFEVar sb = stream.offset(ub, 360);
+		DFEVar jb = stream.offset(b, 360);
+		DFEVar kb = jb.cast(dfeInt(32));
+		DFEVar lb = kb.cast(dfeFloat(8,24));
+		DFEVar rb = sb * lb;
+		DFEVar qb = KernelMath.min(constant.var(dfeFloat(8,24),255.000000),rb);
+		DFEVar pb = qb.cast(dfeInt(8));
+		DFEVar ob = stream.offset(pb, -360);
+		DFEVar hb = stream.offset(ub, 360);
+		DFEVar ya = stream.offset(g, 360);
+		DFEVar za = ya.cast(dfeInt(32));
+		DFEVar ab = za.cast(dfeFloat(8,24));
+		DFEVar gb = hb * ab;
+		DFEVar fb = KernelMath.min(constant.var(dfeFloat(8,24),255.000000),gb);
+		DFEVar eb = fb.cast(dfeInt(8));
+		DFEVar db = stream.offset(eb, -360);
+		DFEVar xb = stream.offset(m, 360);
+		DFEVar yb = xb.cast(dfeInt(32));
+		DFEVar zb = yb.cast(dfeFloat(8,24));
+		DFEVar vb = stream.offset(ub, 360);
+		DFEVar ac = vb * zb;
+		DFEVar cc = KernelMath.min(constant.var(dfeFloat(8,24),255.000000),ac);
+		DFEVar dc = cc.cast(dfeInt(8));
+		DFEVar ec = stream.offset(dc, -360);
+
+		io.output("cb", db, dfeInt(8));
+		io.output("nb", ob, dfeInt(8));
+		io.output("fc", ec, dfeInt(8));
+	}
+}
+

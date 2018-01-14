@@ -162,11 +162,14 @@ bool StreamsAnalyzer::directlyUses(llvm::Value *userValue, llvm::Value* targetVa
 bool StreamsAnalyzer::isStored(llvm::Value* value){
 
     for(llvm::User* user : value->users()){
-        if(llvm::Instruction* userAsInstr = llvm::dyn_cast<llvm::Instruction>(user)) 
-            if(userAsInstr->getOpcodeName() == std::string("store") &&
-                user->getOperand(1) == value){
+        if(llvm::Instruction* userAsInstr = llvm::dyn_cast<llvm::Instruction>(user)) {
+            if (userAsInstr->getOpcodeName() == std::string("store") &&
+                user->getOperand(1) == value) {
                 return true;
-                }
+            }else if(llvm::dyn_cast<llvm::GetElementPtrInst>(userAsInstr)){
+                return isStored(userAsInstr);
+            }
+        }
     }
 
     return false;

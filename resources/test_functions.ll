@@ -1543,6 +1543,125 @@ define void @two_loops(float*, float*, float*) #0 {
   ret void
 }
 
+; Function Attrs: noinline nounwind uwtable
+define void @two_d_test([3 x i8]*, [3 x i8]*) #0 {
+  %3 = alloca [3 x i8]*, align 8
+  %4 = alloca [3 x i8]*, align 8
+  %5 = alloca [100 x float], align 16
+  %6 = alloca i32, align 4
+  %7 = alloca i32, align 4
+  %8 = alloca i32, align 4
+  store [3 x i8]* %0, [3 x i8]** %3, align 8
+  store [3 x i8]* %1, [3 x i8]** %4, align 8
+  store i32 0, i32* %6, align 4
+  br label %9
+
+; <label>:9:                                      ; preds = %40, %2
+  %10 = load i32, i32* %6, align 4
+  %11 = icmp slt i32 %10, 100
+  br i1 %11, label %12, label %43
+
+; <label>:12:                                     ; preds = %9
+  %13 = load [3 x i8]*, [3 x i8]** %3, align 8
+  %14 = load i32, i32* %6, align 4
+  %15 = sext i32 %14 to i64
+  %16 = getelementptr inbounds [3 x i8], [3 x i8]* %13, i64 %15
+  %17 = getelementptr inbounds [3 x i8], [3 x i8]* %16, i64 0, i64 0
+  %18 = load i8, i8* %17, align 1
+  %19 = zext i8 %18 to i32
+  %20 = load [3 x i8]*, [3 x i8]** %3, align 8
+  %21 = load i32, i32* %6, align 4
+  %22 = sext i32 %21 to i64
+  %23 = getelementptr inbounds [3 x i8], [3 x i8]* %20, i64 %22
+  %24 = getelementptr inbounds [3 x i8], [3 x i8]* %23, i64 0, i64 1
+  %25 = load i8, i8* %24, align 1
+  %26 = zext i8 %25 to i32
+  %27 = add nsw i32 %19, %26
+  %28 = load [3 x i8]*, [3 x i8]** %3, align 8
+  %29 = load i32, i32* %6, align 4
+  %30 = sext i32 %29 to i64
+  %31 = getelementptr inbounds [3 x i8], [3 x i8]* %28, i64 %30
+  %32 = getelementptr inbounds [3 x i8], [3 x i8]* %31, i64 0, i64 2
+  %33 = load i8, i8* %32, align 1
+  %34 = zext i8 %33 to i32
+  %35 = add nsw i32 %27, %34
+  %36 = sitofp i32 %35 to float
+  %37 = load i32, i32* %6, align 4
+  %38 = sext i32 %37 to i64
+  %39 = getelementptr inbounds [100 x float], [100 x float]* %5, i64 0, i64 %38
+  store float %36, float* %39, align 4
+  br label %40
+
+; <label>:40:                                     ; preds = %12
+  %41 = load i32, i32* %6, align 4
+  %42 = add nsw i32 %41, 1
+  store i32 %42, i32* %6, align 4
+  br label %9
+
+; <label>:43:                                     ; preds = %9
+  store i32 0, i32* %7, align 4
+  br label %44
+
+; <label>:44:                                     ; preds = %79, %43
+  %45 = load i32, i32* %7, align 4
+  %46 = icmp slt i32 %45, 100
+  br i1 %46, label %47, label %82
+
+; <label>:47:                                     ; preds = %44
+  store i32 0, i32* %8, align 4
+  br label %48
+
+; <label>:48:                                     ; preds = %75, %47
+  %49 = load i32, i32* %8, align 4
+  %50 = icmp slt i32 %49, 100
+  br i1 %50, label %51, label %78
+
+; <label>:51:                                     ; preds = %48
+  %52 = load i32, i32* %7, align 4
+  %53 = sext i32 %52 to i64
+  %54 = getelementptr inbounds [100 x float], [100 x float]* %5, i64 0, i64 %53
+  %55 = load float, float* %54, align 4
+  %56 = load [3 x i8]*, [3 x i8]** %3, align 8
+  %57 = load i32, i32* %7, align 4
+  %58 = sext i32 %57 to i64
+  %59 = getelementptr inbounds [3 x i8], [3 x i8]* %56, i64 %58
+  %60 = load i32, i32* %8, align 4
+  %61 = sext i32 %60 to i64
+  %62 = getelementptr inbounds [3 x i8], [3 x i8]* %59, i64 0, i64 %61
+  %63 = load i8, i8* %62, align 1
+  %64 = zext i8 %63 to i32
+  %65 = sitofp i32 %64 to float
+  %66 = fadd float %55, %65
+  %67 = fptoui float %66 to i8
+  %68 = load [3 x i8]*, [3 x i8]** %4, align 8
+  %69 = load i32, i32* %7, align 4
+  %70 = sext i32 %69 to i64
+  %71 = getelementptr inbounds [3 x i8], [3 x i8]* %68, i64 %70
+  %72 = load i32, i32* %8, align 4
+  %73 = sext i32 %72 to i64
+  %74 = getelementptr inbounds [3 x i8], [3 x i8]* %71, i64 0, i64 %73
+  store i8 %67, i8* %74, align 1
+  br label %75
+
+; <label>:75:                                     ; preds = %51
+  %76 = load i32, i32* %8, align 4
+  %77 = add nsw i32 %76, 1
+  store i32 %77, i32* %8, align 4
+  br label %48
+
+; <label>:78:                                     ; preds = %48
+  br label %79
+
+; <label>:79:                                     ; preds = %78
+  %80 = load i32, i32* %7, align 4
+  %81 = add nsw i32 %80, 1
+  store i32 %81, i32* %7, align 4
+  br label %44
+
+; <label>:82:                                     ; preds = %44
+  ret void
+}
+
 attributes #0 = { noinline nounwind uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { noinline nounwind readnone uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
 

@@ -1,5 +1,5 @@
 digraph "CFG for 'fabs' function" {
 	label="CFG for 'fabs' function";
 
-	Node0x491c040 [shape=record,label="{%1:\l  %2 = fmul float %0, %0\l  %3 = fadd float %2, %0\l  ret float %3\l}"];
+	Node0x2cd7370 [shape=record,label="{%1:\l  %2 = fmul float %0, %0\l  %3 = fadd float %2, %0\l  ret float %3\l}"];
 }

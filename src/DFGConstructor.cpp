@@ -449,11 +449,28 @@ DFGWriteNode::DFGWriteNode(llvm::Value* value, IOStreams* loopStreams, int loopT
             if(((llvm::Instruction*)(instr->getOperand(1)))->getOperand(0) == stream.first)
             {
                 writingStream = stream;
+                llvm::errs() << "INFO: Attributed  writing stream:\n";
+                if(writingStream.first!= nullptr)
+                    writingStream.first->dump();
+                else
+                    llvm::errs() << "NULL\n";
+                if(writingStream.second!= nullptr)
+                    writingStream.second->dump();
+                else
+                    llvm::errs() << "NULL\n";
                 return;
             }   
         }
         writingStream = loopStreams->getInStreamFromGEP((llvm::GetElementPtrInst*)(instr->getOperand(1)));
-        llvm::errs() << "Attributed default writing stream for "; value->dump();
+        llvm::errs() << "INFO: Attributed  writing stream:\n";
+        if(writingStream.first!= nullptr)
+            writingStream.first->dump();
+        else
+            llvm::errs() << "NULL\n";
+        if(writingStream.second!= nullptr)
+            writingStream.second->dump();
+        else
+            llvm::errs() << "NULL\n";
     }
 }
 
@@ -1598,10 +1615,15 @@ DFGNode* DFGConstructor::constructNode(llvm::Value *value, DFGNode *parentNode, 
     if(loop != nullptr) {
 
         if (llvm::Instruction *operandAsInstr = llvm::dyn_cast<llvm::Instruction>(value)) {
-            //these checks identify a DFGReadNode which accesses a stream
-            //through the exact value of the canonical induction variable
-            //at any given iteration
-            if (operandAsInstr->getOpcodeName() == std::string("load")) {
+
+            llvm::errs() << "DEBUG INFO: in DFGConstructor::constructNode for ";
+            value->dump();
+
+             if (operandAsInstr->getOpcodeName() == std::string("load")) {
+                //these checks identify a DFGReadNode which accesses a stream
+                //through the exact value of the canonical induction variable
+                //at any given iteration
+
                 //TODO: rewrite this code...
                 llvm::Instruction *getelemPtrInstr = getInstrFromOperand(
                         operandAsInstr->getOperand(0), std::string("getelementptr"));
@@ -1771,7 +1793,6 @@ void DFGConstructor::constructNodeForOperands(std::vector<llvm::Value*> instruct
         constructNode(operandVal,node,loop,nodeFactory,IOs,loopTripCount);
     }
 
-
 }
 
 void DFGConstructor::populateDFG(DFGNode* node, IOStreams* IOs,int loopTripCount,
@@ -1804,8 +1825,6 @@ void DFGConstructor::populateDFG(DFGNode* node, IOStreams* IOs,int loopTripCount
                 }
 
             }
-
-
 
             constructNodeForOperands(operands,node,loop,nodeFactory,IOs,loopTripCount);
         }
@@ -1946,12 +1965,19 @@ bool DFGConstructor::hasSextOnIndvar(llvm::Instruction* instr,llvm::Loop* loop){
 StreamPair DFGConstructor::storedOutputStream(llvm::StoreInst* store, IOStreams* IOs, llvm::ScalarEvolution* SE){
 
     if(llvm::GetElementPtrInst* gep = llvm::dyn_cast<llvm::GetElementPtrInst>(store->getPointerOperand())){
-        const llvm::SCEV* idx_scev = SE->getSCEV(*(gep->idx_begin()));
+        llvm::GetElementPtrInst* gepInstr = gep;
+
+        while(llvm::GetElementPtrInst* gep_2 = llvm::dyn_cast<llvm::GetElementPtrInst>(gepInstr->getPointerOperand())){
+            gepInstr = gep_2;
+            llvm::errs() << "DEBUG: gep is ";
+            gepInstr->dump();
+        }
+        const llvm::SCEV* idx_scev = SE->getSCEV(*(gepInstr->idx_begin()));
 
         if(idx_scev != nullptr)
             if(const llvm::SCEVAddRecExpr* addRec = llvm::dyn_cast<llvm::SCEVAddRecExpr>(idx_scev))
                 for(StreamPair p : IOs->getOutputStreams()){
-                    if(p.first == gep->getPointerOperand() &&
+                    if(p.first == gepInstr->getPointerOperand() &&
                             (p.second == addRec->getStart() || (p.second == nullptr && addRec->getStart()->isZero())))
                         return p;
                 }

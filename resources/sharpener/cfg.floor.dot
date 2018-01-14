@@ -1,5 +1,5 @@
 digraph "CFG for 'floor' function" {
 	label="CFG for 'floor' function";
 
-	Node0x3d817c0 [shape=record,label="{%1:\l  %2 = fmul float %0, %0\l  %3 = fadd float %2, %0\l  ret float %3\l}"];
+	Node0x2e4e7c0 [shape=record,label="{%1:\l  %2 = fmul float %0, %0\l  %3 = fadd float %2, %0\l  ret float %3\l}"];
 }

@@ -238,3 +238,18 @@ void two_loops(float* in, float* out,float* out1){
         }
     }
 }
+
+void two_d_test(unsigned char in[N][3], unsigned char out[N][3]){
+
+    float x[N];
+
+    for(int i = 0; i < N; i++){
+        x[i] = in[i][0] + in[i][1] + in[i][2];
+    }
+
+    for(int i = 0; i < N; i++){
+        for(int j = 0; j < N; j++) {
+            out[i][j] = x[i] + in[i][j];
+        }
+    }
+}
