@@ -1,16 +1,16 @@
 digraph "CFG for 'read_bmp' function" {
 	label="CFG for 'read_bmp' function";
 
-	Node0x2e51eb0 [shape=record,label="{%2:\l  %3 = alloca [54 x i8], align 16\l  %4 = call %struct._IO_FILE* @fopen(i8* %0, i8* getelementptr inbounds ([3 x\l... i8], [3 x i8]* @.str.3, i32 0, i32 0))\l  %5 = icmp ne %struct._IO_FILE* %4, null\l  br i1 %5, label %8, label %6\l|{<s0>T|<s1>F}}"];
-	Node0x2e51eb0:s0 -> Node0x2e50790;
-	Node0x2e51eb0:s1 -> Node0x2e50570;
-	Node0x2e50570 [shape=record,label="{%6:\l\l  %7 = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([33 x i8], [33\l... x i8]* @.str.4, i32 0, i32 0), i8* %0)\l  call void @exit(i32 1) #5\l  unreachable\l}"];
-	Node0x2e50790 [shape=record,label="{%8:\l\l  %9 = getelementptr inbounds [54 x i8], [54 x i8]* %3, i32 0, i32 0\l  %10 = call i64 @fread(i8* %9, i64 1, i64 54, %struct._IO_FILE* %4)\l  %11 = getelementptr inbounds [54 x i8], [54 x i8]* %3, i64 0, i64 18\l  %12 = bitcast i8* %11 to i32*\l  %13 = load i32, i32* %12, align 2\l  %14 = getelementptr inbounds [54 x i8], [54 x i8]* %3, i64 0, i64 22\l  %15 = bitcast i8* %14 to i32*\l  %16 = load i32, i32* %15, align 2\l  %17 = icmp ne i32 %13, 360\l  br i1 %17, label %20, label %18\l|{<s0>T|<s1>F}}"];
-	Node0x2e50790:s0 -> Node0x2e6b6c0;
-	Node0x2e50790:s1 -> Node0x2e6bed0;
-	Node0x2e6bed0 [shape=record,label="{%18:\l\l  %19 = icmp ne i32 %16, 480\l  br i1 %19, label %20, label %24\l|{<s0>T|<s1>F}}"];
-	Node0x2e6bed0:s0 -> Node0x2e6b6c0;
-	Node0x2e6bed0:s1 -> Node0x2e6c070;
-	Node0x2e6b6c0 [shape=record,label="{%20:\l\l  %21 = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([20 x i8], [20\l... x i8]* @.str.5, i32 0, i32 0))\l  %22 = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([24 x i8], [24\l... x i8]* @.str.6, i32 0, i32 0), i32 %13, i32 %16)\l  %23 = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([19 x i8], [19\l... x i8]* @.str.7, i32 0, i32 0), i32 360, i32 480)\l  call void @exit(i32 1) #5\l  unreachable\l}"];
-	Node0x2e6c070 [shape=record,label="{%24:\l\l  %25 = mul nsw i32 3, %13\l  %26 = mul nsw i32 %25, %16\l  %27 = sext i32 %26 to i64\l  %28 = call i64 @fread(i8* %1, i64 1, i64 %27, %struct._IO_FILE* %4)\l  %29 = call i32 @fclose(%struct._IO_FILE* %4)\l  ret void\l}"];
+	Node0x48ce140 [shape=record,label="{%2:\l  %3 = alloca [54 x i8], align 16\l  %4 = call %struct._IO_FILE* @fopen(i8* %0, i8* getelementptr inbounds ([3 x\l... i8], [3 x i8]* @.str.3, i32 0, i32 0))\l  %5 = icmp ne %struct._IO_FILE* %4, null\l  br i1 %5, label %8, label %6\l|{<s0>T|<s1>F}}"];
+	Node0x48ce140:s0 -> Node0x48d06c0;
+	Node0x48ce140:s1 -> Node0x48d04d0;
+	Node0x48d04d0 [shape=record,label="{%6:\l\l  %7 = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([33 x i8], [33\l... x i8]* @.str.4, i32 0, i32 0), i8* %0)\l  call void @exit(i32 1) #5\l  unreachable\l}"];
+	Node0x48d06c0 [shape=record,label="{%8:\l\l  %9 = getelementptr inbounds [54 x i8], [54 x i8]* %3, i32 0, i32 0\l  %10 = call i64 @fread(i8* %9, i64 1, i64 54, %struct._IO_FILE* %4)\l  %11 = getelementptr inbounds [54 x i8], [54 x i8]* %3, i64 0, i64 18\l  %12 = bitcast i8* %11 to i32*\l  %13 = load i32, i32* %12, align 2\l  %14 = getelementptr inbounds [54 x i8], [54 x i8]* %3, i64 0, i64 22\l  %15 = bitcast i8* %14 to i32*\l  %16 = load i32, i32* %15, align 2\l  %17 = icmp ne i32 %13, 360\l  br i1 %17, label %20, label %18\l|{<s0>T|<s1>F}}"];
+	Node0x48d06c0:s0 -> Node0x48d0760;
+	Node0x48d06c0:s1 -> Node0x48d0710;
+	Node0x48d0710 [shape=record,label="{%18:\l\l  %19 = icmp ne i32 %16, 480\l  br i1 %19, label %20, label %24\l|{<s0>T|<s1>F}}"];
+	Node0x48d0710:s0 -> Node0x48d0760;
+	Node0x48d0710:s1 -> Node0x48d07b0;
+	Node0x48d0760 [shape=record,label="{%20:\l\l  %21 = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([20 x i8], [20\l... x i8]* @.str.5, i32 0, i32 0))\l  %22 = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([24 x i8], [24\l... x i8]* @.str.6, i32 0, i32 0), i32 %13, i32 %16)\l  %23 = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([19 x i8], [19\l... x i8]* @.str.7, i32 0, i32 0), i32 360, i32 480)\l  call void @exit(i32 1) #5\l  unreachable\l}"];
+	Node0x48d07b0 [shape=record,label="{%24:\l\l  %25 = mul nsw i32 3, %13\l  %26 = mul nsw i32 %25, %16\l  %27 = sext i32 %26 to i64\l  %28 = call i64 @fread(i8* %1, i64 1, i64 %27, %struct._IO_FILE* %4)\l  %29 = call i32 @fclose(%struct._IO_FILE* %4)\l  ret void\l}"];
 }

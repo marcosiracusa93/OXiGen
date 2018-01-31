@@ -71,8 +71,15 @@ namespace oxigen{
 
         StreamPair getInStreamFromGEP(llvm::GetElementPtrInst* gep){
 
-            const llvm::SCEV* idx = SE->getSCEV(*(gep->idx_end() - 1));
-            llvm::Value* ptr = gep->getPointerOperand();
+            llvm::GetElementPtrInst* gepInstr = gep;
+
+            while(llvm::GetElementPtrInst* gep_2 =
+                    llvm::dyn_cast<llvm::GetElementPtrInst>(gepInstr->getPointerOperand())){
+                gepInstr = gep_2;
+            }
+
+            const llvm::SCEV* idx = SE->getSCEV(*(gepInstr->idx_end() - 1));
+            llvm::Value* ptr = gepInstr->getPointerOperand();
 
             if(idx->getSCEVType() == llvm::SCEVTypes::scConstant){
                 llvm::errs() << "INFO: constant offset found in SCEV...\n";
@@ -83,18 +90,21 @@ namespace oxigen{
             const llvm::SCEVAddRecExpr* addRec = llvm::dyn_cast<llvm::SCEVAddRecExpr>(idx);
 
             if(addRec == nullptr || addRec->getStart()->isZero()){
-                llvm::errs() << "Non AddRec index, assigning zero offset";
+                llvm::errs() << "Non AddRec index, assigning zero offset\n";
                 return StreamPair(ptr, nullptr);
             }
 
             const llvm::SCEV* scev_offset = addRec->getStart();
 
             for(StreamPair p : inputStreams){
-                if(p.first == ptr && p.second == scev_offset )
+                if(p.first == ptr && p.second == scev_offset ){
+                    llvm::errs() << "Set stream to ";
+                    p.first->dump();
                     return p;
+                }
             }
             llvm::errs() << "New stream created for GEP with base: ";
-            gep->getPointerOperand()->dump();
+            gepInstr->getPointerOperand()->dump();
 
             return StreamPair(ptr, scev_offset);
         }

@@ -248,7 +248,7 @@ void two_d_test(unsigned char in[N][3], unsigned char out[N][3]){
     }
 
     for(int i = 0; i < N; i++){
-        for(int j = 0; j < N; j++) {
+        for(int j = 0; j < 3; j++) {
             out[i][j] = x[i] + in[i][j];
         }
     }

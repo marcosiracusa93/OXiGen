@@ -1613,7 +1613,7 @@ define void @two_d_test([3 x i8]*, [3 x i8]*) #0 {
 
 ; <label>:48:                                     ; preds = %75, %47
   %49 = load i32, i32* %8, align 4
-  %50 = icmp slt i32 %49, 100
+  %50 = icmp slt i32 %49, 3
   br i1 %50, label %51, label %78
 
 ; <label>:51:                                     ; preds = %48

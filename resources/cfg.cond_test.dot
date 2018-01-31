@@ -1,14 +1,14 @@
 digraph "CFG for 'cond_test' function" {
 	label="CFG for 'cond_test' function";
 
-	Node0x2cd5a80 [shape=record,label="{%3:\l  br label %4\l}"];
-	Node0x2cd5a80 -> Node0x2cd5ad0;
-	Node0x2cd5ad0 [shape=record,label="{%4:\l\l  %.0 = phi i32 [ 0, %3 ], [ %12, %11 ]\l  %5 = icmp slt i32 %.0, 100\l  br i1 %5, label %6, label %13\l|{<s0>T|<s1>F}}"];
-	Node0x2cd5ad0:s0 -> Node0x2d03570;
-	Node0x2cd5ad0:s1 -> Node0x2d03600;
-	Node0x2d03570 [shape=record,label="{%6:\l\l  %7 = icmp sgt i32 %0, 3\l  %8 = select i1 %7, i32 5, i32 10\l  %9 = sext i32 %.0 to i64\l  %10 = getelementptr inbounds i32, i32* %2, i64 %9\l  store i32 %8, i32* %10, align 4\l  br label %11\l}"];
-	Node0x2d03570 -> Node0x2cdc2f0;
-	Node0x2cdc2f0 [shape=record,label="{%11:\l\l  %12 = add nsw i32 %.0, 1\l  br label %4\l}"];
-	Node0x2cdc2f0 -> Node0x2cd5ad0;
-	Node0x2d03600 [shape=record,label="{%13:\l\l  ret void\l}"];
+	Node0x3b8fa80 [shape=record,label="{%3:\l  br label %4\l}"];
+	Node0x3b8fa80 -> Node0x3b8fad0;
+	Node0x3b8fad0 [shape=record,label="{%4:\l\l  %.0 = phi i32 [ 0, %3 ], [ %12, %11 ]\l  %5 = icmp slt i32 %.0, 100\l  br i1 %5, label %6, label %13\l|{<s0>T|<s1>F}}"];
+	Node0x3b8fad0:s0 -> Node0x3bbd570;
+	Node0x3b8fad0:s1 -> Node0x3bbd600;
+	Node0x3bbd570 [shape=record,label="{%6:\l\l  %7 = icmp sgt i32 %0, 3\l  %8 = select i1 %7, i32 5, i32 10\l  %9 = sext i32 %.0 to i64\l  %10 = getelementptr inbounds i32, i32* %2, i64 %9\l  store i32 %8, i32* %10, align 4\l  br label %11\l}"];
+	Node0x3bbd570 -> Node0x3b962f0;
+	Node0x3b962f0 [shape=record,label="{%11:\l\l  %12 = add nsw i32 %.0, 1\l  br label %4\l}"];
+	Node0x3b962f0 -> Node0x3b8fad0;
+	Node0x3bbd600 [shape=record,label="{%13:\l\l  ret void\l}"];
 }

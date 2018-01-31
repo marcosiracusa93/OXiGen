@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <math.h>
+#include "../MaxJFunctions.h"
 
 #define WIDTH 360
 #define HEIGHT 480

@@ -107,6 +107,9 @@ namespace oxigen{
         static std::string kernelSignature_2;
         static std::string kernelSignatureClosing;
 
+        static std::vector<std::pair<DFGReadNode*,int>> inputNodes;
+        static std::vector<std::pair<DFGWriteNode*,int>> outputNodes;
+
         std::vector<std::string> kernelOptimizations;
         LoopDependencyGraph* dependencyGraph;
 
@@ -122,7 +125,7 @@ namespace oxigen{
         std::string globalDFEVars;
         std::string nestingTabs;
         std::string loopHeadDeclarations;
-        std::string currentLoopIndex;
+        std::vector<std::string> currentLoopIndexes;
 
         std::map<llvm::Value*,std::pair<std::string,std::string>> declaredNestedVectors;
         std::map<DFGLoopNode*,std::string> loopIndexes;
@@ -146,7 +149,9 @@ namespace oxigen{
         }
 
         ImportMap getOxigenFunctions(){ return oxigenFunctions; }
-        
+
+        std::vector<DFGReadNode*> getInputNodes(std::vector<DFGReadNode*> readNodes);
+
         /**
          * @param inputs - a std::vector of DFGReadNode pointers, corresponding to
          *        the kernel's input streams.
@@ -154,7 +159,9 @@ namespace oxigen{
          *         maxj kernel.
          */
         std::string getInputStreamsDeclarations(std::vector<DFGReadNode*> inputs);
-        
+
+
+        std::vector<DFGWriteNode*> getOutputNodes(std::vector<DFGWriteNode*> writeNodes);
         /**
          * @param outputs - a std::vector of DFGWriteNode pointers, corresponding to
          *        the kernel's output streams.
@@ -186,16 +193,24 @@ namespace oxigen{
          * @return a std::string containing a series of maxj arithmetic instructions
          */
         std::string generateInstructionsString(std::vector<DFGNode*> sortedNodes);
+
+
+
+        std::string getLinearizedIndexString(std::vector<int> dims,std::vector<std::string> idxNames);
         
         std::string appendInstruction(DFGNode* node);
 
         std::string translateAsJavaLoop(DFGLoopNode* loopNode);
 
-        llvm::AllocaInst* getVectorBasePointer(DFGNode* node);
+        llvm::Value* getVectorBasePointer(DFGNode* node);
 
         std::pair<std::string,std::vector<std::string>> translateFunctionArguments(llvm::Function* F,std::vector<std::string> funcArgs);
 
         std::string getFullNameIfConstant(DFGNode* var);
+
+        std::vector<int> getDimensionsVector(llvm::Type* arrayType);
+
+        llvm::Type* getElementaryType(llvm::Type* type);
     };
 
     /**
@@ -237,6 +252,8 @@ namespace oxigen{
         private:
         
             void assignNodeNames();
+
+            void assignReadNodesNames(std::vector<DFGReadNode*> readNodes);
             
             std::string generateKernelString(std::string kernelName,std::string packageName);
 

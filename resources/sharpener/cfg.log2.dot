@@ -1,5 +1,5 @@
 digraph "CFG for 'log2' function" {
 	label="CFG for 'log2' function";
 
-	Node0x2e4de00 [shape=record,label="{%1:\l  %2 = fmul float %0, %0\l  %3 = fadd float %2, %0\l  ret float %3\l}"];
+	Node0x48ca4c0 [shape=record,label="{%1:\l  %2 = fmul float %0, %0\l  %3 = fadd float %2, %0\l  ret float %3\l}"];
 }

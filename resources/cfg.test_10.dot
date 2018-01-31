@@ -1,14 +1,14 @@
 digraph "CFG for 'test_10' function" {
 	label="CFG for 'test_10' function";
 
-	Node0x2cfcbb0 [shape=record,label="{%2:\l  br label %3\l}"];
-	Node0x2cfcbb0 -> Node0x2cfcc00;
-	Node0x2cfcc00 [shape=record,label="{%3:\l\l  %.0 = phi i32 [ 0, %2 ], [ %26, %25 ]\l  %4 = icmp slt i32 %.0, 100\l  br i1 %4, label %5, label %27\l|{<s0>T|<s1>F}}"];
-	Node0x2cfcc00:s0 -> Node0x2cfd230;
-	Node0x2cfcc00:s1 -> Node0x2cfd2c0;
-	Node0x2cfd230 [shape=record,label="{%5:\l\l  %6 = add nsw i32 %.0, 1\l  %7 = sext i32 %6 to i64\l  %8 = getelementptr inbounds i32, i32* %1, i64 %7\l  %9 = load i32, i32* %8, align 4\l  %10 = add nsw i32 %.0, 2\l  %11 = sext i32 %10 to i64\l  %12 = getelementptr inbounds i32, i32* %1, i64 %11\l  %13 = load i32, i32* %12, align 4\l  %14 = add nsw i32 %9, %13\l  %15 = sext i32 %.0 to i64\l  %16 = getelementptr inbounds i32, i32* %1, i64 %15\l  store i32 %14, i32* %16, align 4\l  %17 = add nsw i32 %.0, 1\l  %18 = sext i32 %17 to i64\l  %19 = getelementptr inbounds i32, i32* %1, i64 %18\l  %20 = load i32, i32* %19, align 4\l  %21 = add nsw i32 %20, 3\l  %22 = add nsw i32 %.0, 1\l  %23 = sext i32 %22 to i64\l  %24 = getelementptr inbounds i32, i32* %1, i64 %23\l  store i32 %21, i32* %24, align 4\l  br label %25\l}"];
-	Node0x2cfd230 -> Node0x2cfcf80;
-	Node0x2cfcf80 [shape=record,label="{%25:\l\l  %26 = add nsw i32 %.0, 1\l  br label %3\l}"];
-	Node0x2cfcf80 -> Node0x2cfcc00;
-	Node0x2cfd2c0 [shape=record,label="{%27:\l\l  ret void\l}"];
+	Node0x3bb6bb0 [shape=record,label="{%2:\l  br label %3\l}"];
+	Node0x3bb6bb0 -> Node0x3bb6c00;
+	Node0x3bb6c00 [shape=record,label="{%3:\l\l  %.0 = phi i32 [ 0, %2 ], [ %26, %25 ]\l  %4 = icmp slt i32 %.0, 100\l  br i1 %4, label %5, label %27\l|{<s0>T|<s1>F}}"];
+	Node0x3bb6c00:s0 -> Node0x3bb7230;
+	Node0x3bb6c00:s1 -> Node0x3bb72c0;
+	Node0x3bb7230 [shape=record,label="{%5:\l\l  %6 = add nsw i32 %.0, 1\l  %7 = sext i32 %6 to i64\l  %8 = getelementptr inbounds i32, i32* %1, i64 %7\l  %9 = load i32, i32* %8, align 4\l  %10 = add nsw i32 %.0, 2\l  %11 = sext i32 %10 to i64\l  %12 = getelementptr inbounds i32, i32* %1, i64 %11\l  %13 = load i32, i32* %12, align 4\l  %14 = add nsw i32 %9, %13\l  %15 = sext i32 %.0 to i64\l  %16 = getelementptr inbounds i32, i32* %1, i64 %15\l  store i32 %14, i32* %16, align 4\l  %17 = add nsw i32 %.0, 1\l  %18 = sext i32 %17 to i64\l  %19 = getelementptr inbounds i32, i32* %1, i64 %18\l  %20 = load i32, i32* %19, align 4\l  %21 = add nsw i32 %20, 3\l  %22 = add nsw i32 %.0, 1\l  %23 = sext i32 %22 to i64\l  %24 = getelementptr inbounds i32, i32* %1, i64 %23\l  store i32 %21, i32* %24, align 4\l  br label %25\l}"];
+	Node0x3bb7230 -> Node0x3bb6f80;
+	Node0x3bb6f80 [shape=record,label="{%25:\l\l  %26 = add nsw i32 %.0, 1\l  br label %3\l}"];
+	Node0x3bb6f80 -> Node0x3bb6c00;
+	Node0x3bb72c0 [shape=record,label="{%27:\l\l  ret void\l}"];
 }

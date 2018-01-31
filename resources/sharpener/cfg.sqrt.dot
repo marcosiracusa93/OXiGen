@@ -1,5 +1,5 @@
 digraph "CFG for 'sqrt' function" {
 	label="CFG for 'sqrt' function";
 
-	Node0x2e4dac0 [shape=record,label="{%1:\l  %2 = fmul float %0, %0\l  %3 = fadd float %2, %0\l  ret float %3\l}"];
+	Node0x48ca2d0 [shape=record,label="{%1:\l  %2 = fmul float %0, %0\l  %3 = fadd float %2, %0\l  ret float %3\l}"];
 }

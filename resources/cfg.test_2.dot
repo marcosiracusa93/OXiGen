@@ -1,23 +1,23 @@
 digraph "CFG for 'test_2' function" {
 	label="CFG for 'test_2' function";
 
-	Node0x2cda220 [shape=record,label="{%2:\l  br label %3\l}"];
-	Node0x2cda220 -> Node0x2cda270;
-	Node0x2cda270 [shape=record,label="{%3:\l\l  %.01 = phi i32 [ 0, %2 ], [ %19, %18 ]\l  %4 = icmp slt i32 %.01, 100\l  br i1 %4, label %5, label %20\l|{<s0>T|<s1>F}}"];
-	Node0x2cda270:s0 -> Node0x2cdafa0;
-	Node0x2cda270:s1 -> Node0x2cdb030;
-	Node0x2cdafa0 [shape=record,label="{%5:\l\l  %6 = sext i32 %.01 to i64\l  %7 = getelementptr inbounds i32, i32* %0, i64 %6\l  %8 = load i32, i32* %7, align 4\l  %9 = add nsw i32 %8, 10\l  %10 = sext i32 %.01 to i64\l  %11 = getelementptr inbounds i32, i32* %1, i64 %10\l  store i32 %9, i32* %11, align 4\l  %12 = sext i32 %.01 to i64\l  %13 = getelementptr inbounds i32, i32* %0, i64 %12\l  %14 = load i32, i32* %13, align 4\l  %15 = mul nsw i32 2, %14\l  %16 = sext i32 %.01 to i64\l  %17 = getelementptr inbounds i32, i32* %1, i64 %16\l  store i32 %15, i32* %17, align 4\l  br label %18\l}"];
-	Node0x2cdafa0 -> Node0x2cdacb0;
-	Node0x2cdacb0 [shape=record,label="{%18:\l\l  %19 = add nsw i32 %.01, 1\l  br label %3\l}"];
-	Node0x2cdacb0 -> Node0x2cda270;
-	Node0x2cdb030 [shape=record,label="{%20:\l\l  br label %21\l}"];
-	Node0x2cdb030 -> Node0x2cdaf50;
-	Node0x2cdaf50 [shape=record,label="{%21:\l\l  %.0 = phi i32 [ 0, %20 ], [ %31, %30 ]\l  %22 = icmp slt i32 %.0, 100\l  br i1 %22, label %23, label %32\l|{<s0>T|<s1>F}}"];
-	Node0x2cdaf50:s0 -> Node0x2cdbc00;
-	Node0x2cdaf50:s1 -> Node0x2cdbc50;
-	Node0x2cdbc00 [shape=record,label="{%23:\l\l  %24 = sext i32 %.0 to i64\l  %25 = getelementptr inbounds i32, i32* %0, i64 %24\l  %26 = load i32, i32* %25, align 4\l  %27 = mul nsw i32 3, %26\l  %28 = sext i32 %.0 to i64\l  %29 = getelementptr inbounds i32, i32* %1, i64 %28\l  store i32 %27, i32* %29, align 4\l  br label %30\l}"];
-	Node0x2cdbc00 -> Node0x2cdba80;
-	Node0x2cdba80 [shape=record,label="{%30:\l\l  %31 = add nsw i32 %.0, 1\l  br label %21\l}"];
-	Node0x2cdba80 -> Node0x2cdaf50;
-	Node0x2cdbc50 [shape=record,label="{%32:\l\l  ret void\l}"];
+	Node0x3b94220 [shape=record,label="{%2:\l  br label %3\l}"];
+	Node0x3b94220 -> Node0x3b94270;
+	Node0x3b94270 [shape=record,label="{%3:\l\l  %.01 = phi i32 [ 0, %2 ], [ %19, %18 ]\l  %4 = icmp slt i32 %.01, 100\l  br i1 %4, label %5, label %20\l|{<s0>T|<s1>F}}"];
+	Node0x3b94270:s0 -> Node0x3b94fa0;
+	Node0x3b94270:s1 -> Node0x3b95030;
+	Node0x3b94fa0 [shape=record,label="{%5:\l\l  %6 = sext i32 %.01 to i64\l  %7 = getelementptr inbounds i32, i32* %0, i64 %6\l  %8 = load i32, i32* %7, align 4\l  %9 = add nsw i32 %8, 10\l  %10 = sext i32 %.01 to i64\l  %11 = getelementptr inbounds i32, i32* %1, i64 %10\l  store i32 %9, i32* %11, align 4\l  %12 = sext i32 %.01 to i64\l  %13 = getelementptr inbounds i32, i32* %0, i64 %12\l  %14 = load i32, i32* %13, align 4\l  %15 = mul nsw i32 2, %14\l  %16 = sext i32 %.01 to i64\l  %17 = getelementptr inbounds i32, i32* %1, i64 %16\l  store i32 %15, i32* %17, align 4\l  br label %18\l}"];
+	Node0x3b94fa0 -> Node0x3b94cb0;
+	Node0x3b94cb0 [shape=record,label="{%18:\l\l  %19 = add nsw i32 %.01, 1\l  br label %3\l}"];
+	Node0x3b94cb0 -> Node0x3b94270;
+	Node0x3b95030 [shape=record,label="{%20:\l\l  br label %21\l}"];
+	Node0x3b95030 -> Node0x3b94f50;
+	Node0x3b94f50 [shape=record,label="{%21:\l\l  %.0 = phi i32 [ 0, %20 ], [ %31, %30 ]\l  %22 = icmp slt i32 %.0, 100\l  br i1 %22, label %23, label %32\l|{<s0>T|<s1>F}}"];
+	Node0x3b94f50:s0 -> Node0x3b95c00;
+	Node0x3b94f50:s1 -> Node0x3b95c50;
+	Node0x3b95c00 [shape=record,label="{%23:\l\l  %24 = sext i32 %.0 to i64\l  %25 = getelementptr inbounds i32, i32* %0, i64 %24\l  %26 = load i32, i32* %25, align 4\l  %27 = mul nsw i32 3, %26\l  %28 = sext i32 %.0 to i64\l  %29 = getelementptr inbounds i32, i32* %1, i64 %28\l  store i32 %27, i32* %29, align 4\l  br label %30\l}"];
+	Node0x3b95c00 -> Node0x3b95a80;
+	Node0x3b95a80 [shape=record,label="{%30:\l\l  %31 = add nsw i32 %.0, 1\l  br label %21\l}"];
+	Node0x3b95a80 -> Node0x3b94f50;
+	Node0x3b95c50 [shape=record,label="{%32:\l\l  ret void\l}"];
 }

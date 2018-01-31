@@ -19,6 +19,126 @@ target triple = "x86_64-unknown-linux-gnu"
 @.str.9 = private unnamed_addr constant [20 x i8] c"Validation passed!\0A\00", align 1
 
 ; Function Attrs: noinline nounwind uwtable
+define float @exp(float) #0 {
+  %2 = alloca float, align 4
+  store float %0, float* %2, align 4
+  %3 = load float, float* %2, align 4
+  %4 = load float, float* %2, align 4
+  %5 = fmul float %3, %4
+  %6 = load float, float* %2, align 4
+  %7 = fadd float %5, %6
+  ret float %7
+}
+
+; Function Attrs: noinline nounwind uwtable
+define float @log(float) #0 {
+  %2 = alloca float, align 4
+  store float %0, float* %2, align 4
+  %3 = load float, float* %2, align 4
+  %4 = load float, float* %2, align 4
+  %5 = fmul float %3, %4
+  %6 = load float, float* %2, align 4
+  %7 = fadd float %5, %6
+  ret float %7
+}
+
+; Function Attrs: noinline nounwind uwtable
+define float @sqrt(float) #0 {
+  %2 = alloca float, align 4
+  store float %0, float* %2, align 4
+  %3 = load float, float* %2, align 4
+  %4 = load float, float* %2, align 4
+  %5 = fmul float %3, %4
+  %6 = load float, float* %2, align 4
+  %7 = fadd float %5, %6
+  ret float %7
+}
+
+; Function Attrs: noinline nounwind uwtable
+define float @log2(float) #0 {
+  %2 = alloca float, align 4
+  store float %0, float* %2, align 4
+  %3 = load float, float* %2, align 4
+  %4 = load float, float* %2, align 4
+  %5 = fmul float %3, %4
+  %6 = load float, float* %2, align 4
+  %7 = fadd float %5, %6
+  ret float %7
+}
+
+; Function Attrs: noinline nounwind uwtable
+define float @pow2(float) #0 {
+  %2 = alloca float, align 4
+  store float %0, float* %2, align 4
+  %3 = load float, float* %2, align 4
+  %4 = load float, float* %2, align 4
+  %5 = fmul float %3, %4
+  %6 = load float, float* %2, align 4
+  %7 = fadd float %5, %6
+  ret float %7
+}
+
+; Function Attrs: noinline nounwind uwtable
+define float @ceil(float) #0 {
+  %2 = alloca float, align 4
+  store float %0, float* %2, align 4
+  %3 = load float, float* %2, align 4
+  %4 = load float, float* %2, align 4
+  %5 = fmul float %3, %4
+  %6 = load float, float* %2, align 4
+  %7 = fadd float %5, %6
+  ret float %7
+}
+
+; Function Attrs: noinline nounwind uwtable
+define float @floor(float) #0 {
+  %2 = alloca float, align 4
+  store float %0, float* %2, align 4
+  %3 = load float, float* %2, align 4
+  %4 = load float, float* %2, align 4
+  %5 = fmul float %3, %4
+  %6 = load float, float* %2, align 4
+  %7 = fadd float %5, %6
+  ret float %7
+}
+
+; Function Attrs: noinline nounwind uwtable
+define float @fabs(float) #0 {
+  %2 = alloca float, align 4
+  store float %0, float* %2, align 4
+  %3 = load float, float* %2, align 4
+  %4 = load float, float* %2, align 4
+  %5 = fmul float %3, %4
+  %6 = load float, float* %2, align 4
+  %7 = fadd float %5, %6
+  ret float %7
+}
+
+; Function Attrs: noinline nounwind readnone uwtable
+define i32 @abs(i32) #1 {
+  %2 = alloca i32, align 4
+  store i32 %0, i32* %2, align 4
+  %3 = load i32, i32* %2, align 4
+  %4 = load i32, i32* %2, align 4
+  %5 = mul nsw i32 %3, %4
+  %6 = load i32, i32* %2, align 4
+  %7 = add nsw i32 %5, %6
+  ret i32 %7
+}
+
+; Function Attrs: noinline nounwind uwtable
+define float @Ncdf(float) #0 {
+  %2 = alloca float, align 4
+  store float %0, float* %2, align 4
+  %3 = load float, float* %2, align 4
+  %4 = load float, float* %2, align 4
+  %5 = fmul float %3, %4
+  %6 = load float, float* %2, align 4
+  %7 = fadd float %5, %6
+  ret float %7
+}
+
+; Function Attrs: noinline nounwind uwtable
 define i32 @main(i32, i8**) #0 {
   %3 = alloca i32, align 4
   %4 = alloca i32, align 4
@@ -94,10 +214,10 @@ define i32 @main(i32, i8**) #0 {
   ret i32 %46
 }
 
-declare i32 @printf(i8*, ...) #1
+declare i32 @printf(i8*, ...) #2
 
 ; Function Attrs: noreturn nounwind
-declare void @exit(i32) #2
+declare void @exit(i32) #3
 
 ; Function Attrs: noinline nounwind uwtable
 define void @read_bmp(i8*, i8*) #0 {
@@ -323,10 +443,10 @@ define void @sharpen([3 x i8]*, [3 x i8]*) #0 {
   store i32 0, i32* %14, align 4
   br label %117
 
-; <label>:117:                                    ; preds = %137, %116
+; <label>:117:                                    ; preds = %135, %116
   %118 = load i32, i32* %14, align 4
   %119 = icmp slt i32 %118, 172800
-  br i1 %119, label %120, label %140
+  br i1 %119, label %120, label %138
 
 ; <label>:120:                                    ; preds = %117
   %121 = load i32, i32* %14, align 4
@@ -339,166 +459,163 @@ define void @sharpen([3 x i8]*, [3 x i8]*) #0 {
   %128 = getelementptr inbounds [172800 x float], [172800 x float]* %7, i64 0, i64 %127
   %129 = load float, float* %128, align 4
   %130 = fsub float %125, %129
-  %131 = fpext float %130 to double
-  %132 = call double @fabs(double %131) #6
-  %133 = fptrunc double %132 to float
-  %134 = load i32, i32* %14, align 4
-  %135 = sext i32 %134 to i64
-  %136 = getelementptr inbounds [172800 x float], [172800 x float]* %8, i64 0, i64 %135
-  store float %133, float* %136, align 4
-  br label %137
+  %131 = call float @fabs(float %130)
+  %132 = load i32, i32* %14, align 4
+  %133 = sext i32 %132 to i64
+  %134 = getelementptr inbounds [172800 x float], [172800 x float]* %8, i64 0, i64 %133
+  store float %131, float* %134, align 4
+  br label %135
 
-; <label>:137:                                    ; preds = %120
-  %138 = load i32, i32* %14, align 4
-  %139 = add nsw i32 %138, 1
-  store i32 %139, i32* %14, align 4
+; <label>:135:                                    ; preds = %120
+  %136 = load i32, i32* %14, align 4
+  %137 = add nsw i32 %136, 1
+  store i32 %137, i32* %14, align 4
   br label %117
 
-; <label>:140:                                    ; preds = %117
+; <label>:138:                                    ; preds = %117
   store i32 0, i32* %15, align 4
-  br label %141
+  br label %139
 
-; <label>:141:                                    ; preds = %158, %140
-  %142 = load i32, i32* %15, align 4
-  %143 = icmp slt i32 %142, 172800
-  br i1 %143, label %144, label %161
+; <label>:139:                                    ; preds = %156, %138
+  %140 = load i32, i32* %15, align 4
+  %141 = icmp slt i32 %140, 172800
+  br i1 %141, label %142, label %159
 
-; <label>:144:                                    ; preds = %141
-  %145 = load i32, i32* %15, align 4
-  %146 = sext i32 %145 to i64
-  %147 = getelementptr inbounds [172800 x float], [172800 x float]* %8, i64 0, i64 %146
-  %148 = load float, float* %147, align 4
-  %149 = load i32, i32* %15, align 4
-  %150 = sext i32 %149 to i64
-  %151 = getelementptr inbounds [172800 x float], [172800 x float]* %5, i64 0, i64 %150
-  %152 = load float, float* %151, align 4
-  %153 = fadd float %152, 1.000000e+00
-  %154 = fdiv float %148, %153
-  %155 = load i32, i32* %15, align 4
-  %156 = sext i32 %155 to i64
-  %157 = getelementptr inbounds [172800 x float], [172800 x float]* %9, i64 0, i64 %156
-  store float %154, float* %157, align 4
-  br label %158
+; <label>:142:                                    ; preds = %139
+  %143 = load i32, i32* %15, align 4
+  %144 = sext i32 %143 to i64
+  %145 = getelementptr inbounds [172800 x float], [172800 x float]* %8, i64 0, i64 %144
+  %146 = load float, float* %145, align 4
+  %147 = load i32, i32* %15, align 4
+  %148 = sext i32 %147 to i64
+  %149 = getelementptr inbounds [172800 x float], [172800 x float]* %5, i64 0, i64 %148
+  %150 = load float, float* %149, align 4
+  %151 = fadd float %150, 1.000000e+00
+  %152 = fdiv float %146, %151
+  %153 = load i32, i32* %15, align 4
+  %154 = sext i32 %153 to i64
+  %155 = getelementptr inbounds [172800 x float], [172800 x float]* %9, i64 0, i64 %154
+  store float %152, float* %155, align 4
+  br label %156
 
-; <label>:158:                                    ; preds = %144
-  %159 = load i32, i32* %15, align 4
-  %160 = add nsw i32 %159, 1
-  store i32 %160, i32* %15, align 4
-  br label %141
+; <label>:156:                                    ; preds = %142
+  %157 = load i32, i32* %15, align 4
+  %158 = add nsw i32 %157, 1
+  store i32 %158, i32* %15, align 4
+  br label %139
 
-; <label>:161:                                    ; preds = %141
+; <label>:159:                                    ; preds = %139
   store i32 0, i32* %16, align 4
-  br label %162
+  br label %160
 
-; <label>:162:                                    ; preds = %195, %161
-  %163 = load i32, i32* %16, align 4
-  %164 = icmp slt i32 %163, 172800
-  br i1 %164, label %165, label %198
+; <label>:160:                                    ; preds = %193, %159
+  %161 = load i32, i32* %16, align 4
+  %162 = icmp slt i32 %161, 172800
+  br i1 %162, label %163, label %196
 
-; <label>:165:                                    ; preds = %162
+; <label>:163:                                    ; preds = %160
   store i32 0, i32* %17, align 4
-  br label %166
+  br label %164
 
-; <label>:166:                                    ; preds = %191, %165
-  %167 = load i32, i32* %17, align 4
-  %168 = icmp slt i32 %167, 3
-  br i1 %168, label %169, label %194
+; <label>:164:                                    ; preds = %189, %163
+  %165 = load i32, i32* %17, align 4
+  %166 = icmp slt i32 %165, 3
+  br i1 %166, label %167, label %192
 
-; <label>:169:                                    ; preds = %166
-  %170 = load i32, i32* %16, align 4
-  %171 = sext i32 %170 to i64
-  %172 = getelementptr inbounds [172800 x float], [172800 x float]* %9, i64 0, i64 %171
-  %173 = load float, float* %172, align 4
-  %174 = load [3 x i8]*, [3 x i8]** %3, align 8
-  %175 = load i32, i32* %16, align 4
-  %176 = sext i32 %175 to i64
-  %177 = getelementptr inbounds [3 x i8], [3 x i8]* %174, i64 %176
-  %178 = load i32, i32* %17, align 4
-  %179 = sext i32 %178 to i64
-  %180 = getelementptr inbounds [3 x i8], [3 x i8]* %177, i64 0, i64 %179
-  %181 = load i8, i8* %180, align 1
-  %182 = zext i8 %181 to i32
-  %183 = sitofp i32 %182 to float
-  %184 = fmul float %173, %183
-  %185 = load i32, i32* %16, align 4
-  %186 = sext i32 %185 to i64
-  %187 = getelementptr inbounds [172800 x [3 x float]], [172800 x [3 x float]]* %10, i64 0, i64 %186
-  %188 = load i32, i32* %17, align 4
-  %189 = sext i32 %188 to i64
-  %190 = getelementptr inbounds [3 x float], [3 x float]* %187, i64 0, i64 %189
-  store float %184, float* %190, align 4
-  br label %191
+; <label>:167:                                    ; preds = %164
+  %168 = load i32, i32* %16, align 4
+  %169 = sext i32 %168 to i64
+  %170 = getelementptr inbounds [172800 x float], [172800 x float]* %9, i64 0, i64 %169
+  %171 = load float, float* %170, align 4
+  %172 = load [3 x i8]*, [3 x i8]** %3, align 8
+  %173 = load i32, i32* %16, align 4
+  %174 = sext i32 %173 to i64
+  %175 = getelementptr inbounds [3 x i8], [3 x i8]* %172, i64 %174
+  %176 = load i32, i32* %17, align 4
+  %177 = sext i32 %176 to i64
+  %178 = getelementptr inbounds [3 x i8], [3 x i8]* %175, i64 0, i64 %177
+  %179 = load i8, i8* %178, align 1
+  %180 = zext i8 %179 to i32
+  %181 = sitofp i32 %180 to float
+  %182 = fmul float %171, %181
+  %183 = load i32, i32* %16, align 4
+  %184 = sext i32 %183 to i64
+  %185 = getelementptr inbounds [172800 x [3 x float]], [172800 x [3 x float]]* %10, i64 0, i64 %184
+  %186 = load i32, i32* %17, align 4
+  %187 = sext i32 %186 to i64
+  %188 = getelementptr inbounds [3 x float], [3 x float]* %185, i64 0, i64 %187
+  store float %182, float* %188, align 4
+  br label %189
 
-; <label>:191:                                    ; preds = %169
-  %192 = load i32, i32* %17, align 4
-  %193 = add nsw i32 %192, 1
-  store i32 %193, i32* %17, align 4
-  br label %166
+; <label>:189:                                    ; preds = %167
+  %190 = load i32, i32* %17, align 4
+  %191 = add nsw i32 %190, 1
+  store i32 %191, i32* %17, align 4
+  br label %164
 
-; <label>:194:                                    ; preds = %166
-  br label %195
+; <label>:192:                                    ; preds = %164
+  br label %193
 
-; <label>:195:                                    ; preds = %194
-  %196 = load i32, i32* %16, align 4
-  %197 = add nsw i32 %196, 1
-  store i32 %197, i32* %16, align 4
-  br label %162
+; <label>:193:                                    ; preds = %192
+  %194 = load i32, i32* %16, align 4
+  %195 = add nsw i32 %194, 1
+  store i32 %195, i32* %16, align 4
+  br label %160
 
-; <label>:198:                                    ; preds = %162
+; <label>:196:                                    ; preds = %160
   store i32 0, i32* %18, align 4
-  br label %199
+  br label %197
 
-; <label>:199:                                    ; preds = %228, %198
-  %200 = load i32, i32* %18, align 4
-  %201 = icmp slt i32 %200, 172800
-  br i1 %201, label %202, label %231
+; <label>:197:                                    ; preds = %225, %196
+  %198 = load i32, i32* %18, align 4
+  %199 = icmp slt i32 %198, 172800
+  br i1 %199, label %200, label %228
 
-; <label>:202:                                    ; preds = %199
+; <label>:200:                                    ; preds = %197
   store i32 0, i32* %19, align 4
-  br label %203
+  br label %201
 
-; <label>:203:                                    ; preds = %224, %202
-  %204 = load i32, i32* %19, align 4
-  %205 = icmp slt i32 %204, 3
-  br i1 %205, label %206, label %227
+; <label>:201:                                    ; preds = %221, %200
+  %202 = load i32, i32* %19, align 4
+  %203 = icmp slt i32 %202, 3
+  br i1 %203, label %204, label %224
 
-; <label>:206:                                    ; preds = %203
-  %207 = load i32, i32* %18, align 4
-  %208 = sext i32 %207 to i64
-  %209 = getelementptr inbounds [172800 x [3 x float]], [172800 x [3 x float]]* %10, i64 0, i64 %208
-  %210 = load i32, i32* %19, align 4
-  %211 = sext i32 %210 to i64
-  %212 = getelementptr inbounds [3 x float], [3 x float]* %209, i64 0, i64 %211
-  %213 = load float, float* %212, align 4
-  %214 = fpext float %213 to double
-  %215 = call double @fmin(double %214, double 2.550000e+02) #6
-  %216 = fptoui double %215 to i8
-  %217 = load [3 x i8]*, [3 x i8]** %4, align 8
-  %218 = load i32, i32* %18, align 4
+; <label>:204:                                    ; preds = %201
+  %205 = load i32, i32* %18, align 4
+  %206 = sext i32 %205 to i64
+  %207 = getelementptr inbounds [172800 x [3 x float]], [172800 x [3 x float]]* %10, i64 0, i64 %206
+  %208 = load i32, i32* %19, align 4
+  %209 = sext i32 %208 to i64
+  %210 = getelementptr inbounds [3 x float], [3 x float]* %207, i64 0, i64 %209
+  %211 = load float, float* %210, align 4
+  %212 = call float @fmin(float %211, float 2.550000e+02)
+  %213 = fptoui float %212 to i8
+  %214 = load [3 x i8]*, [3 x i8]** %4, align 8
+  %215 = load i32, i32* %18, align 4
+  %216 = sext i32 %215 to i64
+  %217 = getelementptr inbounds [3 x i8], [3 x i8]* %214, i64 %216
+  %218 = load i32, i32* %19, align 4
   %219 = sext i32 %218 to i64
-  %220 = getelementptr inbounds [3 x i8], [3 x i8]* %217, i64 %219
-  %221 = load i32, i32* %19, align 4
-  %222 = sext i32 %221 to i64
-  %223 = getelementptr inbounds [3 x i8], [3 x i8]* %220, i64 0, i64 %222
-  store i8 %216, i8* %223, align 1
-  br label %224
+  %220 = getelementptr inbounds [3 x i8], [3 x i8]* %217, i64 0, i64 %219
+  store i8 %213, i8* %220, align 1
+  br label %221
 
-; <label>:224:                                    ; preds = %206
-  %225 = load i32, i32* %19, align 4
-  %226 = add nsw i32 %225, 1
-  store i32 %226, i32* %19, align 4
-  br label %203
+; <label>:221:                                    ; preds = %204
+  %222 = load i32, i32* %19, align 4
+  %223 = add nsw i32 %222, 1
+  store i32 %223, i32* %19, align 4
+  br label %201
 
-; <label>:227:                                    ; preds = %203
-  br label %228
+; <label>:224:                                    ; preds = %201
+  br label %225
 
-; <label>:228:                                    ; preds = %227
-  %229 = load i32, i32* %18, align 4
-  %230 = add nsw i32 %229, 1
-  store i32 %230, i32* %18, align 4
-  br label %199
+; <label>:225:                                    ; preds = %224
+  %226 = load i32, i32* %18, align 4
+  %227 = add nsw i32 %226, 1
+  store i32 %227, i32* %18, align 4
+  br label %197
 
-; <label>:231:                                    ; preds = %199
+; <label>:228:                                    ; preds = %197
   ret void
 }
 
@@ -684,30 +801,23 @@ define i32 @validate_result(i8*, i8*, i32) #0 {
   ret i32 %85
 }
 
-; Function Attrs: nounwind readnone
-declare double @fabs(double) #3
-
-; Function Attrs: nounwind readnone
-declare double @fmin(double, double) #3
+declare float @fmin(float, float) #2
 
 ; Function Attrs: argmemonly nounwind
 declare void @llvm.memcpy.p0i8.p0i8.i64(i8* nocapture writeonly, i8* nocapture readonly, i64, i32, i1) #4
 
-declare %struct._IO_FILE* @fopen(i8*, i8*) #1
+declare %struct._IO_FILE* @fopen(i8*, i8*) #2
 
-declare i64 @fwrite(i8*, i64, i64, %struct._IO_FILE*) #1
+declare i64 @fwrite(i8*, i64, i64, %struct._IO_FILE*) #2
 
-declare i32 @fclose(%struct._IO_FILE*) #1
+declare i32 @fclose(%struct._IO_FILE*) #2
 
-declare i64 @fread(i8*, i64, i64, %struct._IO_FILE*) #1
-
-; Function Attrs: nounwind readnone
-declare i32 @abs(i32) #3
+declare i64 @fread(i8*, i64, i64, %struct._IO_FILE*) #2
 
 attributes #0 = { noinline nounwind uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
-attributes #1 = { "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
-attributes #2 = { noreturn nounwind "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
-attributes #3 = { nounwind readnone "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
+attributes #1 = { noinline nounwind readnone uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
+attributes #2 = { "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
+attributes #3 = { noreturn nounwind "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #4 = { argmemonly nounwind }
 attributes #5 = { noreturn nounwind }
 attributes #6 = { nounwind readnone }

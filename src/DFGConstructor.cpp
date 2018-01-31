@@ -1,10 +1,14 @@
 
 #include <llvm/IR/LegacyPassManager.h>
 #include <llvm/Transforms/Scalar.h>
+#include <DFGConstructor.h>
 #include "llvm/IR/Dominators.h"
+#include "llvm/IR/DerivedTypes.h"
 #include "DFGConstructor.h"
 
 using namespace oxigen;
+
+long DFGOffsetNode::UID = 0;
 
 ///DFGNode methods implementation
 
@@ -259,8 +263,6 @@ DFGLoopNode::DFGLoopNode(llvm::Loop *loop) : DFGNode(oxigen::getLoopCounterIfAny
 
 void DFGLoopNode::insertInputPort(DFGNode *in, DFGNode *out) {
 
-    out->unlinkPredecessor(in);
-    this->linkPredecessor(in);
     this->inputPorts.push_back(NodePort(in,out));
 
     llvm::errs() << "\nInserted ports for " << this << " :\n";
@@ -278,9 +280,8 @@ void DFGLoopNode::insertInputPort(DFGNode *in, DFGNode *out) {
 
 void DFGLoopNode::insertOutputPort(DFGNode *in, DFGNode *out) {
 
-    out->unlinkPredecessor(in);
-    out->linkPredecessor(this);
     this->outputPorts.push_back(NodePort(in,out));
+
     llvm::errs() << "\nInserted ports for " << this << " :\n";
     for(NodePort p : outputPorts){
         p.first->getValue()->dump();
@@ -310,6 +311,12 @@ std::vector<DFGNode*> DFGLoopNode::getInPortPredecessors(DFGNode *innerNode){
     std::vector<DFGNode*> inPortPredecessors = std::vector<DFGNode*>();
 
     for(NodePort inPort : inputPorts){
+        if(innerNode->getType() == NodeType::Offset && inPort.second->getType() == NodeType::Offset){
+            DFGOffsetNode* o_1 = (DFGOffsetNode*)innerNode;
+            DFGOffsetNode* o_2 = (DFGOffsetNode*)inPort.second;
+            if(o_1->getUID() == o_2->getUID())
+                inPortPredecessors.push_back(inPort.first);
+        }
         if(inPort.second->equals(innerNode))
             inPortPredecessors.push_back(inPort.first);
     }
@@ -380,7 +387,9 @@ std::vector<DFGNode*> DFGLoopNode::getInPortOuterNodes(){
 
 void DFGLoopNode::printNode(){
 
-    llvm::errs() << "\nLoopNode structure for" << this << ":\n->input ports:\n";
+    llvm::errs() << "\nLoopNode structure for ";
+    node->dump();
+    llvm::errs() << "->input ports:\n";
     for(NodePort inPort : inputPorts){
         llvm::errs() << "----------------\n";
         llvm::errs() << "\t";
@@ -399,11 +408,7 @@ void DFGLoopNode::printNode(){
         outPort.second->getValue()->dump();
         llvm::errs() << "----------------\n";
     }
-
-    llvm::errs() << "Graph base nodes in this loop:\n";
-    for(DFGNode* node : endNodes)
-        node->getValue()->dump();
-
+    llvm::errs() << "\n";
 }
 
 std::vector<DFG *> DFGLoopNode::getIndipendentLoopGraphs() {
@@ -445,22 +450,9 @@ DFGWriteNode::DFGWriteNode(llvm::Value* value, IOStreams* loopStreams, int loopT
     this->typeID = NodeType::WriteNode;
 
     if(llvm::Instruction* instr = llvm::dyn_cast<llvm::Instruction>(value)){
-        for(auto stream : loopStreams->getOutputStreams()){
-            if(((llvm::Instruction*)(instr->getOperand(1)))->getOperand(0) == stream.first)
-            {
-                writingStream = stream;
-                llvm::errs() << "INFO: Attributed  writing stream:\n";
-                if(writingStream.first!= nullptr)
-                    writingStream.first->dump();
-                else
-                    llvm::errs() << "NULL\n";
-                if(writingStream.second!= nullptr)
-                    writingStream.second->dump();
-                else
-                    llvm::errs() << "NULL\n";
-                return;
-            }   
-        }
+
+        llvm::GetElementPtrInst* innermostAccess = (llvm::GetElementPtrInst*)(instr->getOperand(1));
+        accessChain = new AccessChain(innermostAccess);
         writingStream = loopStreams->getInStreamFromGEP((llvm::GetElementPtrInst*)(instr->getOperand(1)));
         llvm::errs() << "INFO: Attributed  writing stream:\n";
         if(writingStream.first!= nullptr)
@@ -480,16 +472,19 @@ DFGWriteNode::DFGWriteNode(llvm::Value* value, IOStreams* loopStreams, int windo
     this->typeID = NodeType::WriteNode;
 
     if(llvm::Instruction* instr = llvm::dyn_cast<llvm::Instruction>(value)) {
-        for (auto stream : loopStreams->getOutputStreams()) {
-            if (((llvm::Instruction *) (instr->getOperand(1)))->getOperand(0) == stream.first) {
-                writingStream = stream;
-                this->streamWindow = std::pair<int, int>(windowStart, windowEnd);
-                return;
-            }
-        }
+
+        llvm::GetElementPtrInst* innermostAccess = (llvm::GetElementPtrInst*)(instr->getOperand(1));
+        accessChain = new AccessChain(innermostAccess);
         writingStream = loopStreams->getInStreamFromGEP((llvm::GetElementPtrInst *) (instr->getOperand(1)));
-        llvm::errs() << "Attributed default writing stream for ";
-        value->dump();
+        llvm::errs() << "INFO: Attributed  writing stream:\n";
+        if(writingStream.first!= nullptr)
+            writingStream.first->dump();
+        else
+            llvm::errs() << "NULL\n";
+        if(writingStream.second!= nullptr)
+            writingStream.second->dump();
+        else
+            llvm::errs() << "NULL\n";
     }
     this->streamWindow = std::pair<int, int>(windowStart, windowEnd);
 }
@@ -502,15 +497,19 @@ DFGReadNode::DFGReadNode(llvm::Value* value, IOStreams* loopStreams, int loopTri
     this->typeID = NodeType::ReadNode;
 
     if(llvm::Instruction* instr = llvm::dyn_cast<llvm::Instruction>(value)){
-        for(auto stream : loopStreams->getInputStreams()){
-            if(((llvm::Instruction*)(instr->getOperand(0)))->getOperand(0) == stream.first)
-            {
-                sourceStream = stream;
-                return;
-            }
-        }
-        sourceStream = loopStreams->getInStreamFromGEP((llvm::GetElementPtrInst*)(instr->getOperand(0)));
-        llvm::errs() << "Attributed default reading stream for "; value->dump();
+        llvm::GetElementPtrInst* innermostAccess = (llvm::GetElementPtrInst*)(instr->getOperand(0));
+        accessChain = new AccessChain(innermostAccess);
+        sourceStream = loopStreams->getInStreamFromGEP(innermostAccess);
+        llvm::errs() << "INFO: Attributed  reading stream for ";
+        value->dump();
+        if(sourceStream.first!= nullptr)
+            sourceStream.first->dump();
+        else
+            llvm::errs() << "NULL\n";
+        if(sourceStream.second!= nullptr)
+            sourceStream.second->dump();
+        else
+            llvm::errs() << "NULL\n";
     }
 }
 
@@ -520,16 +519,21 @@ DFGReadNode::DFGReadNode(llvm::Value* value,IOStreams* loopStreams,int windowSta
     this->typeID = NodeType::ReadNode;
 
     if(llvm::Instruction* instr = llvm::dyn_cast<llvm::Instruction>(value)){
-        for(auto stream : loopStreams->getInputStreams()){
-            if(((llvm::Instruction*)(instr->getOperand(0)))->getOperand(0) == stream.first)
-            {
-                sourceStream = stream;
-                this->streamWindow = std::pair<int, int>(windowStart, windowEnd);
-                return;
-            }
-        }
-        sourceStream = loopStreams->getInStreamFromGEP((llvm::GetElementPtrInst*)(instr->getOperand(0)));
-        llvm::errs() << "Attributed default reading stream for "; value->dump();
+
+        llvm::GetElementPtrInst* innermostAccess = (llvm::GetElementPtrInst*)(instr->getOperand(0));
+
+        accessChain = new AccessChain(innermostAccess);
+        sourceStream = loopStreams->getInStreamFromGEP(innermostAccess);
+        llvm::errs() << "INFO: Attributed  reading stream for ";
+        value->dump();
+        if(sourceStream.first!= nullptr)
+            sourceStream.first->dump();
+        else
+            llvm::errs() << "NULL\n";
+        if(sourceStream.second!= nullptr)
+            sourceStream.second->dump();
+        else
+            llvm::errs() << "NULL\n";
     }
     this->streamWindow = std::pair<int,int>(windowStart,windowEnd);
 
@@ -542,24 +546,9 @@ DFGOffsetWriteNode::DFGOffsetWriteNode(llvm::Value* value,IOStreams* IOs, const 
 
     llvm::Value* valuePtr = ((llvm::Instruction*)(((llvm::Instruction*)value)->getOperand(1)))->getOperand(0);
 
-    for(StreamPair p : IOs->getOutputStreams()){
 
-        if(valuePtr == p.first && offset == p.second){
-            writingStream = p;
-
-            if(offset->getSCEVType() == llvm::SCEVTypes::scConstant) {
-                llvm::ConstantInt *intOfs = ((llvm::SCEVConstant *) offset)->getValue();
-
-                int startingOffset = intOfs->getSExtValue();
-                streamWindow.first = streamWindow.first - startingOffset;
-                streamWindow.second = streamWindow.second - startingOffset;
-            }
-            return;
-        }
-
-    }
-    llvm::errs() << "Offset not in IOStreams, assigning new offset...\n";
-    writingStream = StreamPair(valuePtr,offset);
+    llvm::errs() << "Assigning new offset...\n";
+    writingStream = IOs->getInStreamFromGEP((llvm::GetElementPtrInst*)valuePtr);
 
     if(offset->getSCEVType() == llvm::SCEVTypes::scConstant){
         llvm::ConstantInt* intOfs = ((llvm::SCEVConstant*)offset)->getValue();
@@ -581,6 +570,9 @@ DFGOffsetNode::DFGOffsetNode(DFGNode* baseNode) : DFGNode((baseNode->getValue())
     this->streamWindow = baseNode->getStreamWindow();
     this->offsetAsInt = streamWindow.first;
 
+    DFGOffsetNode::UID++;
+    this->nodeID = DFGOffsetNode::UID;
+
     llvm::LLVMContext c;
 
     llvm::Constant* offset =
@@ -592,6 +584,44 @@ DFGOffsetNode::DFGOffsetNode(DFGNode* baseNode) : DFGNode((baseNode->getValue())
 
 }
 
+AccessChain::AccessChain(llvm::Value *innermostAccess) {
+    accessVector.push_back(innermostAccess);
+
+    if(llvm::GetElementPtrInst* gep  = llvm::dyn_cast<llvm::GetElementPtrInst>(innermostAccess)){
+        llvm::GetElementPtrInst* gepInstr = gep;
+        while(llvm::GetElementPtrInst* gep_2  = llvm::dyn_cast<llvm::GetElementPtrInst>(gepInstr->getPointerOperand())){
+            addOuterAccess(gepInstr->getPointerOperand());
+            gepInstr = gep_2;
+        }
+    }
+}
+
+std::vector<llvm::Value*> AccessChain::getAccessIndexesIfAny() {
+
+    std::vector<llvm::Value*> accessIndexes;
+
+    for(auto el : accessVector){
+        if(llvm::GetElementPtrInst* gep = llvm::dyn_cast<llvm::GetElementPtrInst>(el)){
+            llvm::Value* gep_idx = *(gep->idx_end() - 1);
+
+            if(llvm::SExtInst* sext = llvm::dyn_cast<llvm::SExtInst>(gep_idx))
+                gep_idx = sext->getOperand(0);
+            if(llvm::Instruction* i = llvm::dyn_cast<llvm::Instruction>(gep_idx)){
+                for(const llvm::Use &op : i->operands()){
+                    if(llvm::dyn_cast<llvm::PHINode>(op)){
+                        gep_idx = op;
+                    }
+                }
+            }
+
+            accessIndexes.push_back(gep_idx);
+        }else{
+            accessIndexes.push_back(el);
+        }
+    }
+    return accessIndexes;
+}
+
 DFGOffsetReadNode::DFGOffsetReadNode(llvm::Value* value,IOStreams* IOs, const llvm::SCEV* offset, int loopTripCount) :
         DFGReadNode(value,IOs,loopTripCount){
 
@@ -599,24 +629,8 @@ DFGOffsetReadNode::DFGOffsetReadNode(llvm::Value* value,IOStreams* IOs, const ll
 
     llvm::Value* valuePtr = ((llvm::Instruction*)(((llvm::Instruction*)value)->getOperand(0)))->getOperand(0);
 
-    for(StreamPair p : IOs->getInputStreams()){
-
-        if(valuePtr == p.first && offset == p.second){
-            sourceStream = p;
-
-            if(offset->getSCEVType() == llvm::SCEVTypes::scConstant) {
-                llvm::ConstantInt *intOfs = ((llvm::SCEVConstant *) offset)->getValue();
-
-                int startingOffset = intOfs->getSExtValue();
-                streamWindow.first = streamWindow.first + startingOffset;
-                streamWindow.second = streamWindow.second + startingOffset;
-            }
-            return;
-        }
-
-    }
-    llvm::errs() << "Offset not in IOStreams, assigning new offset...";
-    sourceStream = StreamPair(valuePtr,offset);
+    llvm::errs() << "Assigning new offset...";
+    sourceStream = IOs->getInStreamFromGEP((llvm::GetElementPtrInst*)valuePtr);
 
     if(offset->getSCEVType() == llvm::SCEVTypes::scConstant){
         llvm::ConstantInt* intOfs = ((llvm::SCEVConstant*)offset)->getValue();
@@ -633,184 +647,71 @@ DFGOffsetReadNode::DFGOffsetReadNode(llvm::Value* value,IOStreams* IOs, const ll
 
 ///DFG methods implementation
 
-void DFG::getReadNodes(DFGNode* baseNode,std::vector<DFGReadNode*> &readNodes){
+std::vector<DFGNode*> DFG::getCrossScopeNodes(DFG *dfg, llvm::Function* F) {
 
-    DFG::resetFlags(baseNode);
+    std::vector<DFGNode*> nodes;
+    std::vector<DFGNode*> sortedNodes = dfg->orderNodesWithFunc(F);
 
-    DFG::collectReadNodes(baseNode,readNodes);
+    nodes.insert(nodes.begin(),sortedNodes.begin(),sortedNodes.end());
 
+    for(DFGNode* n : sortedNodes){
+        if(n->getType() == NodeType::LoopNode){
+            DFGLoopNode* loopNode = (DFGLoopNode*)n;
+            for(DFG* loopGraph : loopNode->getIndipendentLoopGraphs()) {
+                std::vector<DFGNode*> loopDFGNodes = getCrossScopeNodes(loopGraph,F);
+                nodes.insert(nodes.begin(),loopDFGNodes.begin(),loopDFGNodes.end());
+            }
+        }
+    }
+    llvm::errs() << "DEBUG: getCrossScopeNodes(): nodes:\n";
+    for(DFGNode* n : nodes){
+        n->getValue()->dump();
+    }
+    llvm::errs() << "\n";
+    return nodes;
 }
 
-void DFG::getReadNodes(std::vector<DFGNode*> graphNodes, std::vector<DFGReadNode*> &readNodes) {
+std::vector<DFGReadNode*> DFG::collectReadNodes(DFG* dfg,llvm::Function* F){
 
-    for(DFGNode* n : graphNodes){
+    std::vector<DFGReadNode*> readNodes;
+    std::vector<DFGNode*> nodes = getCrossScopeNodes(dfg,F);
+
+    for(DFGNode* n : nodes){
         if(n->getType() == NodeType::ReadNode || n->getType() == NodeType::OffsetRead){
             readNodes.push_back((DFGReadNode*)n);
         }
     }
+    return readNodes;
 }
 
-void DFG::collectReadNodes(DFGNode* baseNode,std::vector<DFGReadNode*> &readNodes){
-    
-    if((baseNode->getType() == NodeType::ReadNode || baseNode->getType() == NodeType::OffsetRead)
-        && !baseNode->getFlag())
-        readNodes.push_back((DFGReadNode*)baseNode);
+std::vector<DFGWriteNode*> DFG::collectWriteNodes(DFG* dfg,llvm::Function* F){
 
-    baseNode->setFlag(true);
-    
-    for(DFGNode* succ : baseNode->getSuccessors())
-        if(!succ->getFlag())
-            descendAndCollectReads(succ,readNodes);
-    
-    for(DFGNode* pred : baseNode->getPredecessors())
-        if(!pred->getFlag())
-            collectReadNodes(pred,readNodes);
-}
+    std::vector<DFGWriteNode*> writeNodes;
+    std::vector<DFGNode*> nodes = getCrossScopeNodes(dfg,F);
 
-void DFG::descendAndCollectReads(DFGNode* node, std::vector<DFGReadNode*> &readNodes){
-    
-    DFGNode* startingNode = node;
-    int trueSucc = 0;
-
-    while(startingNode->getSuccessors().size() != trueSucc)
-        for(DFGNode* succ : startingNode->getSuccessors())
-            if(!succ->getFlag()){
-                startingNode = succ;
-                trueSucc=0;
-                break;
-            }else{
-                trueSucc++;
-            }
-
-    if(startingNode != node)
-        collectReadNodes(startingNode,readNodes);
-    else
-        if((startingNode->getType() == NodeType::ReadNode || startingNode->getType() == NodeType::OffsetRead)
-           && !startingNode->getFlag())
-            readNodes.push_back((DFGReadNode*)startingNode);
-}
-
-void DFG::getWriteNodes(std::vector<DFGNode *> graphNodes, std::vector<DFGWriteNode *> &writeNodes) {
-
-    for(DFGNode* n : graphNodes){
+    for(DFGNode* n : nodes){
         if(n->getType() == NodeType::WriteNode || n->getType() == NodeType::OffsetWrite){
             writeNodes.push_back((DFGWriteNode*)n);
         }
     }
+    return writeNodes;
 }
 
-void DFG::getWriteNodes(DFGNode* baseNode,std::vector<DFGWriteNode*> &writeNodes){
-    
-    DFG::resetFlags(baseNode);
-    
-    DFG::collectWriteNodes(baseNode,writeNodes);
+std::vector<DFGWriteNode*> DFG::getUniqueWriteNodes(DFG* dfg, llvm::Function* F){
 
-}
-
-void DFG::collectWriteNodes(DFGNode* baseNode,std::vector<DFGWriteNode*> &writeNodes){
-
-    if((baseNode->getType() == NodeType::WriteNode || baseNode->getType() == NodeType::OffsetWrite)
-       && !baseNode->getFlag())
-            writeNodes.push_back((DFGWriteNode*)baseNode);
-
-    baseNode->setFlag(true);
-    
-    for(DFGNode* succ : baseNode->getSuccessors())
-        if(!succ->getFlag())
-            descendAndCollectWrites(succ,writeNodes);
-    
-    for(DFGNode* pred : baseNode->getPredecessors())
-        if(!pred->getFlag())
-            collectWriteNodes(pred,writeNodes);
-}
-
-void DFG::descendAndCollectWrites(DFGNode* node, std::vector<DFGWriteNode*> &writeNodes){
-    
-    DFGNode* startingNode = node;
-    int trueSuccCount = 0;
-
-    while(startingNode->getSuccessors().size() != trueSuccCount)
-        for(DFGNode* succ : startingNode->getSuccessors())
-            if(!succ->getFlag()){
-                startingNode = succ;
-                trueSuccCount=0;
-                break;
-            }else{
-                trueSuccCount++;
-            }
-    if(startingNode != node)
-        collectWriteNodes(startingNode,writeNodes);
-    else
-    {
-        if((startingNode->getType() == NodeType::WriteNode || startingNode->getType() == NodeType::OffsetWrite)
-           && !startingNode->getFlag())
-                writeNodes.push_back((DFGWriteNode*)startingNode);
-        startingNode->setFlag(true);
-    }
-            
-} 
-
-std::vector<DFGReadNode*> DFG::getUniqueReadNodes(DFGNode* baseNode){
-
-    std::vector<DFGReadNode*> readNodes;
-    std::vector<DFGReadNode*> uniqueReadNodes;
-    
-    getReadNodes(baseNode,readNodes);
-
-    for(DFGReadNode* node : readNodes){
-        for(DFGReadNode* n : readNodes)
-        {
-            if(node->getReadingStream() == n->getReadingStream() &&
-                (node->getName() != n->getName()))
-            {
-                n->setName(node->getName());
-            }
-        }
-    }
-    
-    //fill the uniqueReadNodes vector
-    for(DFGReadNode* node : readNodes)
-    {
-        bool isUnique = true;
-        
-        for(DFGReadNode* n : uniqueReadNodes)
-            if(node->getName() == n->getName())
-                isUnique = false;
-                
-        if(isUnique)
-            uniqueReadNodes.push_back(node);
-    }
-
-    return uniqueReadNodes;
-}
-
-std::vector<DFGWriteNode*> DFG::getUniqueWriteNodes(DFGNode* baseNode){
-    
-    std::vector<DFGWriteNode*> writeNodes;
     std::vector<DFGWriteNode*> uniqueWriteNodes;
-    
-    getWriteNodes(baseNode,writeNodes);
-    
-    for(DFGWriteNode* node : writeNodes){
-        for(DFGWriteNode* n : writeNodes)
-        {
-            if(node->getWritingStream() == n->getWritingStream() &&
-                (node->getName() != n->getName()))
-            {
-                n->setName(node->getName());
-            }
-        }
-    }
-    
+
+    std::vector<DFGWriteNode*> writeNodes = dfg->collectWriteNodes(dfg,F);
+
     //fill the uniqueReadNodes vector
     for(DFGWriteNode* node : writeNodes)
     {
         bool isUnique = true;
-        
+
         for(DFGWriteNode* n : uniqueWriteNodes)
-            if(node->getName() == n->getName())
+            if(node->getWritingStream().first == n->getWritingStream().first)
                 isUnique = false;
-                
+
         if(isUnique)
             uniqueWriteNodes.push_back(node);
     }
@@ -818,13 +719,33 @@ std::vector<DFGWriteNode*> DFG::getUniqueWriteNodes(DFGNode* baseNode){
     return uniqueWriteNodes;
 }
 
-std::vector<DFGNode*> DFG::getScalarArguments(DFGNode* baseNode,llvm::Function* F){
+std::vector<DFGReadNode*> DFG::getUniqueReadNodes(DFG* dfg, llvm::Function* F) {
+
+    std::vector<DFGReadNode*> uniqueReadNodes;
+    std::vector<DFGReadNode*> readNodes = dfg->collectReadNodes(dfg,F);
+
+    //fill the uniqueReadNodes vector
+    for(DFGReadNode* node : readNodes)
+    {
+        bool isUnique = true;
+
+        for(DFGReadNode* n : uniqueReadNodes)
+            if(node->getReadingStream().first == n->getReadingStream().first)
+                isUnique = false;
+
+        if(isUnique)
+            uniqueReadNodes.push_back(node);
+    }
+
+    return uniqueReadNodes;
+}
+
+std::vector<DFGNode*> DFG::getScalarArguments(DFG* dfg,llvm::Function* F){
 
     std::vector<DFGNode*> sortedNodes;
     std::vector<DFGNode*> scalarArgs;
     
-    resetFlags(baseNode);
-    sortedNodes = orderNodesWithFunc(F);
+    sortedNodes = dfg->getCrossScopeNodes(dfg,F);
     
     for(DFGNode* n : sortedNodes)
     {
@@ -837,12 +758,12 @@ std::vector<DFGNode*> DFG::getScalarArguments(DFGNode* baseNode,llvm::Function* 
     return scalarArgs;
 }
 
-std::vector<DFGNode*> DFG::getUniqueScalarArguments(DFGNode* baseNode,llvm::Function *F){
+std::vector<DFGNode*> DFG::getUniqueScalarArguments(DFG* dfg,llvm::Function *F){
     
     std::vector<DFGNode*> scalarArguments;
     std::vector<DFGNode*> uniqueScalarArguments;
     
-    scalarArguments = getScalarArguments(baseNode,F);
+    scalarArguments = getScalarArguments(dfg,F);
     
     for(DFGNode* node : scalarArguments){
         for(DFGNode* n : scalarArguments)
@@ -941,13 +862,25 @@ void DFG::setNameVector(std::vector<std::string> &nodeNames, DFGNode* node){
 
 void DFG::simpleSetNames(std::vector<std::string> &nodeNames, DFGNode *node) {
 
+    bool isNamed = false;
+
+    llvm::errs() << "INFO: simpleSetNames(): v_size = " << nodeNames.size()
+                 << " name = " << nodeNames.back() << " n = ";
+    node->getValue()->dump();
+
+    if(node->getName() != "unnamed" && node->getType() != NodeType::Offset){
+        llvm::errs() << "INFO: simpleSetNames(): node already named: " << node->getName() << " ";
+        node->getValue()->dump();
+        isNamed = true;
+    }
+
     if(nodeNames.size() < 1 && node->getFlag())
     {
-        llvm::errs() << "Exhausted node names\n";
+        llvm::errs() << "INFO: simpleSetNames(): exhausted node names\n";
         return;
     }
 
-    if(!node->getFlag()){
+    if(!node->getFlag() && !isNamed){
 
         if(node->getType() == NodeType::LoopNode){
             DFGLoopNode* loopNode = (DFGLoopNode*)node;
@@ -1344,21 +1277,23 @@ std::vector<DFGNode*> DFG::orderNodesWithFunc(llvm::Function *F) {
     for(llvm::BasicBlock &BB : *F){
         for(llvm::Instruction &instr : BB){
             for(auto it = nodes.begin(); it != nodes.end(); ++it){
-                if(&instr == (*it)->getValue() && !(*it)->getFlag()) {
-                    for(DFGNode* pred : (*it)->getPredecessors())
-                        if(!pred->getFlag()) {
+                if(&instr == (*it)->getValue()){
+                    for(DFGNode* pred : (*it)->getPredecessors()) {
+                        if (!pred->getFlag()) {
                             pred->setFlag(true);
+                            pred->getValue()->dump();
                             sortedNodes.push_back(pred);
-                            auto pred_it = std::find(nodes.begin(),nodes.end(),pred);
-                            if(pred_it != nodes.end())
-                                nodes.erase(pred_it);
+                            auto pred_it = std::find(nodes.begin(), nodes.end(), pred);
 
+                            if (pred_it != nodes.end()) {
+                                nodes.erase(pred_it);
+                            }
                         }
+                    }
                     (*it)->setFlag(true);
                     sortedNodes.push_back(*it);
                     break;
                 }
-
             }
         }
     }
@@ -1370,8 +1305,6 @@ std::vector<DFGNode*> DFG::orderNodesWithFunc(llvm::Function *F) {
 
     for(DFGNode* n : nodes){
         if(std::find(sortedNodes.begin(),sortedNodes.end(),n) == sortedNodes.end()) {
-            llvm::errs() << "WARNING: missed node in ordering ";
-            n->getValue()->dump();
             DFG::orderMissingNode(n,sortedNodes);
         }
     }
@@ -1381,9 +1314,17 @@ std::vector<DFGNode*> DFG::orderNodesWithFunc(llvm::Function *F) {
             llvm::errs() << "ERROR: did not place ";
             n->getValue()->dump();
         }
-
     }
     resetFlags(endNode);
+
+    for(auto r_it = sortedNodes.begin(); r_it != sortedNodes.end(); ++r_it){
+        for(auto r_it_2 = r_it+1; r_it_2 != sortedNodes.end(); ++r_it_2){
+            if((*r_it)==(*r_it_2)){
+                sortedNodes.erase(r_it);
+                break;
+            }
+        }
+    }
 
     return sortedNodes;
 }
@@ -1524,22 +1465,28 @@ void DFGConstructor::initiateDFGConstruction(std::vector<DFG*> &computedDFGs,IOS
         if(llvm::StoreInst* store = llvm::dyn_cast<llvm::StoreInst>(&instr)){
             if(llvm::Instruction* storeAddr = llvm::dyn_cast<llvm::Instruction>(store->getOperand(1))) {
 
+                llvm::errs() << "DEBUG: ";
+                instr.dump();
+
                 llvm::Instruction *allocaInstr = nullptr;
                 StreamPair stream;
 
-                if (llvm::Instruction *i = llvm::dyn_cast<llvm::Instruction>(storeAddr->getOperand(0))) {
-                    allocaInstr = i;
+                if(llvm::GetElementPtrInst* gep = llvm::dyn_cast<llvm::GetElementPtrInst>(storeAddr)){
+                    if(llvm::Instruction* i = llvm::dyn_cast<llvm::Instruction>(oxigen::getGEPBaseAddress(gep))){
+                        allocaInstr = i;
+                    }
                 }
+
                 if(allocaInstr != nullptr && allocaInstr->getOpcodeName() == std::string("alloca")) {
                     stream = IOs->getInStreamFromGEP((llvm::GetElementPtrInst *) storeAddr);
 
                     if (stream.second != nullptr) {
-
+                        llvm::errs() << "DEBUG: created offset node\n";
                         DFGOffsetWriteNode *offsetNode = nodeFactory->createDFGOffsetWriteNode(&instr, IOs, stream.second,loopTripCount);
                         computedDFGs.push_back(
                                 computeDFGFromBase(offsetNode, IOs,loopTripCount,topLevelLoop));
                     } else {
-
+                        llvm::errs() << "DEBUG: created node\n";
                         computedDFGs.push_back(
                                 computeDFGFromBase(nodeFactory->createDFGWriteNode(&instr, IOs,loopTripCount), IOs,loopTripCount,topLevelLoop));
                     }
@@ -1548,12 +1495,14 @@ void DFGConstructor::initiateDFGConstruction(std::vector<DFG*> &computedDFGs,IOS
                 stream = storedOutputStream(store,IOs,SE);
 
                 if (stream.first != nullptr) {
-                    if(stream.second == nullptr)
+                    if(stream.second == nullptr) {
+                        llvm::errs() << "DEBUG: created node\n";
                         computedDFGs.push_back(
-                                computeDFGFromBase(nodeFactory->createDFGWriteNode(&instr, IOs,loopTripCount),IOs,loopTripCount, topLevelLoop));
-                    else{
+                                computeDFGFromBase(nodeFactory->createDFGWriteNode(&instr, IOs, loopTripCount), IOs,
+                                                   loopTripCount, topLevelLoop));
+                    }else{
+                        llvm::errs() << "DEBUG: created offset node\n";
                         DFGOffsetWriteNode* offsetNode = nodeFactory->createDFGOffsetWriteNode(&instr,IOs,stream.second,loopTripCount);
-                        llvm::errs() << "Equals: " << offsetNode->equals(offsetNode);
                         computedDFGs.push_back(
                                 computeDFGFromBase(offsetNode, IOs,loopTripCount, topLevelLoop));
                     }
@@ -2217,16 +2166,46 @@ bool oxigen::isExitPhi(llvm::PHINode *phi) {
     return false;
 }
 
-bool oxigen::isNestedVectorWrite(DFGNode *node) {
+bool oxigen::isNestedVectorWrite(DFGNode *node,bool onlyAlloca) {
 
-    if(node->getLoopDepth() < 2)
+    if(node->getLoopDepth() < 2 && node->getType() != NodeType::Offset)
         return false;
 
+    for(DFGNode* s : node->getSuccessors()) {
+        if (llvm::StoreInst *store = llvm::dyn_cast<llvm::StoreInst>(s->getValue())) {
+            if (llvm::GetElementPtrInst *gep = llvm::dyn_cast<llvm::GetElementPtrInst>(store->getPointerOperand())) {
+                llvm::GetElementPtrInst* gepInstr = gep;
+                while(llvm::GetElementPtrInst *gep_2 = llvm::dyn_cast<llvm::GetElementPtrInst>(gepInstr->getPointerOperand())){
+                    gepInstr = gep_2;
+                    if(!llvm::dyn_cast<llvm::AllocaInst>(gepInstr->getPointerOperand()))
+                        if(onlyAlloca)
+                            return false;
+                }
+            }
+        }
+    }
     for(DFGNode* s : node->getSuccessors()){
         if(llvm::StoreInst* store = llvm::dyn_cast<llvm::StoreInst>(s->getValue())){
             if(llvm::GetElementPtrInst* gep = llvm::dyn_cast<llvm::GetElementPtrInst>(store->getPointerOperand())) {
-                if (llvm::dyn_cast<llvm::AllocaInst>(gep->getPointerOperand()))
+                llvm::GetElementPtrInst* gepInstr = gep;
+                llvm::PointerType* ptr;
+                while(llvm::GetElementPtrInst* gep_2 = llvm::dyn_cast<llvm::GetElementPtrInst>(gepInstr->getPointerOperand())){
+                    ptr = (llvm::PointerType*)(gepInstr->getPointerOperand()->getType());
+                    if(ptr->getElementType()->isArrayTy())
+                        return true;
+                    else{
+                        llvm::errs() << "Non-array type: \n";
+                        ptr->getElementType()->dump();
+                    }
+                    gepInstr = gep_2;
+                }
+                ptr = (llvm::PointerType*)(gepInstr->getPointerOperand()->getType());
+                if (ptr->getElementType()->isArrayTy())
                     return true;
+                else{
+                    llvm::errs() << "Non-array type: \n";
+                    ptr->getElementType()->dump();
+                }
             }
         }
     }
@@ -2405,6 +2384,17 @@ std::vector<DFGNode*> oxigen::getLoopCarriedDependencies(DFG *dfg) {
     return loopDependentNodes;
 }
 
+llvm::Value* oxigen::getGEPBaseAddress(llvm::GetElementPtrInst *gep) {
+
+    llvm::GetElementPtrInst* gepInstr = gep;
+    while(llvm::GetElementPtrInst* gep_2 = llvm::dyn_cast<llvm::GetElementPtrInst>(gepInstr->getPointerOperand())){
+        gepInstr = gep_2;
+    }
+
+    return gepInstr->getPointerOperand();
+
+}
+
 //DFGLinker methods implementation
 
 std::vector<DFG*> DFGLinker::linkDFG(){
@@ -2429,8 +2419,8 @@ std::vector<DFG*> DFGLinker::linkDFG(){
 
         sortedNodes = dfg->orderNodesWithFunc(F);
 
-        dfg->getWriteNodes(sortedNodes,wNodes);
-        dfg->getReadNodes(sortedNodes,rNodes);
+        wNodes = dfg->collectWriteNodes(dfg,F);
+        rNodes = dfg->collectReadNodes(dfg,F);
         
         nodesOrder.insert(nodesOrder.end(),sortedNodes.begin(),sortedNodes.end());
         
@@ -2438,10 +2428,6 @@ std::vector<DFG*> DFGLinker::linkDFG(){
         writeNodes.insert(writeNodes.end(),wNodes.begin(),wNodes.end());
         
     }
-
-    llvm::errs() << "Ordered nodes\n";
-    for(DFGNode* n : nodesOrder)
-        n->getValue()->dump();
 
     for(int i = 0; i < nodesOrder.size(); i++)
     {
@@ -2454,6 +2440,13 @@ std::vector<DFG*> DFGLinker::linkDFG(){
                 if(std::find(writeNodes.begin(), writeNodes.end(), nodesOrder.at(j)) != writeNodes.end())
                 {  
                     DFGWriteNode* writeNode = (DFGWriteNode*)nodesOrder.at(j);
+
+                    llvm::errs() << "DEBUG: rw pair::\n";
+                    readNode->getValue()->dump();
+                    writeNode->getValue()->dump();
+                    readNode->getReadingStream().first->dump();
+                    writeNode->getWritingStream().first->dump();
+                    llvm::errs() << readNode->getStreamWindow().first << " " << writeNode->getStreamWindow().first << "\n";
                     
                     if(readNode->getReadingStream().first == writeNode->getWritingStream().first &&
                             (readNode->getStreamWindow().first <= -(writeNode->getStreamWindow().first) ||

@@ -1115,7 +1115,7 @@ define void @two_d_test([3 x i8]*, [3 x i8]*) #0 {
 
 ; <label>:33:                                     ; preds = %52, %32
   %.0 = phi i32 [ 0, %32 ], [ %53, %52 ]
-  %34 = icmp slt i32 %.0, 100
+  %34 = icmp slt i32 %.0, 3
   br i1 %34, label %35, label %54
 
 ; <label>:35:                                     ; preds = %33

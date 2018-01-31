@@ -39,7 +39,7 @@ DefaultScheduler::DefaultScheduler(std::string functionName, llvm::Function* F,
     DFGTranslator* dfgt = new DFGTranslator(SE,F);
 
     schedule(dfgt);
-    schedule(res);
+    //schedule(res);
     schedule(rlm);
     schedule(subhdl);
     schedule(ovHandler);
@@ -265,7 +265,7 @@ void DefaultScheduler::execute(DFGStreamsOverlapHandler *overlapHandler) {
 
 
     overlapHandler->setDFGs(dataflowGraph);
-    DefaultScheduler::dataflowGraph = overlapHandler->computeFallbackWrites();
+    //DefaultScheduler::dataflowGraph = overlapHandler->computeFallbackWrites();
 
     if(dataflowGraph.size() > 1){
         std::vector<DFG*> tmp(dataflowGraph.size());

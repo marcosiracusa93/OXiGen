@@ -100,7 +100,7 @@ LoopDependencyGraph::LoopDependencyGraph(DFG *dfg,llvm::Function* F) {
 
     this->graphLoopDepth = dfgEndNode->getLoopDepth();
 
-    std::vector<DFGNode*> orderedNodes = dfg->orderNodesWithFunc(F);
+    std::vector<DFGNode*> orderedNodes = dfg->getCrossScopeNodes(dfg,F);
 
     for(DFGNode* n : orderedNodes){
         if(n->getType() == NodeType::LoopNode){
@@ -126,6 +126,7 @@ LoopDependencyGraph::LoopDependencyGraph(DFG *dfg,llvm::Function* F) {
                 lgn->setLoopType(LoopType::Accumul);
             }else{
                 lgn->setLoopType(LoopType::Neutral);
+                beginLoopNodes.push_back(lgn);
             }
 
             std::vector<DFGNode*> inPortOuterNodes = loopNode->getInPortOuterNodes();
@@ -180,7 +181,6 @@ LoopGraphNode* LoopDependencyGraph::getNodeForLoop(DFGLoopNode *loopNode) {
     LoopGraphNode* graphNode = nullptr;
 
     for(auto n : beginLoopNodes){
-        loopNode->getValue()->dump();
         if(n->getLoopNode() == loopNode) {
             return n;
         }
@@ -192,7 +192,10 @@ LoopGraphNode* LoopDependencyGraph::getNodeForLoop(DFGLoopNode *loopNode) {
             return  graphNode;
         }
     }
-
+    if(graphNode == nullptr){
+        llvm::errs() << "ERROR: returned null graph node\n";
+        exit(EXIT_FAILURE);
+    }
     return graphNode;
 }
 
@@ -317,7 +320,9 @@ std::vector<DFGNode*> oxigen::getExpansionLoopNestedVectorWrites(DFGLoopNode *lo
 
         for(DFGNode* n : orderedNodes){
 
-            if(oxigen::isNestedVectorWrite(n)){
+            if(oxigen::isNestedVectorWrite(n,true)){
+                llvm::errs() << "DEBUG: NVW: ";
+                n->getValue()->dump();
                 nestedVectorWrites.push_back(n);
             }
         }

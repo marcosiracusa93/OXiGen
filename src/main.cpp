@@ -17,6 +17,8 @@
 #include "llvm/AsmParser/Parser.h"
 
 #include "OXiGenPass.h"
+#include "OxigenGenVectorizedPass.h"
+#include "OxigenVectorizationPass.h"
 
 #include "AnalysisManager.h"
 #include "DFGConstructor.h"
@@ -89,10 +91,26 @@ int main(int argc, char**argv) {
     functionPassManager->add(loopInfoPassRef);                              // -loops
     functionPassManager->add(scevPassRef);                                  // -scalar-evolution
     functionPassManager->add(createSCEVAAWrapperPass());                    // -scev-aa
-    functionPassManager->add(oxigen::createOXiGenWrapperPass(functionName));// -OXiGen custom pass
+
+    //run for generation of the vectorized function in the module
+    functionPassManager->add(oxigen::createOxigenGenVectorizedPass(2));     // creates the vectorized function signature
+    functionPassManager->run(*module->getFunction(StringRef(functionName)));
+
+    functionPassManager = new legacy::FunctionPassManager(module);
+
+    //repeat analysis for the vectorized function
+    functionPassManager->add(loopInfoPassRef);
+    functionPassManager->add(scevPassRef);
+    functionPassManager->add(oxigen::createOxigenVectorizationPass(2));     // run function vectorization
+
+    functionName = "vectorized_" + functionName;
+    functionPassManager->run(*module->getFunction(StringRef(functionName)));
+
+
+    //functionPassManager->add(oxigen::createOXiGenWrapperPass(functionName));// -OXiGen custom pass
 
     //the scheduled passes are run on the specified function
-    functionPassManager->run(*module->getFunction(StringRef(functionName)));
+
     
     return 0;
 }

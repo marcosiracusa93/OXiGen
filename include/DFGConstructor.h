@@ -430,9 +430,13 @@ namespace oxigen{
 
     private:
 
+        static long UID;
         int offsetAsInt;
+        long nodeID;
 
     public:
+
+        long getUID(){ return nodeID; }
 
         int getOffsetAsInt(){ return offsetAsInt; }
 
@@ -485,6 +489,27 @@ namespace oxigen{
         std::vector<DFG*> getIndipendentLoopGraphs();
 
     };
+
+    class AccessChain{
+
+    private:
+
+        std::vector<llvm::Value*> accessVector;
+
+    public:
+        AccessChain(llvm::Value* innermostAccess);
+
+        std::vector<llvm::Value*> getAccessVector(){ return this->accessVector; }
+
+        std::vector<llvm::Value*> getAccessIndexesIfAny();
+
+        void addOuterAccess(llvm::Value* accessValue){
+            accessVector.insert(accessVector.begin(),accessValue);
+        }
+        void addInnerAccess(llvm::Value* accessValue){
+            accessVector.push_back(accessValue);
+        }
+    };
     
     /**
      * @class DFGWriteNode
@@ -498,6 +523,7 @@ namespace oxigen{
     protected:
         
         StreamPair writingStream;
+        AccessChain* accessChain;
         
     public:
         
@@ -537,8 +563,20 @@ namespace oxigen{
             DFGNode::printNode();
             llvm::errs() << " \nWriting stream: ";
             writingStream.first->dump();
-
+            llvm::errs() << "\nAccess chain:\n";
+            for(auto el : accessChain->getAccessVector()){
+                llvm::errs() << "Access: ";
+                el->dump();
+            }
+            llvm::errs() << "Indexes:\n";
+            for(auto el : accessChain->getAccessIndexesIfAny()){
+                llvm::errs() << "Index: ";
+                el->dump();
+            }
+            llvm::errs() << "\n";
         }
+
+        AccessChain* getAccessChain(){ return accessChain; }
     };
 
     class DFGOffsetWriteNode : public DFGWriteNode {
@@ -569,7 +607,6 @@ namespace oxigen{
 
     };
 
-    
     /**
      * @class DFGReadNode
      * @brief DFGNode which represents a read node in the DataFlow graph, corresponding
@@ -580,7 +617,8 @@ namespace oxigen{
     class DFGReadNode : public DFGNode {
     
     protected:
-        
+
+        AccessChain* accessChain;
         StreamPair sourceStream;
         
     public:
@@ -621,10 +659,20 @@ namespace oxigen{
             DFGNode::printNode();
             llvm::errs() << "\nSource stream: ";
             sourceStream.first->dump();
-
+            llvm::errs() << "\nAccess chain:\n";
+            for(auto el : accessChain->getAccessVector()){
+                llvm::errs() << "Access: ";
+                el->dump();
+            }
+            llvm::errs() << "Indexes:\n";
+            for(auto el : accessChain->getAccessIndexesIfAny()){
+                llvm::errs() << "Index: ";
+                el->dump();
+            }
+            llvm::errs() << "\n";
         }
 
-        bool isSigned();
+        AccessChain* getAccessChain(){ return accessChain; }
     };
 
 
@@ -741,19 +789,6 @@ namespace oxigen{
         void setEndNode(DFGNode* node){ endNode = node; }
 
         /**
-         * @brief Used to retrieve the DFGReadNodes in this graph. It
-         *        actually just searches for 'load' operations and then
-         *        attempts to cast the DFGNode wrapper object to a 
-         *        DFGReadNode. Therefore it should only be used when
-         *        it is safe to do so.
-         * 
-         * @param baseNode - the base node of this graph
-         */
-        void getReadNodes(DFGNode* baseNode,std::vector<DFGReadNode*> &readNodes);
-
-        void getReadNodes(std::vector<DFGNode*> graphNodes,std::vector<DFGReadNode*> &readNodes);
-        
-        /**
          * @brief Used to retrieve the DFGWriteNode in this graph. It
          *        actually just searches for 'store' operations and then
          *        attempts to cast the DFGNode wrapper object to a 
@@ -762,10 +797,9 @@ namespace oxigen{
          * 
          * @param baseNode - the base node of this graph
          */
-        void getWriteNodes(DFGNode* baseNode,std::vector<DFGWriteNode*> &writeNodes);
 
-        void getWriteNodes(std::vector<DFGNode*> graphNodes,std::vector<DFGWriteNode*> &writeNodes);
-        
+        std::vector<DFGNode*> getCrossScopeNodes(DFG* dfg,llvm::Function* F);
+
         /**
          * @brief This method used the DFG::getReadNodes method to retrieve
          *        the DFGReadNodes of this graph, and then performs a check
@@ -777,9 +811,10 @@ namespace oxigen{
          * @param baseNode - the base node of this graph
          * @return a std::vector of DFGReadNodes with unique names 
          */
-        std::vector<DFGReadNode*> getUniqueReadNodes(DFGNode* baseNode);
-        
-        std::vector<DFGWriteNode*> getUniqueWriteNodes(DFGNode* baseNode);
+
+        std::vector<DFGReadNode*> getUniqueReadNodes(DFG* dfg, llvm::Function* F);
+
+        std::vector<DFGWriteNode*> getUniqueWriteNodes(DFG* baseNode, llvm::Function* F);
 
         void getUniqueOrderedNodes(DFGNode* n, int &pos, std::vector<DFGNode*> &sorted,int baseSize);
 
@@ -792,9 +827,13 @@ namespace oxigen{
          * @param baseNode - the base node for this graph
          * @return a srd::vector of DFGNodes containing llvm::Arguments as values
          */
-        std::vector<DFGNode*> getScalarArguments(DFGNode* baseNode,llvm::Function* F);
+        std::vector<DFGNode*> getScalarArguments(DFG* dfg,llvm::Function* F);
         
-        std::vector<DFGNode*> getUniqueScalarArguments(DFGNode* baseNode,llvm::Function *F);
+        std::vector<DFGNode*> getUniqueScalarArguments(DFG* dfg,llvm::Function *F);
+
+        std::vector<DFGReadNode*> collectReadNodes(DFG* dfg,llvm::Function* F);
+
+        std::vector<DFGWriteNode*> collectWriteNodes(DFG* dfg,llvm::Function* F);
         
         /**
          * @brief Counts the number of nodes in this graph
@@ -846,14 +885,6 @@ namespace oxigen{
         int descendAndCount(DFGNode* node, int count);
         
         void descendAndReset(DFGNode* node);
-        
-        void collectReadNodes(DFGNode* baseNode,std::vector<DFGReadNode*> &readNodes);
-        
-        void descendAndCollectReads(DFGNode* node, std::vector<DFGReadNode*> &readNodes);
-        
-        void collectWriteNodes(DFGNode* baseNode,std::vector<DFGWriteNode*> &writeNodes);
-        
-        void descendAndCollectWrites(DFGNode* node, std::vector<DFGWriteNode*> &writeNodes);
 
         void simpleSetNames(std::vector<std::string> &nodeNames, DFGNode* node);
         
@@ -987,7 +1018,7 @@ namespace oxigen{
 
     bool isExitPhi(llvm::PHINode* phi);
 
-    bool isNestedVectorWrite(DFGNode *node);
+    bool isNestedVectorWrite(DFGNode *node,bool onlyAlloca = false);
 
     llvm::PHINode* getLoopCounterIfAny(llvm::Loop* loop);
 
@@ -1000,6 +1031,8 @@ namespace oxigen{
     std::vector<NodeType> getCompositeTypes();
 
     std::vector<DFGNode*> getLoopCarriedDependencies(DFG* dfg);
+
+    llvm::Value* getGEPBaseAddress(llvm::GetElementPtrInst* gep);
 
 } // End OXiGen namespace
 

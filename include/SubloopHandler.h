@@ -53,6 +53,11 @@ namespace oxigen{
         void insertIntoLoopNode(DFGNode *node, llvm::LoopInfo *LI, llvm::Function *F,llvm::ScalarEvolution* SE,
                                 int nestingDepth,DFG* dfg);
 
+        llvm::Loop* getCommonLoopParent(DFGNode* n_1,DFGNode* n_2,llvm::LoopInfo *LI, llvm::Function *F);
+
+        void createLoopNodes(DFGNode *node, llvm::LoopInfo *LI,
+                             llvm::Function *F,llvm::ScalarEvolution* SE,DFG* dfg);
+
         bool isIndipendent(DFGNode *node, llvm::Loop *loop);
 
         void promoteIfIndipendentNode(DFGNode* node,llvm::Loop* loop);

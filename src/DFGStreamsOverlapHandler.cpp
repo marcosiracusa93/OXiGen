@@ -230,7 +230,7 @@ std::pair<int,int> DFGStreamsOverlapHandler::computeLoopCarriedDependencyWindow(
     }
 }
 
-std::vector<DFG*> DFGStreamsOverlapHandler::computeFallbackWrites(){
+/*std::vector<DFG*> DFGStreamsOverlapHandler::computeFallbackWrites(){
 
     DFGNodeFactory* nodeFactory = new DFGNodeFactory();
 
@@ -326,4 +326,4 @@ std::vector<DFG*> DFGStreamsOverlapHandler::computeFallbackWrites(){
     graphs = indipendentGraphs;
 
     return indipendentGraphs;
-}
+}*/

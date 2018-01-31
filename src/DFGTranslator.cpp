@@ -3,6 +3,13 @@
 
 using namespace oxigen;
 
+
+std::vector<std::pair<DFGReadNode*,int>> MaxJInstructionPrinter::inputNodes
+        = std::vector<std::pair<DFGReadNode*,int>>();
+
+std::vector<std::pair<DFGWriteNode*,int>> MaxJInstructionPrinter::outputNodes
+        = std::vector<std::pair<DFGWriteNode*,int>>();
+
 //default imports for the maxj kernel
 std::vector<std::string> MaxJInstructionPrinter::imports = {
     "com.maxeler.maxcompiler.v2.kernelcompiler.Kernel",
@@ -139,18 +146,11 @@ std::string SequentialNamesManager::generateNextName(){
 
 //MaxJInstructionPrinter methods implementation
 
-std::string MaxJInstructionPrinter::getInputStreamsDeclarations(std::vector<DFGReadNode*> inputs){
-    
-    std::string declarations;
-    std::string inputEnable = "";
+std::vector<DFGReadNode*> MaxJInstructionPrinter::getInputNodes(std::vector<DFGReadNode *> readNodes) {
+
     std::vector<DFGReadNode*> tmp;
 
-    if(std::find(kernelOptimizations.begin(),kernelOptimizations.end(),GLOBAL_TILING)
-                    != kernelOptimizations.end()){
-        inputEnable = ",tileCounter.eq(0)";
-    }
-
-    for(auto it_r = inputs.rbegin(); it_r != inputs.rend(); ++it_r){
+    for(auto it_r = readNodes.rbegin(); it_r != readNodes.rend(); ++it_r){
 
         tmp.push_back(*it_r);
 
@@ -162,15 +162,30 @@ std::string MaxJInstructionPrinter::getInputStreamsDeclarations(std::vector<DFGR
         }
     }
 
-    inputs = tmp;
+    return tmp;
+}
+
+std::string MaxJInstructionPrinter::getInputStreamsDeclarations(std::vector<DFGReadNode*> inputs){
+    
+    std::string declarations;
+    std::string inputEnable = "";
+    std::vector<DFGReadNode*> tmp;
+
+    if(std::find(kernelOptimizations.begin(),kernelOptimizations.end(),GLOBAL_TILING)
+                    != kernelOptimizations.end()){
+        inputEnable = ",tileCounter.eq(0)";
+    }
+
+    inputs = getInputNodes(inputs);
 
     for(DFGReadNode* inputNode : inputs)
     {
         inputNode->setGlobalDelay(0);
         auto inputStream = inputNode->getReadingStream();
+        inputStream.first->dump();
         llvm::Type* inputStreamType = inputStream.first->getType()->getPointerElementType();
         std::string nodeName = inputNode->getName();
-        
+
         if(inputStreamType->isFloatingPointTy())
         {
             int exp;
@@ -197,7 +212,6 @@ std::string MaxJInstructionPrinter::getInputStreamsDeclarations(std::vector<DFGR
         {
             int bitWidth = inputStreamType->getIntegerBitWidth();
 
-            
             std::string decl = std::string("\t\tDFEVar ") + nodeName +
                         std::string(" = io.input(\"") + nodeName + 
                         std::string("\", dfeInt(") + std::to_string(bitWidth) +
@@ -205,8 +219,64 @@ std::string MaxJInstructionPrinter::getInputStreamsDeclarations(std::vector<DFGR
                         
             declarations.append(decl);
         }
+        if(inputStreamType->isArrayTy()){
+
+            std::string decl = std::string("\t\tDFEVector<DFEVar> ") + nodeName +
+                               std::string(" = io.input(\"") + nodeName +
+                               std::string("\", new DFEVectorType<DFEVar>(");
+
+            ///linearize number of dimensions
+            std::vector<int> dimSizes = getDimensionsVector(inputStreamType);
+
+            long size = 1;
+            for(int d : dimSizes)
+                size*= d;
+
+            int residual = 0;
+            while((size < 64 && 64%size != 0) || (size > 64 && size%64 != 0)){
+                size++;
+                residual++;
+            }
+
+            if(residual){
+                for(auto it = MaxJInstructionPrinter::inputNodes.begin();
+                    it != MaxJInstructionPrinter::inputNodes.end(); ++it){
+                    if((*it).first->getName() == inputNode->getName()){
+                        inputNodes.at(it-inputNodes.begin()) = std::pair<DFGReadNode*,int>((*it).first,residual);
+                    }
+                }
+            }
+
+            llvm::Type* elemType = getElementaryType(inputStreamType);
+
+            if(elemType->isIntegerTy()){
+
+                int bitWidth = elemType->getScalarSizeInBits();
+
+                decl.append(std::string("dfeInt(") + std::to_string(bitWidth) + "),"
+                            + std::to_string(size) + ")" + inputEnable + std::string(");\n"));
+
+            }else if(elemType->isFloatingPointTy()){
+
+                int exp;
+                int mantissa;
+
+                if(inputStreamType->isDoubleTy()){
+                    mantissa = DOUBLE_MANTISSA;
+                    exp = DOUBLE_EXP;
+                }else{
+                    mantissa = FLOAT_MANTISSA;
+                    exp = FLOAT_EXP;
+                }
+
+                decl.append(std::string("dfeFloat(") + std::to_string(exp) +
+                            std::string(", ") + std::to_string(mantissa) + std::string(")") + ","
+                            + std::to_string(size) + ")" + inputEnable + std::string(");\n"));
+
+            }
+            declarations.append(decl);
+        }
     }
-    
     return declarations;
 }
 
@@ -304,6 +374,44 @@ std::string MaxJInstructionPrinter::getConstantInputOffsetsDeclarations(std::vec
     return offsetsStreamsDeclarations;
 }
 
+std::vector<DFGWriteNode*> MaxJInstructionPrinter::getOutputNodes(std::vector<DFGWriteNode *> writeNodes) {
+
+    std::vector<DFGWriteNode*> tmp;
+
+    for(auto it_r = writeNodes.rbegin(); it_r != writeNodes.rend(); ++it_r){
+
+        tmp.push_back(*it_r);
+
+        for(DFGWriteNode* n : tmp){
+            if(n->getWritingStream() == (*it_r)->getWritingStream() && n != (*it_r)){
+                (*it_r)->setName(n->getName());
+                tmp.pop_back();
+            }
+        }
+    }
+
+    writeNodes = tmp;
+
+    std::vector<DFGWriteNode*> outputTmp;
+    std::set<llvm::Value*> erasedSet;
+
+    for(DFGWriteNode* n : writeNodes){
+        if(llvm::dyn_cast<llvm::AllocaInst>(n->getWritingStream().first)){
+            erasedSet.insert(n->getValue());
+        }
+    }
+
+    for(DFGWriteNode* n : writeNodes){
+        if(!erasedSet.count(n->getValue())){
+            outputTmp.push_back(n);
+        }else{
+            llvm::errs() << "Erasing: " << n->getName() << "\n";
+            n->getValue()->dump();
+        }
+    }
+    return outputTmp;
+}
+
 std::string MaxJInstructionPrinter::getOutputStreamsDeclarations(std::vector<DFGWriteNode*> outputs){
     
     std::string declarations;
@@ -318,33 +426,18 @@ std::string MaxJInstructionPrinter::getOutputStreamsDeclarations(std::vector<DFG
         outputEnable = ",tileCounter.eq(" + std::to_string(delay) + " % tilingFactor)";
     }
 
-    for(auto it_r = outputs.rbegin(); it_r != outputs.rend(); ++it_r){
+    outputs = getOutputNodes(outputs);
 
-        tmp.push_back(*it_r);
-
-        for(DFGWriteNode* n : tmp){
-            if(n->getWritingStream() == (*it_r)->getWritingStream() && n != (*it_r)){
-                (*it_r)->setName(n->getName());
-                tmp.pop_back();
-            }
-        }
-    }
-
-    outputs = tmp;
-    
-    for(DFGWriteNode* outputNode :outputs)
+    for(DFGWriteNode* outputNode : outputs)
     {
         auto outputStream = outputNode->getWritingStream();
         llvm::Type* outputStreamType = outputStream.first->getType()->getPointerElementType();
         std::string nodeName = outputNode->getName();
         std::string resultName = "NOT_FOUND";
 
-        llvm::errs() << "\nOUTPUT PREDS\n";
-
         std::vector<DFGNode*> predecessors = outputNode->getCrossScopePredecessors();
 
         for(DFGNode* pred : predecessors){
-            pred->getValue()->dump();
             if(!oxigen::isComposite(pred->getType())){
                 resultName = pred->getName();
             }
@@ -382,7 +475,54 @@ std::string MaxJInstructionPrinter::getOutputStreamsDeclarations(std::vector<DFG
                         
             declarations.append(decl);
         }
-        
+        if(outputStreamType->isArrayTy()){
+
+            std::string decl = std::string("\t\tio.output(\"") + nodeName +
+                               std::string("\", ") + resultName +
+                               std::string(", new DFEVectorType<DFEVar>(");
+
+            ///linearize number of dimensions
+            std::vector<int> dimSizes = getDimensionsVector(outputStreamType);
+
+            long size = 1;
+            for(int d : dimSizes)
+                size*= d;
+
+            for(auto out : MaxJInstructionPrinter::outputNodes){
+                if(out.first->getName() == nodeName){
+                    size += out.second;
+                }
+            }
+
+            llvm::Type* elemType = getElementaryType(outputStreamType);
+
+            if(elemType->isIntegerTy()){
+
+                int bitWidth = elemType->getScalarSizeInBits();
+
+                decl.append(std::string("dfeInt(") + std::to_string(bitWidth) + "),"
+                            + std::to_string(size) + ")" + outputEnable + std::string(");\n"));
+
+            }else if(elemType->isFloatingPointTy()){
+
+                int exp;
+                int mantissa;
+
+                if(outputStreamType->isDoubleTy()){
+                    mantissa = DOUBLE_MANTISSA;
+                    exp = DOUBLE_EXP;
+                }else{
+                    mantissa = FLOAT_MANTISSA;
+                    exp = FLOAT_EXP;
+                }
+
+                decl.append(std::string("dfeFloat(") + std::to_string(exp) +
+                            std::string(", ") + std::to_string(mantissa) + std::string(")") + ","
+                            + std::to_string(size) + ")" + outputEnable + std::string(");\n"));
+
+            }
+            declarations.append(decl);
+        }
     }
     
     return declarations;
@@ -464,12 +604,11 @@ std::string MaxJInstructionPrinter::generateInstructionsString(std::vector<DFGNo
 std::string MaxJInstructionPrinter::translateAsJavaLoop(DFGLoopNode* loopNode){
 
     SequentialNamesManager* loopNamesManager = new SequentialNamesManager();
-    loopHeadDeclarations = "";
     LoopGraphNode* dependencyGraphNode = MaxJInstructionPrinter::dependencyGraph->getNodeForLoop(loopNode);
 
-    for(DFGNode* endNode : loopNode->getEndNodes()){
-        DFG* dfg = new DFG(endNode);
-        dfg->resetFlags(endNode);
+    for(DFG* dfg : loopNode->getIndipendentLoopGraphs()){
+
+        dfg->resetFlags(dfg->getEndNode());
 
         int nodesCount = dfg->getNodesCount();
         std::vector<std::string> nodeNames;
@@ -516,7 +655,7 @@ std::string MaxJInstructionPrinter::translateAsJavaLoop(DFGLoopNode* loopNode){
     std::string l_idx = loopNode->getName() + std::string("_idx");
 
     loopIndexes[loopNode] = l_idx;
-    currentLoopIndex = l_idx;
+    currentLoopIndexes.push_back(l_idx);
 
     if(dependencyGraphNode->getLoopType() == LoopType::Accumul &&
        std::find(kernelOptimizations.begin(),kernelOptimizations.end(),GLOBAL_TILING)
@@ -533,14 +672,14 @@ std::string MaxJInstructionPrinter::translateAsJavaLoop(DFGLoopNode* loopNode){
        std::find(kernelOptimizations.begin(),kernelOptimizations.end(),GLOBAL_TILING)
        != kernelOptimizations.end()){
 
-        std::string accumul_idx = currentLoopIndex + "_r";
+        std::string accumul_idx = currentLoopIndexes.at(0) + "_r";
 
-        forHeader.append("\n" + nestingTabs + "\t\tint tile_n = " + currentLoopIndex + " / " +
+        forHeader.append("\n" + nestingTabs + "\t\tint tile_n = " + currentLoopIndexes.at(0) + " / " +
                          std::to_string(dependencyGraphNode->getReplication()) + ";\n" + nestingTabs + "\t\tint " + accumul_idx + " = " +
-                         currentLoopIndex + " % " + std::to_string(dependencyGraphNode->getReplication()) + ";\n\n");
+                                 currentLoopIndexes.at(0) + " % " + std::to_string(dependencyGraphNode->getReplication()) + ";\n\n");
 
         loopIndexes[loopNode] = accumul_idx;
-        currentLoopIndex = accumul_idx;
+        currentLoopIndexes.at(0) = accumul_idx;
     }
 
     std::vector<DFG*> dfgs = loopNode->getIndipendentLoopGraphs();
@@ -576,35 +715,73 @@ std::string MaxJInstructionPrinter::translateAsJavaLoop(DFGLoopNode* loopNode){
 
                 libImports["Reductions"].first = true;
                 int tilingDelay = dependencyGraphNode->getTilingDelay();
-
-
                 closingDeclarations.append(nestingTabs + "\t\tDFEVar " +  n->getName() + "_hold"
                  " = " + "Reductions.streamHold(" + n->getName() + ", tileCounter.eq(" +
                 std::to_string(( tilingDelay + tilingFactor -1) % tilingFactor) + "));\n");
                 n->setName(n->getName() + "_hold");
             }
-
         }
-
         MaxJInstructionPrinter::currentGlobalDelay = currentGlobalDelay + tilingFactor - 1;
     }
+    currentLoopIndexes.pop_back();
+    std::string loopAsString = forHeader+loopBody+forClosure + closingDeclarations;
 
-    return std::string(loopHeadDeclarations +forHeader+loopBody+forClosure + closingDeclarations);
+    if(loopNode->getLoopDepth() == 1)
+        loopAsString = loopHeadDeclarations + loopAsString;
+
+    return loopAsString;
 }
 
-llvm::AllocaInst* MaxJInstructionPrinter::getVectorBasePointer(DFGNode *node) {
+llvm::Value* MaxJInstructionPrinter::getVectorBasePointer(DFGNode *node) {
 
-    llvm::AllocaInst* vectorBasePointer = nullptr;
+    llvm::Value* vectorBasePointer = nullptr;
 
     for(DFGNode* s : node->getSuccessors()){
         if(llvm::StoreInst* store = llvm::dyn_cast<llvm::StoreInst>(s->getValue())){
             if(llvm::GetElementPtrInst* gep = llvm::dyn_cast<llvm::GetElementPtrInst>(store->getPointerOperand())) {
-                if (llvm::AllocaInst* alloca = llvm::dyn_cast<llvm::AllocaInst>(gep->getPointerOperand()))
-                    vectorBasePointer = alloca;
+                llvm::GetElementPtrInst* gepInstr = gep;
+                while(llvm::GetElementPtrInst* gep_2 = llvm::dyn_cast<llvm::GetElementPtrInst>(gepInstr->getPointerOperand())){
+                    gepInstr = gep_2;
+                }
+                vectorBasePointer = gepInstr->getPointerOperand();
             }
         }
     }
     return vectorBasePointer;
+}
+
+std::string MaxJInstructionPrinter::getLinearizedIndexString(std::vector<int> dims, std::vector<std::string> idxNames) {
+
+    if(dims.size() != idxNames.size()){
+        llvm::errs() << "ERROR: getLinearizedIndexString(): unmatching vector sizes "
+                     << dims.size() << " " << idxNames.size() << " ";
+        for(auto d : dims){
+            llvm::errs() << " " << d;
+        }
+        for(auto i : idxNames){
+            llvm::errs() << " " << i;
+        }
+        exit(EXIT_FAILURE);
+    }
+    std::string linearizedAccessString;
+
+    for(int i = 0; i < dims.size(); i++){
+
+        if(i){
+            linearizedAccessString.append(" + ");
+        }
+
+        int residualSize = 1;
+        for(auto it = dims.begin()+i+1; it != dims.end(); ++it){
+            residualSize *= *it;
+        }
+
+        linearizedAccessString.append(idxNames.at(i));
+        if(residualSize > 1){
+            linearizedAccessString.append("*" + std::to_string(residualSize));
+        }
+    }
+    return linearizedAccessString;
 }
 
 std::pair<std::string,std::vector<std::string>> MaxJInstructionPrinter::translateFunctionArguments(llvm::Function* F,
@@ -682,6 +859,28 @@ std::string MaxJInstructionPrinter::getFullNameIfConstant(DFGNode* var) {
     }
 }
 
+std::vector<int> MaxJInstructionPrinter::getDimensionsVector(llvm::Type *arrayType) {
+
+    std::vector<int> dims;
+    llvm::Type* dimType = arrayType;
+
+    while(dimType->isArrayTy()){
+        llvm::ArrayType* arrayDim = (llvm::ArrayType*)dimType;
+        dims.push_back(arrayDim->getArrayNumElements());
+        dimType = ((llvm::ArrayType*)dimType)->getElementType();
+    }
+    return dims;
+}
+
+llvm::Type* MaxJInstructionPrinter::getElementaryType(llvm::Type *type) {
+
+    llvm::Type* dimType = type;
+    while(dimType->isArrayTy()){
+        dimType = ((llvm::ArrayType*)dimType)->getElementType();
+    }
+    return dimType;
+}
+
 std::string MaxJInstructionPrinter::appendInstruction(DFGNode* node){
 
     std::string currentInstr = "";
@@ -691,19 +890,107 @@ std::string MaxJInstructionPrinter::appendInstruction(DFGNode* node){
     node->setGlobalDelay(MaxJInstructionPrinter::currentGlobalDelay);
 
     llvm::errs() << "\nNODE NAME: " << varName << "\n";
+    llvm::errs() << "\nNODE: ";
+    node->getValue()->dump();
+
+    if(isNestedVectorWrite(node)){
+        llvm::errs() << "Is nested write: ";
+        node->getValue()->dump();
+    }
 
     std::map<std::string,std::string> vectorPredNamesMap = std::map<std::string,std::string>();
 
     for(DFGNode* pred : node->getCrossScopePredecessors()){
 
-        if(pred->getType() == NodeType::ReadNode || pred->getType() == NodeType::OffsetRead){
-            pred->setGlobalDelay(0);
-        }
-
         std::string tmpName = "";
 
+        if(pred->getType() == NodeType::ReadNode || pred->getType() == NodeType::OffsetRead){
+            pred->setGlobalDelay(0);
+            DFGReadNode* predAsReadNode = (DFGReadNode*)pred;
+            if(translationMode == MaxLoopTranslationMode::JavaLoop){
+                tmpName = pred->getName();
+                std::string indexString = "[";
+                std::vector<std::string> loopIndexesAsString;
+
+                llvm::PointerType* ptrType = (llvm::PointerType*)predAsReadNode->getReadingStream().first->getType();
+                std::vector<int> accessDimensions =
+                        getDimensionsVector(ptrType->getPointerElementType());
+
+                predAsReadNode->getAccessChain()->getAccessIndexesIfAny();
+                std::vector<llvm::Value*> indexes = predAsReadNode->getAccessChain()->getAccessIndexesIfAny();
+
+                for(llvm::Value* idx : indexes){
+                    if(llvm::dyn_cast<llvm::PHINode>(idx)) {
+                        for (auto idxPair : loopIndexes) {
+                            if (idxPair.first->getValue() == idx) {
+                                loopIndexesAsString.push_back(idxPair.second);
+                            }
+                        }
+                    }else if(llvm::ConstantInt* c = llvm::dyn_cast<llvm::ConstantInt>(idx)){
+                        loopIndexesAsString.push_back(std::to_string(c->getSExtValue()));
+                    }
+                }
+
+                indexString.append(getLinearizedIndexString(accessDimensions,loopIndexesAsString) + "]");
+                pred->setName( tmpName + indexString );
+            }
+        }
+
         if(isNestedVectorWrite(pred) && translationMode == MaxLoopTranslationMode::JavaLoop) {
-            tmpName = pred->getName() + "[" + currentLoopIndex + "]";
+
+            tmpName = pred->getName();
+            DFGWriteNode* predAsWriteNode;
+            std::string indexString = "[";
+
+            for(DFGNode* s : pred->getSuccessors()) {
+                if (llvm::dyn_cast<llvm::StoreInst>(s->getValue())){
+                    predAsWriteNode = (DFGWriteNode *) s;
+                    s->getValue()->dump();
+                }
+            }
+
+            llvm::Type* ty;
+            llvm::Value* basePtr = predAsWriteNode->getWritingStream().first;
+
+            if (llvm::dyn_cast<llvm::AllocaInst>(basePtr)){
+                ty = ((llvm::AllocaInst *) basePtr)->getType()->getPointerElementType();
+                ty = ((llvm::ArrayType *) ty)->getArrayElementType();
+            }else{
+                ty = (llvm::PointerType*)basePtr->getType()->getPointerElementType();
+            }
+
+            std::vector<llvm::Value*> indexes = predAsWriteNode->getAccessChain()->getAccessIndexesIfAny();
+            std::vector<int> accessDimensions = getDimensionsVector(ty);
+            std::vector<std::string> tmpLoopIndexes;
+
+            for(auto idx : indexes) {
+                if(llvm::ConstantInt* c = llvm::dyn_cast<llvm::ConstantInt>(idx)){
+                    tmpLoopIndexes.push_back(std::to_string(c->getSExtValue()));
+                }else {
+                    for (auto idxPair : loopIndexes) {
+                        if (idxPair.first->getValue() == idx) {
+                            DFGLoopNode *predLoop = idxPair.first;
+
+                            for (std::string currIdx : currentLoopIndexes) {
+                                for (auto idxPair_2 : loopIndexes) {
+                                    if (loopIndexes[idxPair_2.first] == currIdx) {
+                                        DFGLoopNode *nodeLoop = idxPair_2.first;
+
+                                        if (predLoop->getLoopDepth() == nodeLoop->getLoopDepth()) {
+                                            tmpLoopIndexes.push_back(currIdx);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+
+            indexString.append(getLinearizedIndexString(accessDimensions,tmpLoopIndexes) + "]");
+            tmpName = pred->getName() + indexString;
+
         }else{
             tmpName = pred->getName();
         }
@@ -747,18 +1034,32 @@ std::string MaxJInstructionPrinter::appendInstruction(DFGNode* node){
 
     if(oxigen::isNestedVectorWrite(node) && translationMode == MaxLoopTranslationMode::JavaLoop){
 
-        llvm::AllocaInst* basePtr = getVectorBasePointer(node);
+        llvm::Value* basePtr = getVectorBasePointer(node);
         DFGLoopNode* loopNode = node->getLoop();
         LoopGraphNode* loopDependencyGraphNode = MaxJInstructionPrinter::dependencyGraph->getNodeForLoop(loopNode);
         std::string vectorName;
         libImports["DFEVector"].first = true;
 
-        if(!declaredNestedVectors.count(basePtr)) {
+        llvm::Type *ty; //stream data type
+        if (llvm::dyn_cast<llvm::AllocaInst>(basePtr)){
+            ty = ((llvm::AllocaInst *) basePtr)->getType()->getPointerElementType();
+            ty = ((llvm::ArrayType *) ty)->getArrayElementType();
+        }else{
+            ty = (llvm::PointerType*)basePtr->getType()->getPointerElementType();
+        }
+
+        if(!declaredNestedVectors.count(basePtr)){
 
             llvm::Type* dataType;
 
-            if(llvm::ArrayType* arrType = llvm::dyn_cast<llvm::ArrayType>(basePtr->getAllocatedType())){
-                dataType = arrType->getElementType();
+            llvm::PointerType* ptr = (llvm::PointerType*)(basePtr->getType());
+
+            if(llvm::ArrayType* arrTy = llvm::dyn_cast<llvm::ArrayType>(ptr->getElementType())){
+                llvm::ArrayType* arrayType = arrTy;
+                while(llvm::ArrayType* arrTy_2 = llvm::dyn_cast<llvm::ArrayType>(arrayType->getElementType())){
+                    arrayType = arrTy_2;
+                }
+                dataType = arrayType->getElementType();
             }else{
                 llvm::errs() << "ERROR: non array composite type not supported\n";
                 exit(EXIT_FAILURE);
@@ -770,17 +1071,39 @@ std::string MaxJInstructionPrinter::appendInstruction(DFGNode* node){
 
             int bitWidth = dataType->getScalarSizeInBits();
             int tilingFactor = loopDependencyGraphNode->getTilingFactor();
-            int size;
+            int size = 1;
 
             if(!tilingFactor){
-                size = loopNode->getTripCount();
+
+                std::vector<int> dimV = getDimensionsVector(ty);
+                for(int d : dimV)
+                    size*= d;
+
+                int residual = 0;
+                while((size < 64 && 64%size != 0) || (size > 64 && size%64 != 0)){
+                    size++;
+                    residual++;
+                }
+
+                if(residual){
+                    for(auto it = MaxJInstructionPrinter::outputNodes.begin();
+                        it != MaxJInstructionPrinter::outputNodes.end(); ++it){
+                        if((*it).first == node->getSuccessors().at(0)) {
+                            outputNodes.at(it - outputNodes.begin()) =
+                                    std::pair<DFGWriteNode *, int>((*it).first, residual);
+                        }
+                    }
+                    for(auto a : outputNodes)
+                        llvm::errs() << a.second;
+                }
+
             }else{
                 size = loopDependencyGraphNode->getReplication();
             }
 
             if(dataType->isIntegerTy()){
 
-                baseType = "dfeInt(" + std::to_string(bitWidth) + ")," + std::to_string(size) + ")";
+                baseType = "dfeInt(" + std::to_string(bitWidth) + ")," + std::to_string(size) + ").newInstance(this)";
 
             }else if(dataType->isFloatingPointTy()){
 
@@ -805,8 +1128,35 @@ std::string MaxJInstructionPrinter::appendInstruction(DFGNode* node){
         }else{
             vectorName = declaredNestedVectors[basePtr].first;
         }
+
         varType = "";
-        varName = vectorName + "[" + currentLoopIndex + "]";
+        std::vector<int> accessDimensions = getDimensionsVector(ty);
+        DFGWriteNode* writeNode = (DFGWriteNode*)node;
+
+        for(DFGNode* s : node->getSuccessors()) {
+            if (llvm::dyn_cast<llvm::StoreInst>(s->getValue())){
+                writeNode = (DFGWriteNode *) s;
+                s->getValue()->dump();
+            }
+        }
+
+        writeNode->getAccessChain()->getAccessIndexesIfAny();
+        std::vector<llvm::Value*> indexes = writeNode->getAccessChain()->getAccessIndexesIfAny();
+        std::vector<std::string> loopIndexesAsString;
+
+        for(llvm::Value* idx : indexes){
+            if(llvm::dyn_cast<llvm::PHINode>(idx)) {
+                for (auto idxPair : loopIndexes) {
+                    if (idxPair.first->getValue() == idx) {
+                        loopIndexesAsString.push_back(idxPair.second);
+                    }
+                }
+            }else if(llvm::ConstantInt* c = llvm::dyn_cast<llvm::ConstantInt>(idx)){
+                loopIndexesAsString.push_back(std::to_string(c->getSExtValue()));
+            }
+        }
+
+        varName = vectorName + "[" + getLinearizedIndexString(accessDimensions,loopIndexesAsString) + "]";
         node->setName(vectorName);
         assignmentType = " <== ";
     }
@@ -814,14 +1164,20 @@ std::string MaxJInstructionPrinter::appendInstruction(DFGNode* node){
     if(node->getType() == NodeType::LoopNode){
 
         switch(translationMode){
-            case MaxLoopTranslationMode::JavaLoop :
-                currentInstr = translateAsJavaLoop((DFGLoopNode*)node);
-                loopHeadDeclarations = "";
+            case MaxLoopTranslationMode::JavaLoop : {
+                currentInstr = translateAsJavaLoop((DFGLoopNode *) node);
+                DFGLoopNode *loopNode = (DFGLoopNode *) node;
+
+                if (loopNode->getLoopDepth() == 1)
+                    loopHeadDeclarations = "";
+
                 break;
-            case MaxLoopTranslationMode::AutoLoop :
+            }
+            case MaxLoopTranslationMode::AutoLoop : {
                 llvm::errs() << "ERROR: translation mode not supported\n";
                 exit(EXIT_FAILURE);
                 break;
+            }
             default:
                 break;
         }
@@ -858,12 +1214,12 @@ std::string MaxJInstructionPrinter::appendInstruction(DFGNode* node){
                         MaxJInstructionPrinter::dependencyGraph->getNodeForLoop(loopNode);
 
                 currentInstr.append("\t\t"+ nestingTabs + varType + varName +
-                                    assignmentType + "constant.var(dfeInt(32)," + currentLoopIndex + ")" +
+                                    assignmentType + "constant.var(dfeInt(32)," + currentLoopIndexes.at(0) + ")" +
                                     " + (tileCounter * " + std::to_string(loopDependencyGraphNode->getReplication()) + ").cast(dfeInt(32));\n");
 
             }else{
                 currentInstr.append("\t\t"+ nestingTabs + varType + varName +
-                                    assignmentType + "constant.var(dfeInt(32)," + currentLoopIndex + ")" + ";\n");
+                                    assignmentType + "constant.var(dfeInt(32)," + currentLoopIndexes.at(0) + ")" + ";\n");
             }
 
         }else{
@@ -940,27 +1296,27 @@ std::string MaxJInstructionPrinter::appendInstruction(DFGNode* node){
 
                     if (llvm::FPToUIInst *fptui = llvm::dyn_cast<llvm::FPToUIInst>(node->getValue())){
 
-                        currentInstr = nestingTabs + std::string("\t\t" + varType) + varName + "_u" +
-                                       assignmentType + castTarget + std::string(".cast(dfeUInt(") +
+                        currentInstr = nestingTabs + std::string("\t\tDFEVar ") + node->getName() + "_u" +
+                                       " = " + castTarget + std::string(".cast(dfeUInt(") +
                                        std::to_string(fptui->getDestTy()->getScalarSizeInBits()) + "));\n" +
-                                       nestingTabs + std::string("\t\t" + varType) + varName + "_r" +
-                                       assignmentType + varName + "_r" + std::string(".cast(dfeRawBits(") +
+                                       nestingTabs + std::string("\t\tDFEVar ") + node->getName() + "_r" +
+                                       " = " + node->getName() + "_u" + std::string(".cast(dfeRawBits(") +
                                        std::to_string(fptui->getDestTy()->getScalarSizeInBits()) + "));\n" +
                                        nestingTabs + std::string("\t\t" + varType) + varName +
-                                       assignmentType + castTarget +
+                                       assignmentType + node->getName() + "_r" +
                                        std::string(".cast(dfeInt(") + std::to_string(bitWidth) +
                                        std::string("));\n");
 
                     } else if (llvm::ZExtInst *zext = llvm::dyn_cast<llvm::ZExtInst>(node->getValue())) {
 
-                        currentInstr = nestingTabs + std::string("\t\t" + varType) + varName + "_r" +
-                                       assignmentType + castTarget + std::string(".cast(dfeRawBits(") +
+                        currentInstr = nestingTabs + std::string("\t\tDFEVar ") + node->getName() + "_r" +
+                                       " = " + castTarget + std::string(".cast(dfeRawBits(") +
                                        std::to_string(zext->getSrcTy()->getScalarSizeInBits()) + "));\n" +
-                                       nestingTabs + std::string("\t\t" + varType) + varName + "_u" +
-                                       assignmentType + varName + "_r" + std::string(".cast(dfeUInt(") +
+                                       nestingTabs + std::string("\t\tDFEVar ") + node->getName() + "_u" +
+                                       " = " + node->getName() + "_r" + std::string(".cast(dfeUInt(") +
                                        std::to_string(zext->getSrcTy()->getScalarSizeInBits()) + "));\n" +
                                        nestingTabs + std::string("\t\t" + varType) + varName +
-                                       assignmentType + castTarget +
+                                       assignmentType + node->getName() + "_u" +
                                        std::string(".cast(dfeInt(") + std::to_string(bitWidth) +
                                        std::string("));\n");
 
@@ -1134,12 +1490,12 @@ std::string MaxJInstructionPrinter::appendInstruction(DFGNode* node){
 
         DFGOffsetNode *offsetNode = (DFGOffsetNode *) node;
 
-        std::string ofsStreamName = offsetNode->getName();
+        std::string ofsStreamName = varName;
         std::string sourceName = offsetNode->getCrossScopePredecessors().at(0)->getName();
         int offset = offsetNode->getOffsetAsInt();
 
         std::string offsetDeclaration = nestingTabs + std::string("\t\t"+ varType) + ofsStreamName +
-                                        std::string(" = stream.offset(") + sourceName +
+                                        assignmentType + std::string("stream.offset(") + sourceName +
                                         std::string(", ") + std::to_string(offset) +
                                         std::string(");\n");
         currentInstr.append(offsetDeclaration);
@@ -1151,7 +1507,6 @@ std::string MaxJInstructionPrinter::appendInstruction(DFGNode* node){
 
     for(DFGNode* pred : node->getCrossScopePredecessors()){
         if(vectorPredNamesMap[pred->getName()].size()){
-
             pred->setName(vectorPredNamesMap[pred->getName()]);
         }
     }
@@ -1170,18 +1525,34 @@ void DFGTranslator::printDFGAsKernel(std::vector<DFG*> dfg,std::vector<LoopDepen
         llvm::errs() << kernelString;
 }
 
+void DFGTranslator::assignReadNodesNames(std::vector<DFGReadNode*> readNodes) {
+
+    SequentialNamesManager namesManager = SequentialNamesManager();
+    std::map<llvm::Value*,std::string> sourceStreamNames;
+
+    for(DFGReadNode* rn : readNodes){
+        llvm::Value* sourceStream = rn->getReadingStream().first;
+        if(!sourceStreamNames.count(sourceStream)){
+            std::string streamName = namesManager.getNewName();
+            sourceStreamNames.insert(std::pair<llvm::Value*,std::string>(sourceStream,streamName));
+            rn->setName(streamName);
+        }else{
+            rn->setName(sourceStreamNames[sourceStream]);
+        }
+    }
+}
+
 void DFGTranslator::assignNodeNames(){
     
-    SequentialNamesManager* namesManager = new SequentialNamesManager();
+    SequentialNamesManager namesManager = SequentialNamesManager();
 
     for(DFG* dfg : dfgs){
 
         int nodesCount = dfg->getNodesCount();
-        llvm::errs() << "DEBUG: nodes count: " << nodesCount << "\n";
         std::vector<std::string> nodeNames;
 
         for(int i = 0; i < nodesCount; i++)
-            nodeNames.push_back(namesManager->getNewName());
+            nodeNames.push_back(namesManager.getNewName());
 
         dfg->setNameVector(nodeNames,dfg->getEndNode());
 
@@ -1257,7 +1628,6 @@ std::string DFGTranslator::generateKernelString(std::string kernelName,std::stri
     kernelBody.append(maxjPrinter->globalDFEVars);
     
     //identify inputs and outputs
-    assignNodeNames();
 
     std::vector<DFGReadNode*> readNodes;
     std::vector<DFGWriteNode*> writeNodes;
@@ -1267,17 +1637,13 @@ std::string DFGTranslator::generateKernelString(std::string kernelName,std::stri
 
     for(DFG* dfg : dfgs){
 
-        DFGNode *endNode = dfg->getEndNode();
-        std::vector<DFGReadNode*> rNodes = dfg->getUniqueReadNodes(endNode);
-        std::vector<DFGWriteNode*> wNodes = dfg->getUniqueWriteNodes(endNode);
-        std::vector<DFGNode*> aNodes = dfg->getUniqueScalarArguments(endNode,F);
+        std::vector<DFGReadNode*> rNodes = dfg->getUniqueReadNodes(dfg,F);
+        std::vector<DFGWriteNode*> wNodes = dfg->getUniqueWriteNodes(dfg,F);
+        std::vector<DFGNode*> aNodes = dfg->getUniqueScalarArguments(dfg,F);
 
         readNodes.insert(readNodes.end(),rNodes.begin(),rNodes.end());
         writeNodes.insert(writeNodes.end(),wNodes.begin(),wNodes.end());
         argNodes.insert(argNodes.end(),aNodes.begin(),aNodes.end());
-
-        llvm::errs() << "\nINFO: DFG recieved by translator:\n";
-        dfg->printDFG();
     }
 
     for(DFGReadNode* rn : readNodes){
@@ -1286,12 +1652,46 @@ std::string DFGTranslator::generateKernelString(std::string kernelName,std::stri
         }
     }
 
+
     for(DFGWriteNode* wn : writeNodes){
         if(wn->getType() == NodeType::OffsetWrite){
             offsetWriteNodes.push_back((DFGOffsetWriteNode*)wn);
         }
     }
 
+    //name nodes
+
+    std::vector<DFGReadNode*> dupReadNodes;
+
+    for(DFG* dfg : dfgs){
+        std::vector<DFGReadNode*> dupRNodes = dfg->collectReadNodes(dfg,F);
+        dupReadNodes.insert(dupReadNodes.begin(),dupRNodes.begin(),dupRNodes.end());
+    }
+
+    assignReadNodesNames(dupReadNodes);
+    assignNodeNames();
+
+    //reorder inputs as in the function signature
+    std::vector<DFGReadNode*> tmpReadsVector;
+
+    for(auto &arg : F->args()){
+        for(DFGReadNode* rn : readNodes){
+            if(&arg == rn->getReadingStream().first){
+                tmpReadsVector.push_back(rn);
+            }
+        }
+    }
+    readNodes = tmpReadsVector;
+
+    std::vector<DFGReadNode*> ins = maxjPrinter->getInputNodes(readNodes);
+    std::vector<DFGWriteNode*> outs = maxjPrinter->getOutputNodes(writeNodes);
+
+    for(auto in : ins){
+        MaxJInstructionPrinter::inputNodes.push_back(std::pair<DFGReadNode*,int>(in,0));
+    }
+    for(auto out : outs){
+        MaxJInstructionPrinter::outputNodes.push_back(std::pair<DFGWriteNode*,int>(out,0));
+    }
 
     //append input declarations
     kernelBody.append(maxjPrinter->getInputStreamsDeclarations(readNodes));
@@ -1326,6 +1726,44 @@ std::string DFGTranslator::generateKernelString(std::string kernelName,std::stri
 
         //append instructions
         kernelBody.append(maxjPrinter->generateInstructionsString(sortedNodes));
+
+        for(auto inPair : MaxJInstructionPrinter::inputNodes){
+            llvm::errs() << inPair.second << " \n";
+            if(inPair.second){
+                for(auto outPair : MaxJInstructionPrinter::outputNodes){
+                    llvm::errs() << outPair.second;
+
+                    auto outputStream = outPair.first->getWritingStream();
+                    llvm::Type* outputStreamType = outputStream.first->getType()->getPointerElementType();
+                    outputStreamType = maxjPrinter->getElementaryType(outputStreamType);
+
+                    auto inputStream = inPair.first->getReadingStream();
+                    llvm::Type* inputStreamType = inputStream.first->getType()->getPointerElementType();
+                    inputStreamType = maxjPrinter->getElementaryType(inputStreamType);
+
+                    if(/*inputStreamType == outputStreamType &&*/ outPair.second == inPair.second){
+                        llvm::errs() << "DEBUG: found matching type\n";
+
+                        std::vector<int> dimSizesIn = maxjPrinter->getDimensionsVector(inputStreamType);
+                        std::vector<int> dimSizesOut = maxjPrinter->getDimensionsVector(outputStreamType);
+
+                        long inSize = 1;
+                        for(int d : dimSizesIn)
+                            inSize *= d;
+                        long outSize = 1;
+                        for(int d : dimSizesOut)
+                            inSize *= d;
+
+                        for(int r = 0; r < outPair.second; r++){
+                            kernelBody.append("\t\t" + outPair.first->getName() + "[" +
+                                                      std::to_string(outSize-r) + "] <== " +
+                                                      inPair.first->getName() + "[" +
+                                                      std::to_string(inSize-r) + "];\n");
+                        }
+                    }
+                }
+            }
+        }
 
         kernelBody.append("\n");
 
