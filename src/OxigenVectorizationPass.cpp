@@ -323,7 +323,6 @@ bool OxigenVectorizationPass::runOnFunction(Function &F) {
     fixGEPUsersTypes();
     adjustVectorAccesses();
 
-    F.dump();
     return true;
 }
 

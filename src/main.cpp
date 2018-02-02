@@ -16,11 +16,12 @@
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/AsmParser/Parser.h"
 #include "llvm/IR/AssemblyAnnotationWriter.h"
-#include "llvm/Object/Error.h"
+#include "llvm/IR/Dominators.h"
 
 #include "OXiGenPass.h"
 #include "OxigenGenVectorizedPass.h"
 #include "OxigenVectorizationPass.h"
+#include "OxigenVectorizationUnroll.h"
 
 #include "AnalysisManager.h"
 #include "DFGConstructor.h"
@@ -110,10 +111,12 @@ int main(int argc, char**argv) {
     functionPassManager = new legacy::FunctionPassManager(module);
 //*/
     functionPassManager->add(createPromoteMemoryToRegisterPass());
+
     functionPassManager->add(loopInfoPassRef);
     functionPassManager->add(scevPassRef);
-    functionPassManager->add(createSCEVAAWrapperPass());                    // -scev-aa
-    functionPassManager->add(oxigen::createOXiGenWrapperPass(functionName));// -OXiGen custom pass
+    functionPassManager->add(createSCEVAAWrapperPass());
+    functionPassManager->add(oxigen::createOxigenVectorizationUnroll());
+    //functionPassManager->add(oxigen::createOXiGenWrapperPass(functionName));// -OXiGen custom pass
     functionPassManager->run(*module->getFunction(StringRef(functionName)));
     
     return 0;
