@@ -10,6 +10,19 @@ OxigenGenVectorizedPass* oxigen::createOxigenGenVectorizedPass(int vectorization
     return new OxigenGenVectorizedPass(vectorizationFactor);
 }
 
+void OxigenGenVectorizedPass::setUsesType(Value *usedVal, Type *newType) {
+
+    for(User* user: usedVal->users()){
+        for(Value* op : user->operands()){
+            if(op == usedVal){
+                if(Instruction* instr = dyn_cast<Instruction>(user)){
+
+                }
+            }
+        }
+    }
+}
+
 void OxigenGenVectorizedPass::getStreamArguments() {
 
     loopIterationVariablesMap = new LoopIterationVariablesMap();
@@ -48,6 +61,9 @@ void OxigenGenVectorizedPass::getStreamArguments() {
 
 void OxigenGenVectorizedPass::changeTypeForLocalStreams() {
 
+    IRBuilder<> builder = IRBuilder<>(F->getParent()->getContext());
+    std::vector<std::pair<AllocaInst*,AllocaInst*>> allocaPairs;
+
     for(BasicBlock &BB : *newF){
         for(Instruction &instr : BB){
             if(AllocaInst* alloca = dyn_cast<AllocaInst>(&instr)) {
@@ -64,7 +80,9 @@ void OxigenGenVectorizedPass::changeTypeForLocalStreams() {
                                         ArrayType::get(arrayType->getElementType(),vectorizationFactor);
                                 Type* finalType =
                                         ArrayType::get(vectorizedElement,arrayType->getNumElements()/vectorizationFactor);
-                                alloca->setAllocatedType(finalType);
+                                AllocaInst* newAlloca = builder.CreateAlloca(finalType, nullptr,"");
+                                newAlloca->setAlignment(16);
+                                allocaPairs.push_back(std::pair<AllocaInst*,AllocaInst*>(alloca,newAlloca));
                                 break;
                             }
                         }
@@ -72,6 +90,10 @@ void OxigenGenVectorizedPass::changeTypeForLocalStreams() {
                 }
             }
         }
+    }
+
+    for(auto pair : allocaPairs){
+        ReplaceInstWithInst(pair.first,pair.second);
     }
 }
 
@@ -90,7 +112,7 @@ bool OxigenGenVectorizedPass::runOnFunction(Function &F){
     Type* params[F.getArgumentList().size()];
 
     //initialize new function signature
-    int arratIdx = 0;
+    int arrayIdx = 0;
     for(Argument &arg : F.args()){
         if(std::find(streams.begin(),streams.end(),&arg) != streams.end()){
             Type* argType = arg.getType();
@@ -100,12 +122,12 @@ bool OxigenGenVectorizedPass::runOnFunction(Function &F){
                 Type* scalarType = ptrTy->getPointerElementType();
                 Type* newType = ArrayType::get(scalarType,vectorizationFactor);
                 PointerType* pointerToNewType = PointerType::get(newType,ptrTy->getAddressSpace());
-                params[arratIdx] = pointerToNewType;
+                params[arrayIdx] = pointerToNewType;
             }
         }else{
-            params[arratIdx] = arg.getType();
+            params[arrayIdx] = arg.getType();
         }
-        arratIdx++;
+        arrayIdx++;
     }
 
     ArrayRef<Type*> paramsArray = ArrayRef<Type*>(params,F.getArgumentList().size());
@@ -131,6 +153,11 @@ bool OxigenGenVectorizedPass::runOnFunction(Function &F){
 
     //change type for local streams
     changeTypeForLocalStreams();
+
+    for(Argument &arg : F.args())
+        for(Argument &arg_2 : newF->args())
+            if(arg.getArgNo() == arg_2.getArgNo())
+                arg.replaceAllUsesWith(&arg_2);
 
     F.getParent()->getOrInsertFunction(newF->getName(),newF->getFunctionType());
 

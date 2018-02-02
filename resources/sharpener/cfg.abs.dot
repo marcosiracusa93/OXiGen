@@ -1,5 +1,5 @@
 digraph "CFG for 'abs' function" {
 	label="CFG for 'abs' function";
 
-	Node0x48cdd20 [shape=record,label="{%1:\l  %2 = mul nsw i32 %0, %0\l  %3 = add nsw i32 %2, %0\l  ret i32 %3\l}"];
+	Node0x310dd00 [shape=record,label="{%1:\l  %2 = mul nsw i32 %0, %0\l  %3 = add nsw i32 %2, %0\l  ret i32 %3\l}"];
 }

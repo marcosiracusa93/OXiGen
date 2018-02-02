@@ -1,5 +1,5 @@
 digraph "CFG for 'Ncdf' function" {
 	label="CFG for 'Ncdf' function";
 
-	Node0x48cdf10 [shape=record,label="{%1:\l  %2 = fmul float %0, %0\l  %3 = fadd float %2, %0\l  ret float %3\l}"];
+	Node0x310def0 [shape=record,label="{%1:\l  %2 = fmul float %0, %0\l  %3 = fadd float %2, %0\l  ret float %3\l}"];
 }

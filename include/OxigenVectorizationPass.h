@@ -18,6 +18,7 @@
 #include "llvm/Transforms/Utils/ValueMapper.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/BasicBlock.h"
 
 using namespace llvm;
 
@@ -26,6 +27,7 @@ namespace oxigen {
     struct LoopMetadata{
 
         PHINode* iteration_phi;
+        PHINode* vectorization_phi;
         CmpInst* exit_condition;
         uint64_t iterations;
         uint64_t iterations_offset;
@@ -63,6 +65,11 @@ namespace oxigen {
         void adaptOuterLoopsTripCount();
 
         void addVectorizationLoops();
+
+        void fixGEPUsersTypes();
+
+        void adjustVectorAccesses();
+
     };
 
     OxigenVectorizationPass* createOxigenVectorizationPass(int vectorizationFactor);

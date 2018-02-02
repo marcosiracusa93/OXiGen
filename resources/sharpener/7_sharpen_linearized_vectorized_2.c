@@ -60,13 +60,13 @@ void sharpen(unsigned char in[SIZE/V][V][3], unsigned char out[SIZE/V][V][3])
         }
     }
 
-    for(int i = WIDTH; i < SIZE/V - WIDTH; i++) {
+    for(int i = WIDTH/V; i < (SIZE - WIDTH)/V; i++) {
         for(int v = 0; v < V; v++) {
-            blur_y[i][v] = (gray[i - WIDTH][v] + gray[i][v] + gray[i + WIDTH][v]) / 3;
+            blur_y[i][v] = (gray[i - WIDTH/V][v] + gray[i][v] + gray[i + WIDTH/V][v]) / 3;
         }
     }
 
-    for(int i = WIDTH; i < SIZE/V - WIDTH; i++) {
+    for(int i = WIDTH/V; i < (SIZE - WIDTH)/V; i++) {
         for(int v = 0; v < V; v++) {
             blur_x[i][v] = (blur_y[i - 1][v] + blur_y[i][v] + blur_y[i + 1][v]) / 3;
         }

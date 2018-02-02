@@ -639,7 +639,7 @@ namespace oxigen{
         DFGReadNode(llvm::Value* value,IOStreams* loopStreams,int windowSart,int windowEnd);
         
         //getter for the sourceStream of this node
-        StreamPair getReadingStream(){ return sourceStream; }
+        StreamPair getReadingStream(){ llvm::errs() <<"strval ";sourceStream.first->dump(); return sourceStream; }
 
         bool equals(DFGNode* n_2){
 

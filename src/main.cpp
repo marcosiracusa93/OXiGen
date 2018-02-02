@@ -15,6 +15,8 @@
 
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/AsmParser/Parser.h"
+#include "llvm/IR/AssemblyAnnotationWriter.h"
+#include "llvm/Object/Error.h"
 
 #include "OXiGenPass.h"
 #include "OxigenGenVectorizedPass.h"
@@ -67,7 +69,7 @@ int main(int argc, char**argv) {
         std::cout << "Failed to open " + filePath;
         return -1;
     }
-    
+
     //parse a llvm::Module from the .ll file 
     auto modPtr = parseAssemblyFile(filePathRef,error,context);
     
@@ -80,17 +82,16 @@ int main(int argc, char**argv) {
     module = (Module*)modPtr.get();
 
     legacy::FunctionPassManager* functionPassManager = new legacy::FunctionPassManager(module);
-    
+
     ScalarEvolutionWrapperPass* scevPassRef = new ScalarEvolutionWrapperPass();
     LoopInfoWrapperPass* loopInfoPassRef = new LoopInfoWrapperPass();
-
+///*
     //The pass manager is used to run the preliminary LLVM passes on the .ll file,
     //and the OXiGen custom pass
-    
+
     functionPassManager->add(createPromoteMemoryToRegisterPass());          // -mem2reg
     functionPassManager->add(loopInfoPassRef);                              // -loops
     functionPassManager->add(scevPassRef);                                  // -scalar-evolution
-    functionPassManager->add(createSCEVAAWrapperPass());                    // -scev-aa
 
     //run for generation of the vectorized function in the module
     functionPassManager->add(oxigen::createOxigenGenVectorizedPass(2));     // creates the vectorized function signature
@@ -106,11 +107,14 @@ int main(int argc, char**argv) {
     functionName = "vectorized_" + functionName;
     functionPassManager->run(*module->getFunction(StringRef(functionName)));
 
-
-    //functionPassManager->add(oxigen::createOXiGenWrapperPass(functionName));// -OXiGen custom pass
-
-    //the scheduled passes are run on the specified function
-
+    functionPassManager = new legacy::FunctionPassManager(module);
+//*/
+    functionPassManager->add(createPromoteMemoryToRegisterPass());
+    functionPassManager->add(loopInfoPassRef);
+    functionPassManager->add(scevPassRef);
+    functionPassManager->add(createSCEVAAWrapperPass());                    // -scev-aa
+    functionPassManager->add(oxigen::createOXiGenWrapperPass(functionName));// -OXiGen custom pass
+    functionPassManager->run(*module->getFunction(StringRef(functionName)));
     
     return 0;
 }

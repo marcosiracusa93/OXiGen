@@ -912,7 +912,12 @@ std::string MaxJInstructionPrinter::appendInstruction(DFGNode* node){
                 std::string indexString = "[";
                 std::vector<std::string> loopIndexesAsString;
 
+                predAsReadNode->getValue()->dump();
+                predAsReadNode->getReadingStream().first->dump();
+                for(auto u : predAsReadNode->getReadingStream().first->users())
+                    u->dump();
                 llvm::PointerType* ptrType = (llvm::PointerType*)predAsReadNode->getReadingStream().first->getType();
+
                 std::vector<int> accessDimensions =
                         getDimensionsVector(ptrType->getPointerElementType());
 
