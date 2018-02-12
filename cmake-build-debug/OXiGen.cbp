@@ -1,0 +1,201 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CodeBlocks_project_file>
+	<FileVersion major="1" minor="6"/>
+	<Project>
+		<Option title="OXiGen"/>
+		<Option makefile_is_custom="1"/>
+		<Option compiler="gcc"/>
+		<Option virtualFolders="CMake Files\;CMake Files\..\;CMake Files\..\..\;CMake Files\..\..\..\;CMake Files\..\..\..\..\;CMake Files\..\..\..\..\usr\;CMake Files\..\..\..\..\usr\local\;CMake Files\..\..\..\..\usr\local\lib\;CMake Files\..\..\..\..\usr\local\lib\cmake\;CMake Files\..\..\..\..\usr\local\lib\cmake\llvm\;"/>
+		<Build>
+			<Target title="all">
+				<Option working_dir="/home/user/CLionProjects/OXiGen/cmake-build-debug"/>
+				<Option type="4"/>
+				<MakeCommands>
+					<Build command="/usr/bin/make -j2 -f &quot;/home/user/CLionProjects/OXiGen/cmake-build-debug/Makefile&quot;  VERBOSE=1 all"/>
+					<CompileFile command="/usr/bin/make -j2 -f &quot;/home/user/CLionProjects/OXiGen/cmake-build-debug/Makefile&quot;  VERBOSE=1 &quot;$file&quot;"/>
+					<Clean command="/usr/bin/make -j2 -f &quot;/home/user/CLionProjects/OXiGen/cmake-build-debug/Makefile&quot;  VERBOSE=1 clean"/>
+					<DistClean command="/usr/bin/make -j2 -f &quot;/home/user/CLionProjects/OXiGen/cmake-build-debug/Makefile&quot;  VERBOSE=1 clean"/>
+				</MakeCommands>
+			</Target>
+			<Target title="rebuild_cache">
+				<Option working_dir="/home/user/CLionProjects/OXiGen/cmake-build-debug"/>
+				<Option type="4"/>
+				<MakeCommands>
+					<Build command="/usr/bin/make -j2 -f &quot;/home/user/CLionProjects/OXiGen/cmake-build-debug/Makefile&quot;  VERBOSE=1 rebuild_cache"/>
+					<CompileFile command="/usr/bin/make -j2 -f &quot;/home/user/CLionProjects/OXiGen/cmake-build-debug/Makefile&quot;  VERBOSE=1 &quot;$file&quot;"/>
+					<Clean command="/usr/bin/make -j2 -f &quot;/home/user/CLionProjects/OXiGen/cmake-build-debug/Makefile&quot;  VERBOSE=1 clean"/>
+					<DistClean command="/usr/bin/make -j2 -f &quot;/home/user/CLionProjects/OXiGen/cmake-build-debug/Makefile&quot;  VERBOSE=1 clean"/>
+				</MakeCommands>
+			</Target>
+			<Target title="edit_cache">
+				<Option working_dir="/home/user/CLionProjects/OXiGen/cmake-build-debug"/>
+				<Option type="4"/>
+				<MakeCommands>
+					<Build command="/usr/bin/make -j2 -f &quot;/home/user/CLionProjects/OXiGen/cmake-build-debug/Makefile&quot;  VERBOSE=1 edit_cache"/>
+					<CompileFile command="/usr/bin/make -j2 -f &quot;/home/user/CLionProjects/OXiGen/cmake-build-debug/Makefile&quot;  VERBOSE=1 &quot;$file&quot;"/>
+					<Clean command="/usr/bin/make -j2 -f &quot;/home/user/CLionProjects/OXiGen/cmake-build-debug/Makefile&quot;  VERBOSE=1 clean"/>
+					<DistClean command="/usr/bin/make -j2 -f &quot;/home/user/CLionProjects/OXiGen/cmake-build-debug/Makefile&quot;  VERBOSE=1 clean"/>
+				</MakeCommands>
+			</Target>
+			<Target title="main">
+				<Option output="/home/user/CLionProjects/OXiGen/bin/main" prefix_auto="0" extension_auto="0"/>
+				<Option working_dir="/home/user/CLionProjects/OXiGen/bin"/>
+				<Option object_output="./"/>
+				<Option type="1"/>
+				<Option compiler="gcc"/>
+				<Compiler>
+					<Add directory="/usr/local/include"/>
+					<Add directory="/home/user/CLionProjects/OXiGen/include"/>
+					<Add directory="/usr/include/c++/5"/>
+					<Add directory="/usr/include/x86_64-linux-gnu/c++/5"/>
+					<Add directory="/usr/include/c++/5/backward"/>
+					<Add directory="/usr/lib/gcc/x86_64-linux-gnu/5/include"/>
+					<Add directory="/usr/lib/gcc/x86_64-linux-gnu/5/include-fixed"/>
+					<Add directory="/usr/include/x86_64-linux-gnu"/>
+					<Add directory="/usr/include"/>
+				</Compiler>
+				<MakeCommands>
+					<Build command="/usr/bin/make -j2 -f &quot;/home/user/CLionProjects/OXiGen/cmake-build-debug/Makefile&quot;  VERBOSE=1 main"/>
+					<CompileFile command="/usr/bin/make -j2 -f &quot;/home/user/CLionProjects/OXiGen/cmake-build-debug/Makefile&quot;  VERBOSE=1 &quot;$file&quot;"/>
+					<Clean command="/usr/bin/make -j2 -f &quot;/home/user/CLionProjects/OXiGen/cmake-build-debug/Makefile&quot;  VERBOSE=1 clean"/>
+					<DistClean command="/usr/bin/make -j2 -f &quot;/home/user/CLionProjects/OXiGen/cmake-build-debug/Makefile&quot;  VERBOSE=1 clean"/>
+				</MakeCommands>
+			</Target>
+			<Target title="main/fast">
+				<Option output="/home/user/CLionProjects/OXiGen/bin/main" prefix_auto="0" extension_auto="0"/>
+				<Option working_dir="/home/user/CLionProjects/OXiGen/bin"/>
+				<Option object_output="./"/>
+				<Option type="1"/>
+				<Option compiler="gcc"/>
+				<Compiler>
+					<Add directory="/usr/local/include"/>
+					<Add directory="/home/user/CLionProjects/OXiGen/include"/>
+					<Add directory="/usr/include/c++/5"/>
+					<Add directory="/usr/include/x86_64-linux-gnu/c++/5"/>
+					<Add directory="/usr/include/c++/5/backward"/>
+					<Add directory="/usr/lib/gcc/x86_64-linux-gnu/5/include"/>
+					<Add directory="/usr/lib/gcc/x86_64-linux-gnu/5/include-fixed"/>
+					<Add directory="/usr/include/x86_64-linux-gnu"/>
+					<Add directory="/usr/include"/>
+				</Compiler>
+				<MakeCommands>
+					<Build command="/usr/bin/make -j2 -f &quot;/home/user/CLionProjects/OXiGen/cmake-build-debug/Makefile&quot;  VERBOSE=1 main/fast"/>
+					<CompileFile command="/usr/bin/make -j2 -f &quot;/home/user/CLionProjects/OXiGen/cmake-build-debug/Makefile&quot;  VERBOSE=1 &quot;$file&quot;"/>
+					<Clean command="/usr/bin/make -j2 -f &quot;/home/user/CLionProjects/OXiGen/cmake-build-debug/Makefile&quot;  VERBOSE=1 clean"/>
+					<DistClean command="/usr/bin/make -j2 -f &quot;/home/user/CLionProjects/OXiGen/cmake-build-debug/Makefile&quot;  VERBOSE=1 clean"/>
+				</MakeCommands>
+			</Target>
+		</Build>
+		<Unit filename="/home/user/CLionProjects/OXiGen/include/AnalysisManager.h">
+			<Option target="main"/>
+		</Unit>
+		<Unit filename="/home/user/CLionProjects/OXiGen/include/DFGConstructor.h">
+			<Option target="main"/>
+		</Unit>
+		<Unit filename="/home/user/CLionProjects/OXiGen/include/DFGStreamsOverlapHandler.h">
+			<Option target="main"/>
+		</Unit>
+		<Unit filename="/home/user/CLionProjects/OXiGen/include/DFGTranslator.h">
+			<Option target="main"/>
+		</Unit>
+		<Unit filename="/home/user/CLionProjects/OXiGen/include/LoopReplicationManager.h">
+			<Option target="main"/>
+		</Unit>
+		<Unit filename="/home/user/CLionProjects/OXiGen/include/OXiGenPass.h">
+			<Option target="main"/>
+		</Unit>
+		<Unit filename="/home/user/CLionProjects/OXiGen/include/OffsetVectorizationData.h">
+			<Option target="main"/>
+		</Unit>
+		<Unit filename="/home/user/CLionProjects/OXiGen/include/OxigenGenVectorizedPass.h">
+			<Option target="main"/>
+		</Unit>
+		<Unit filename="/home/user/CLionProjects/OXiGen/include/OxigenVectorizationPass.h">
+			<Option target="main"/>
+		</Unit>
+		<Unit filename="/home/user/CLionProjects/OXiGen/include/OxigenVectorizationUnroll.h">
+			<Option target="main"/>
+		</Unit>
+		<Unit filename="/home/user/CLionProjects/OXiGen/include/ProcessingComponent.h">
+			<Option target="main"/>
+		</Unit>
+		<Unit filename="/home/user/CLionProjects/OXiGen/include/ProcessingScheduler.h">
+			<Option target="main"/>
+		</Unit>
+		<Unit filename="/home/user/CLionProjects/OXiGen/include/ResourceEstimationModule.h">
+			<Option target="main"/>
+		</Unit>
+		<Unit filename="/home/user/CLionProjects/OXiGen/include/StreamsAnalyzer.h">
+			<Option target="main"/>
+		</Unit>
+		<Unit filename="/home/user/CLionProjects/OXiGen/include/SubloopHandler.h">
+			<Option target="main"/>
+		</Unit>
+		<Unit filename="/home/user/CLionProjects/OXiGen/include/boost/predef.h">
+			<Option target="main"/>
+		</Unit>
+		<Unit filename="/home/user/CLionProjects/OXiGen/include/boost/regex.h">
+			<Option target="main"/>
+		</Unit>
+		<Unit filename="/home/user/CLionProjects/OXiGen/src/AnalysisManager.cpp">
+			<Option target="main"/>
+		</Unit>
+		<Unit filename="/home/user/CLionProjects/OXiGen/src/DFGConstructor.cpp">
+			<Option target="main"/>
+		</Unit>
+		<Unit filename="/home/user/CLionProjects/OXiGen/src/DFGStreamsOverlapHandler.cpp">
+			<Option target="main"/>
+		</Unit>
+		<Unit filename="/home/user/CLionProjects/OXiGen/src/DFGTranslator.cpp">
+			<Option target="main"/>
+		</Unit>
+		<Unit filename="/home/user/CLionProjects/OXiGen/src/LoopRepliactionManager.cpp">
+			<Option target="main"/>
+		</Unit>
+		<Unit filename="/home/user/CLionProjects/OXiGen/src/OXiGenPass.cpp">
+			<Option target="main"/>
+		</Unit>
+		<Unit filename="/home/user/CLionProjects/OXiGen/src/OxigenGenVectorizedPass.cpp">
+			<Option target="main"/>
+		</Unit>
+		<Unit filename="/home/user/CLionProjects/OXiGen/src/OxigenVectorizationPass.cpp">
+			<Option target="main"/>
+		</Unit>
+		<Unit filename="/home/user/CLionProjects/OXiGen/src/OxigenVectorizationUnroll.cpp">
+			<Option target="main"/>
+		</Unit>
+		<Unit filename="/home/user/CLionProjects/OXiGen/src/ProcessingScheduler.cpp">
+			<Option target="main"/>
+		</Unit>
+		<Unit filename="/home/user/CLionProjects/OXiGen/src/ResourceEstimationModule.cpp">
+			<Option target="main"/>
+		</Unit>
+		<Unit filename="/home/user/CLionProjects/OXiGen/src/StreamsAnalyzer.cpp">
+			<Option target="main"/>
+		</Unit>
+		<Unit filename="/home/user/CLionProjects/OXiGen/src/SubloopHandler.cpp">
+			<Option target="main"/>
+		</Unit>
+		<Unit filename="/home/user/CLionProjects/OXiGen/src/main.cpp">
+			<Option target="main"/>
+		</Unit>
+		<Unit filename="/home/user/CLionProjects/OXiGen/CMakeLists.txt">
+			<Option virtualFolder="CMake Files\"/>
+		</Unit>
+		<Unit filename="/home/user/CLionProjects/OXiGen/../../../../usr/local/lib/cmake/llvm/LLVMConfigVersion.cmake">
+			<Option virtualFolder="CMake Files\..\..\..\..\usr\local\lib\cmake\llvm\"/>
+		</Unit>
+		<Unit filename="/home/user/CLionProjects/OXiGen/../../../../usr/local/lib/cmake/llvm/LLVMConfig.cmake">
+			<Option virtualFolder="CMake Files\..\..\..\..\usr\local\lib\cmake\llvm\"/>
+		</Unit>
+		<Unit filename="/home/user/CLionProjects/OXiGen/../../../../usr/local/lib/cmake/llvm/LLVMExports.cmake">
+			<Option virtualFolder="CMake Files\..\..\..\..\usr\local\lib\cmake\llvm\"/>
+		</Unit>
+		<Unit filename="/home/user/CLionProjects/OXiGen/../../../../usr/local/lib/cmake/llvm/LLVMExports-release.cmake">
+			<Option virtualFolder="CMake Files\..\..\..\..\usr\local\lib\cmake\llvm\"/>
+		</Unit>
+		<Unit filename="/home/user/CLionProjects/OXiGen/../../../../usr/local/lib/cmake/llvm/LLVM-Config.cmake">
+			<Option virtualFolder="CMake Files\..\..\..\..\usr\local\lib\cmake\llvm\"/>
+		</Unit>
+	</Project>
+</CodeBlocks_project_file>

@@ -1,0 +1,5 @@
+digraph "CFG for 'fmin' function" {
+	label="CFG for 'fmin' function";
+
+	Node0x310a800 [shape=record,label="{%2:\l  %3 = fmul float %0, %0\l  %4 = fadd float %3, %0\l  ret float %4\l}"];
+}

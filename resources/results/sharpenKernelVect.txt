@@ -1,0 +1,109 @@
+package sharpen;
+
+import com.maxeler.maxcompiler.v2.kernelcompiler.Kernel;
+import com.maxeler.maxcompiler.v2.kernelcompiler.KernelParameters;
+import com.maxeler.maxcompiler.v2.kernelcompiler.types.base.DFEVar;
+import com.maxeler.maxcompiler.v2.kernelcompiler.types.composite.DFEVector;
+import com.maxeler.maxcompiler.v2.kernelcompiler.types.composite.DFEVectorType;
+import com.maxeler.maxcompiler.v2.kernelcompiler.stdlib.KernelMath;
+
+
+class sharpenKernel extends Kernel {
+
+	sharpenKernel(KernelParameters parameters) {
+		super(parameters);
+
+		DFEVector<DFEVar> a = io.input("a", new DFEVectorType<DFEVar>(dfeInt(8),6));
+
+		DFEVector<DFEVar> l_lo = new DFEVectorType<DFEVar>(dfeFloat(8,24),2).newInstance(this);
+
+		for(int l_idx = 0; l_idx < 2; l_idx += 1){
+			DFEVar l_ld_r = a[l_idx*3 + 0].cast(dfeRawBits(8));
+			DFEVar l_ld_u = l_ld_r.cast(dfeUInt(8));
+			DFEVar l_ld = l_ld_u.cast(dfeInt(32));
+			DFEVar l_le = l_ld.cast(dfeFloat(11,53));
+			DFEVar l_lf = constant.var(dfeFloat(11,53),0.100000) * l_le;
+			DFEVar l_lg_r = a[l_idx*3 + 1].cast(dfeRawBits(8));
+			DFEVar l_lg_u = l_lg_r.cast(dfeUInt(8));
+			DFEVar l_lg = l_lg_u.cast(dfeInt(32));
+			DFEVar l_lh = l_lg.cast(dfeFloat(11,53));
+			DFEVar l_li = constant.var(dfeFloat(11,53),0.600000) * l_lh;
+			DFEVar l_lj = l_lf + l_li;
+			DFEVar l_lk_r = a[l_idx*3 + 2].cast(dfeRawBits(8));
+			DFEVar l_lk_u = l_lk_r.cast(dfeUInt(8));
+			DFEVar l_lk = l_lk_u.cast(dfeInt(32));
+			DFEVar l_ll = l_lk.cast(dfeFloat(11,53));
+			DFEVar l_lm = constant.var(dfeFloat(11,53),0.300000) * l_ll;
+			DFEVar l_ln = l_lj + l_lm;
+			l_lo[l_idx] <== l_ln.cast(dfeFloat(8,24));
+
+		}
+		DFEVector<DFEVar> l_if = new DFEVectorType<DFEVar>(dfeFloat(8,24),2).newInstance(this);
+
+		for(int i_idx = 0; i_idx < 2; i_idx += 1){
+			DFEVar l_ia = stream.offset(l_lo[i_idx], 360);
+			DFEVar l_ib = l_lo[i_idx] + l_ia;
+			DFEVar l_ic = stream.offset(l_lo[i_idx], 720);
+			DFEVar l_id = l_ib + l_ic;
+			DFEVar l_ie = l_id / constant.var(dfeFloat(8,24),3.000000);
+			l_if[i_idx] <== stream.offset(l_ie, -360);
+
+		}
+		DFEVector<DFEVar> l_jg = new DFEVectorType<DFEVar>(dfeFloat(8,24),2).newInstance(this);
+
+		for(int j_idx = 0; j_idx < 2; j_idx += 1){
+			DFEVar l_jb = stream.offset(l_if[j_idx], 360);
+			DFEVar l_ja = stream.offset(l_if[j_idx], 359);
+			DFEVar l_jc = l_ja + l_jb;
+			DFEVar l_jd = stream.offset(l_if[j_idx], 361);
+			DFEVar l_je = l_jc + l_jd;
+			DFEVar l_jf = l_je / constant.var(dfeFloat(8,24),3.000000);
+			l_jg[j_idx] <== stream.offset(l_jf, -360);
+
+		}
+		DFEVector<DFEVar> l_kc = new DFEVectorType<DFEVar>(dfeFloat(8,24),2).newInstance(this);
+
+		for(int k_idx = 0; k_idx < 2; k_idx += 1){
+			DFEVar l_ka = constant.var(dfeFloat(8,24),2.000000) * l_lo[k_idx];
+			DFEVar l_kb = l_ka - l_jg[k_idx];
+			l_kc[k_idx] <== KernelMath.abs(l_kb);
+
+		}
+		DFEVector<DFEVar> l_mb = new DFEVectorType<DFEVar>(dfeFloat(8,24),2).newInstance(this);
+
+		for(int m_idx = 0; m_idx < 2; m_idx += 1){
+			DFEVar l_ma = l_lo[m_idx] + constant.var(dfeFloat(8,24),1.000000);
+			l_mb[m_idx] <== l_kc[m_idx] / l_ma;
+
+		}
+		DFEVector<DFEVar> l_l_nad = new DFEVectorType<DFEVar>(dfeFloat(8,24),6).newInstance(this);
+
+		for(int n_idx = 0; n_idx < 2; n_idx += 1){
+
+			for(int l_na_idx = 0; l_na_idx < 3; l_na_idx += 1){
+				DFEVar l_l_nab_r = a[n_idx*3 + l_na_idx].cast(dfeRawBits(8));
+				DFEVar l_l_nab_u = l_l_nab_r.cast(dfeUInt(8));
+				DFEVar l_l_nab = l_l_nab_u.cast(dfeInt(32));
+				DFEVar l_l_nac = l_l_nab.cast(dfeFloat(8,24));
+				l_l_nad[n_idx*3 + l_na_idx] <== l_mb[n_idx] * l_l_nac;
+
+			}
+
+		}
+		DFEVector<DFEVar> l_l_oab = new DFEVectorType<DFEVar>(dfeInt(8),6).newInstance(this);
+
+		for(int o_idx = 0; o_idx < 2; o_idx += 1){
+
+			for(int l_oa_idx = 0; l_oa_idx < 3; l_oa_idx += 1){
+				DFEVar l_l_oaa = KernelMath.min(constant.var(dfeFloat(8,24),255.000000),l_l_nad[o_idx*3 + l_oa_idx]);
+				DFEVar l_l_oab_u = l_l_oaa.cast(dfeUInt(8));
+				DFEVar l_l_oab_r = l_l_oab_u.cast(dfeRawBits(8));
+				l_l_oab[o_idx*3 + l_oa_idx] <== l_l_oab_r.cast(dfeInt(8));
+
+			}
+
+		}
+
+		io.output("l_l_oac", l_l_oab, new DFEVectorType<DFEVar>(dfeInt(8),6));
+	}
+}

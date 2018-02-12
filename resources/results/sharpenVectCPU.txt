@@ -1,0 +1,55 @@
+void sharpen(unsigned char in[SIZE/V][V][3], unsigned char out[SIZE/V][V][3])
+{
+    float gray[SIZE/V][V];
+    float blur_y[SIZE/V][V];
+    float blur_x[SIZE/V][V];
+    float sharpen[SIZE/V][V];
+    float ratio[SIZE/V][V];
+    float unsharp[SIZE/V][V][3];
+
+    for(int i = 0; i < SIZE/V; i++) {
+        for(int v = 0; v < V; v++) {
+            gray[i][v] = 0.1 * in[i][v][0] + 0.6 * in[i][v][1] + 0.3 * in[i][v][2];
+        }
+    }
+
+    for(int i = WIDTH; i < SIZE/V - WIDTH; i++) {
+        for(int v = 0; v < V; v++) {
+            blur_y[i][v] = (gray[i - WIDTH][v] + gray[i][v] + gray[i + WIDTH][v]) / 3;
+        }
+    }
+
+    for(int i = WIDTH; i < SIZE/V - WIDTH; i++) {
+        for(int v = 0; v < V; v++) {
+            blur_x[i][v] = (blur_y[i - 1][v] + blur_y[i][v] + blur_y[i + 1][v]) / 3;
+        }
+    }
+
+    for(int i = 0; i < SIZE/V; i++) {
+        for(int v = 0; v < V; v++) {
+            sharpen[i][v] = fabs(2*gray[i][v] - blur_x[i][v]);
+        }
+    }
+
+    for(int i = 0; i < SIZE/V; i++) {
+        for(int v = 0; v < V; v++) {
+            ratio[i][v] = sharpen[i][v] / (gray[i][v] + 1);
+        }
+    }
+
+    for(int i = 0; i < SIZE/V; i++) {
+        for(int v = 0; v < V; v++) {
+            for(int c = 0; c < 3; c++) {
+                unsharp[i][v][c] = ratio[i][v] * in[i][v][c];
+            }
+        }
+    }
+
+    for(int i = 0; i < SIZE/V; i++) {
+        for(int v = 0; v < V; v++) {
+            for(int c = 0; c < 3; c++) {
+                out[i][v][c] = (unsigned char) fmin(unsharp[i][v][c], 255);
+            }
+        }
+    }
+}

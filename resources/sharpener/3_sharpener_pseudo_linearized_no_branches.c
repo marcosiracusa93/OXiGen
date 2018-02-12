@@ -2,8 +2,8 @@
 #include <stdlib.h>
 #include "../MaxJFunctions.h"
 
-#define WIDTH 360
-#define HEIGHT 480
+#define WIDTH 1920
+#define HEIGHT 1080
 #define SIZE WIDTH*HEIGHT
 
 #define TOLERANCE 0

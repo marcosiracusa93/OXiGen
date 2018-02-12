@@ -1,0 +1,76 @@
+package sharpen;
+
+import com.maxeler.maxcompiler.v2.kernelcompiler.Kernel;
+import com.maxeler.maxcompiler.v2.kernelcompiler.KernelParameters;
+import com.maxeler.maxcompiler.v2.kernelcompiler.types.base.DFEVar;
+import com.maxeler.maxcompiler.v2.kernelcompiler.types.composite.DFEVector;
+import com.maxeler.maxcompiler.v2.kernelcompiler.types.composite.DFEVectorType;
+import com.maxeler.maxcompiler.v2.kernelcompiler.stdlib.KernelMath;
+
+
+class sharpenKernel extends Kernel {
+
+	sharpenKernel(KernelParameters parameters) {
+		super(parameters);
+
+		DFEVector n = io.input("n", new DFEVectorType<DFEVar>(dfeInt(8),3));
+
+		DFEVar d_r = n[0].cast(dfeRawBits(8));
+		DFEVar d_u = d_r.cast(dfeUInt(8));
+		DFEVar d = d_u.cast(dfeInt(32));
+		DFEVar e = d.cast(dfeFloat(11,53));
+		DFEVar f = constant.var(dfeFloat(11,53),0.100000) * e;
+		DFEVar i_r = n[1].cast(dfeRawBits(8));
+		DFEVar i_u = i_r.cast(dfeUInt(8));
+		DFEVar i = i_u.cast(dfeInt(32));
+		DFEVar j = i.cast(dfeFloat(11,53));
+		DFEVar k = constant.var(dfeFloat(11,53),0.600000) * j;
+		DFEVar l = f + k;
+		DFEVar o_r = n[2].cast(dfeRawBits(8));
+		DFEVar o_u = o_r.cast(dfeUInt(8));
+		DFEVar o = o_u.cast(dfeInt(32));
+		DFEVar p = o.cast(dfeFloat(11,53));
+		DFEVar q = constant.var(dfeFloat(11,53),0.300000) * p;
+		DFEVar r = l + q;
+		DFEVar pa = r.cast(dfeFloat(8,24));
+		DFEVar s = stream.offset(pa, 360);
+		DFEVar na = pa + s;
+		DFEVar t = stream.offset(pa, 720);
+		DFEVar ma = na + t;
+		DFEVar la = ma / constant.var(dfeFloat(8,24),3.000000);
+		DFEVar ka = stream.offset(la, -360);
+		DFEVar ia = stream.offset(ka, 359);
+		DFEVar v = stream.offset(ka, 360);
+		DFEVar ha = ia + v;
+		DFEVar w = stream.offset(ka, 361);
+		DFEVar ga = ha + w;
+		DFEVar fa = ga / constant.var(dfeFloat(8,24),3.000000);
+		DFEVar ea = stream.offset(fa, -360);
+		DFEVar z = constant.var(dfeFloat(8,24),2.000000) * pa;
+		DFEVar ca = z - ea;
+		DFEVar ba = KernelMath.abs(ca);
+		DFEVar ra = pa + constant.var(dfeFloat(8,24),1.000000);
+		DFEVar ta = ba / ra;
+		DFEVector<DFEVar> l_uaj = new DFEVectorType<DFEVar>(dfeFloat(8,24),3).newInstance(this);
+
+		for(int ua_idx = 0; ua_idx < 3; ua_idx += 1){
+			DFEVar l_uag_r = n[ua_idx].cast(dfeRawBits(8));
+			DFEVar l_uag_u = l_uag_r.cast(dfeUInt(8));
+			DFEVar l_uag = l_uag_u.cast(dfeInt(32));
+			DFEVar l_uah = l_uag.cast(dfeFloat(8,24));
+			l_uaj[ua_idx] <== ta * l_uah;
+
+		}
+		DFEVector<DFEVar> l_vab = new DFEVectorType<DFEVar>(dfeInt(8),3).newInstance(this);
+
+		for(int va_idx = 0; va_idx < 3; va_idx += 1){
+			DFEVar l_vaa = KernelMath.min(l_uaj[va_idx],constant.var(dfeFloat(8,24),255.000000));
+			l_vab_u = l_vaa.cast(dfeUInt(8));
+			l_vab_r = l_vab_r.cast(dfeRawBits(8));
+			l_vab[va_idx] <== l_vab_r.cast(dfeInt(8));
+
+		}
+
+		io.output("l_vac", l_vab, new DFEVectorType<DFEVar>(dfeInt(8),3));
+	}
+}

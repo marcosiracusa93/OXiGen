@@ -1,0 +1,45 @@
+package two_d_test;
+
+import com.maxeler.maxcompiler.v2.kernelcompiler.Kernel;
+import com.maxeler.maxcompiler.v2.kernelcompiler.KernelParameters;
+import com.maxeler.maxcompiler.v2.kernelcompiler.types.base.DFEVar;
+import com.maxeler.maxcompiler.v2.kernelcompiler.types.composite.DFEVector;
+import com.maxeler.maxcompiler.v2.kernelcompiler.types.composite.DFEVectorType;
+
+
+class two_d_testKernel extends Kernel {
+
+	two_d_testKernel(KernelParameters parameters) {
+		super(parameters);
+
+		DFEVar f = io.input("f", DFEVectorType<DFEVar>(dfeInt(8),3));
+
+		DFEVar b_r = f[0].cast(dfeRawBits(8));
+		DFEVar b_u = b_r.cast(dfeUInt(8));
+		DFEVar b = b_u.cast(dfeInt(32));
+		DFEVar d_r = f[1].cast(dfeRawBits(8));
+		DFEVar d_u = d_r.cast(dfeUInt(8));
+		DFEVar d = d_u.cast(dfeInt(32));
+		DFEVar e = b + d;
+		DFEVar g_r = f[2].cast(dfeRawBits(8));
+		DFEVar g_u = g_r.cast(dfeUInt(8));
+		DFEVar g = g_u.cast(dfeInt(32));
+		DFEVar h = e + g;
+		DFEVar j = h.cast(dfeFloat(8,24));
+		DFEVector<DFEVar> l_ke = new DFEVectorType<DFEVar>(dfeInt(8),3);
+
+		for(int k_idx = 0; k_idx < 3; k_idx += 1){
+			DFEVar l_kb_r = f[k_idx].cast(dfeRawBits(8));
+			DFEVar l_kb_u = l_kb_r.cast(dfeUInt(8));
+			DFEVar l_kb = l_kb_u.cast(dfeInt(32));
+			DFEVar l_kc = l_kb.cast(dfeFloat(8,24));
+			DFEVar l_kd = j + l_kc;
+			l_ke_u <== l_kd.cast(dfeUInt(8));
+			l_ke_r <== l_ke_r.cast(dfeRawBits(8));
+			l_ke[k_idx] <== l_ke_r.cast(dfeInt(8));
+
+		}
+
+		io.output("l_kf", l_ke, DFEVectorType<DFEVar>(dfeInt(8),3));
+	}
+}

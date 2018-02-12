@@ -752,7 +752,10 @@ llvm::Value* MaxJInstructionPrinter::getVectorBasePointer(DFGNode *node) {
 
 std::string MaxJInstructionPrinter::getLinearizedIndexString(std::vector<int> dims, std::vector<std::string> idxNames) {
 
-    if(dims.size() != idxNames.size()){
+    if(!dims.size() && idxNames.size() == 1)
+        return idxNames.at(0);
+
+    else if(dims.size() != idxNames.size()){
         llvm::errs() << "ERROR: getLinearizedIndexString(): unmatching vector sizes "
                      << dims.size() << " " << idxNames.size() << " ";
         for(auto d : dims){
@@ -761,7 +764,7 @@ std::string MaxJInstructionPrinter::getLinearizedIndexString(std::vector<int> di
         for(auto i : idxNames){
             llvm::errs() << " " << i;
         }
-        exit(EXIT_FAILURE);
+        //exit(EXIT_FAILURE);
     }
     std::string linearizedAccessString;
 
@@ -907,22 +910,28 @@ std::string MaxJInstructionPrinter::appendInstruction(DFGNode* node){
         if(pred->getType() == NodeType::ReadNode || pred->getType() == NodeType::OffsetRead){
             pred->setGlobalDelay(0);
             DFGReadNode* predAsReadNode = (DFGReadNode*)pred;
-            if(translationMode == MaxLoopTranslationMode::JavaLoop){
+            std::vector<llvm::Value*> indexes = predAsReadNode->getAccessChain()->getAccessIndexesIfAny();
+            bool hasConstantAccess = false;
+
+            for(llvm::Value* idx : indexes){
+                if(llvm::dyn_cast<llvm::ConstantInt>(idx)){
+                    hasConstantAccess = true;
+                }
+            }
+
+            if(translationMode == MaxLoopTranslationMode::JavaLoop &&
+              !(currentLoopIndexes.empty() && !hasConstantAccess)){
                 tmpName = pred->getName();
                 std::string indexString = "[";
                 std::vector<std::string> loopIndexesAsString;
 
                 predAsReadNode->getValue()->dump();
                 predAsReadNode->getReadingStream().first->dump();
-                for(auto u : predAsReadNode->getReadingStream().first->users())
-                    u->dump();
+
                 llvm::PointerType* ptrType = (llvm::PointerType*)predAsReadNode->getReadingStream().first->getType();
 
                 std::vector<int> accessDimensions =
                         getDimensionsVector(ptrType->getPointerElementType());
-
-                predAsReadNode->getAccessChain()->getAccessIndexesIfAny();
-                std::vector<llvm::Value*> indexes = predAsReadNode->getAccessChain()->getAccessIndexesIfAny();
 
                 for(llvm::Value* idx : indexes){
                     if(llvm::dyn_cast<llvm::PHINode>(idx)) {
@@ -937,7 +946,9 @@ std::string MaxJInstructionPrinter::appendInstruction(DFGNode* node){
                 }
 
                 indexString.append(getLinearizedIndexString(accessDimensions,loopIndexesAsString) + "]");
-                pred->setName( tmpName + indexString );
+
+                if(indexString != "[]")
+                    pred->setName( tmpName + indexString );
             }
         }
 
@@ -956,6 +967,9 @@ std::string MaxJInstructionPrinter::appendInstruction(DFGNode* node){
 
             llvm::Type* ty;
             llvm::Value* basePtr = predAsWriteNode->getWritingStream().first;
+            basePtr->dump();
+            predAsWriteNode->getValue()->dump();
+            predAsWriteNode->getWritingStream().first->dump();
 
             if (llvm::dyn_cast<llvm::AllocaInst>(basePtr)){
                 ty = ((llvm::AllocaInst *) basePtr)->getType()->getPointerElementType();
@@ -1046,10 +1060,40 @@ std::string MaxJInstructionPrinter::appendInstruction(DFGNode* node){
         libImports["DFEVector"].first = true;
 
         llvm::Type *ty; //stream data type
+        bool accessesStreamDim = false;
         if (llvm::dyn_cast<llvm::AllocaInst>(basePtr)){
             ty = ((llvm::AllocaInst *) basePtr)->getType()->getPointerElementType();
-            ty = ((llvm::ArrayType *) ty)->getArrayElementType();
+
+            for(DFGNode* succ : node->getSuccessors()){
+                if(succ->getType() == NodeType::WriteNode || succ->getType() == NodeType::OffsetWrite){
+
+                    DFGWriteNode* storeNode = (DFGWriteNode*)succ;
+
+                    AccessChain* accessChain = storeNode->getAccessChain();
+                    std::vector<llvm::Value*> idx_chain = accessChain->getAccessIndexesIfAny();
+
+                    int phiIdx = 0;
+                    int n_loopIdx = 0;
+                    for(auto idx : idx_chain){
+                        if(llvm::PHINode* phi = llvm::dyn_cast<llvm::PHINode>(idx)){
+                            phiIdx++;
+                            for(auto pair : loopIndexes){
+                                if(pair.first->getValue() == phi){
+                                    n_loopIdx++;
+                                }
+                            }
+                        }
+                    }
+
+                    if(n_loopIdx < phiIdx) { //if the vector accesses the 'streamed' dimension
+                        accessesStreamDim = true;
+                        ty = ((llvm::ArrayType *) ty)->getArrayElementType();
+                    }
+                }
+            }
+
         }else{
+            accessesStreamDim = true;
             ty = (llvm::PointerType*)basePtr->getType()->getPointerElementType();
         }
 
@@ -1079,16 +1123,18 @@ std::string MaxJInstructionPrinter::appendInstruction(DFGNode* node){
             int size = 1;
 
             if(!tilingFactor){
-
                 std::vector<int> dimV = getDimensionsVector(ty);
+                ty->dump();
                 for(int d : dimV)
                     size*= d;
 
                 int residual = 0;
-                while((size < 64 && 64%size != 0) || (size > 64 && size%64 != 0)){
-                    size++;
-                    residual++;
-                }
+
+                if(accessesStreamDim)
+                    while((size < 64 && 64%size != 0) || (size > 64 && size%64 != 0)){
+                        size++;
+                        residual++;
+                    }
 
                 if(residual){
                     for(auto it = MaxJInstructionPrinter::outputNodes.begin();
@@ -1498,10 +1544,42 @@ std::string MaxJInstructionPrinter::appendInstruction(DFGNode* node){
         std::string ofsStreamName = varName;
         std::string sourceName = offsetNode->getCrossScopePredecessors().at(0)->getName();
         int offset = offsetNode->getOffsetAsInt();
+        std::string offset_string;
+
+        if(std::find(kernelOptimizations.begin(),kernelOptimizations.end(),VECTORIZATION) != kernelOptimizations.end()){
+            if(offset > 0){
+                offset_string = "(" + std::to_string(offset) + " + " + currentLoopIndexes.at(0) + ")/" +
+                        std::to_string(v_factor);
+                if(sourceName.back() == ']'){
+                    sourceName.pop_back();
+
+                    while(sourceName.back() != '[')
+                        sourceName.pop_back();
+                    sourceName.append("(" + currentLoopIndexes.at(0) + " + " + std::to_string(offset) + ")%" +
+                                        std::to_string(v_factor) + "]");
+                }
+            }else{
+                int offs = -(v_factor-1)+offset;
+                offset_string = "(" + currentLoopIndexes.at(0) + " " + std::to_string(offs) + ")/" +
+                        std::to_string(v_factor);
+                if(sourceName.back() == ']'){
+                    sourceName.pop_back();
+
+                    while(sourceName.back() != '[')
+                        sourceName.pop_back();
+                    sourceName.append( currentLoopIndexes.at(0)
+                                              + " + " + std::to_string(v_factor) + "*" +
+                                              std::to_string(-offset) + "(" + std::to_string(offset) + ")%" +
+                                      std::to_string(v_factor) + "]");
+                }
+            }
+        }else{
+            offset_string = std::to_string(offset);
+        }
 
         std::string offsetDeclaration = nestingTabs + std::string("\t\t"+ varType) + ofsStreamName +
                                         assignmentType + std::string("stream.offset(") + sourceName +
-                                        std::string(", ") + std::to_string(offset) +
+                                        std::string(", ") +  offset_string +
                                         std::string(");\n");
         currentInstr.append(offsetDeclaration);
     }
@@ -1523,11 +1601,20 @@ std::string MaxJInstructionPrinter::appendInstruction(DFGNode* node){
 
 void DFGTranslator::printDFGAsKernel(std::vector<DFG*> dfg,std::vector<LoopDependencyGraph*> dependencyGraph,
                                      std::string kernelName, std::string packageName){
-    
-        DFGTranslator::dfgs = dfg;
-        DFGTranslator::dependencyGraph = dependencyGraph;
-        std::string kernelString = generateKernelString(kernelName,packageName);
-        llvm::errs() << kernelString;
+
+    DFGTranslator::dfgs = dfg;
+    DFGTranslator::dependencyGraph = dependencyGraph;
+    std::string kernelString = generateKernelString(kernelName,packageName);
+    llvm::errs() << kernelString;
+
+    std::string fileName = "../output/"+ kernelName;
+
+    if(DFGTranslator::V_FACTOR){
+        fileName.append("v"+std::to_string(DFGTranslator::V_FACTOR));
+    }
+
+    std::ofstream output(fileName + ".txt");
+    output << kernelString;
 }
 
 void DFGTranslator::assignReadNodesNames(std::vector<DFGReadNode*> readNodes) {
@@ -1576,6 +1663,8 @@ std::string DFGTranslator::generateKernelString(std::string kernelName,std::stri
 
     maxjPrinter->kernelOptimizations.insert(maxjPrinter->kernelOptimizations.begin(),
                                             kernelOptimizations.begin(),kernelOptimizations.end());
+
+    maxjPrinter->v_factor = V_FACTOR;
 
     //TODO: revise this structure
     if(std::find(kernelOptimizations.begin(),kernelOptimizations.end(),GLOBAL_TILING) != kernelOptimizations.end()){
@@ -1739,16 +1828,36 @@ std::string DFGTranslator::generateKernelString(std::string kernelName,std::stri
                     llvm::errs() << outPair.second;
 
                     auto outputStream = outPair.first->getWritingStream();
-                    llvm::Type* outputStreamType = outputStream.first->getType()->getPointerElementType();
-                    outputStreamType = maxjPrinter->getElementaryType(outputStreamType);
+                    llvm::Type* outputStreamType = outputStream.first->getType();
+                    outputStreamType = ((llvm::PointerType*)outputStreamType)->getPointerElementType();
 
                     auto inputStream = inPair.first->getReadingStream();
-                    llvm::Type* inputStreamType = inputStream.first->getType()->getPointerElementType();
-                    inputStreamType = maxjPrinter->getElementaryType(inputStreamType);
+                    llvm::Type* inputStreamType = inputStream.first->getType();
+                    inputStreamType = ((llvm::PointerType*)inputStreamType)->getPointerElementType();
 
                     if(/*inputStreamType == outputStreamType &&*/ outPair.second == inPair.second){
                         llvm::errs() << "DEBUG: found matching type\n";
+                        std::string outName =  outPair.first->getPredecessors().at(0)->getName();
+                        std::string inName = inPair.first->getName();
 
+                        long pos = outName.find_first_of('[');
+                        int s = outName.size();
+
+                        if(pos > 0)
+                            for(int i = s; i > pos; i--){
+                                outName.pop_back();
+                            }
+
+                        pos = inName.find_first_of('[');
+                        s = inName.size();
+
+                        if(pos > 0)
+                            for(int i = s; i > pos; i--){
+                                inName.pop_back();
+                            }
+
+                        inputStreamType->dump();
+                        outputStreamType->dump();
                         std::vector<int> dimSizesIn = maxjPrinter->getDimensionsVector(inputStreamType);
                         std::vector<int> dimSizesOut = maxjPrinter->getDimensionsVector(outputStreamType);
 
@@ -1757,13 +1866,14 @@ std::string DFGTranslator::generateKernelString(std::string kernelName,std::stri
                             inSize *= d;
                         long outSize = 1;
                         for(int d : dimSizesOut)
-                            inSize *= d;
+                            outSize *= d;
+                        llvm::errs() << outPair.second;
 
                         for(int r = 0; r < outPair.second; r++){
-                            kernelBody.append("\t\t" + outPair.first->getName() + "[" +
-                                                      std::to_string(outSize-r) + "] <== " +
-                                                      inPair.first->getName() + "[" +
-                                                      std::to_string(inSize-r) + "];\n");
+                            kernelBody.append("\t\t" + outName + "[" +
+                                                      std::to_string(outSize+r) + "] <== " +
+                                                      inName + "[" +
+                                                      std::to_string(inSize+r) + "];\n");
                         }
                     }
                 }

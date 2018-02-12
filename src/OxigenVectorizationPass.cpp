@@ -77,6 +77,8 @@ void OxigenVectorizationPass::adjustVectorAccesses() {
                                     for (auto loop : loopsMap) {
                                         if (loop.second.iteration_phi == phi) {
                                             outerDimAccesses.push_back(std::make_pair(gep, loop.first));
+                                            llvm::errs() << "SUB:\n";
+                                            sub->dump();
                                         }
                                     }
                                 }
@@ -87,6 +89,8 @@ void OxigenVectorizationPass::adjustVectorAccesses() {
                                     for (auto loop : loopsMap) {
                                         if (loop.second.iteration_phi == phi) {
                                             outerDimAccesses.push_back(std::make_pair(gep, loop.first));
+                                            llvm::errs() << "ADD:\n";
+                                            add->dump();
                                         }
                                     }
                                 }
@@ -280,8 +284,8 @@ void OxigenVectorizationPass::adaptOuterLoopsTripCount() {
     for(BasicBlock &BB : *F){
         for(Instruction &instr : BB){
             if(BinaryOperator* b_op = dyn_cast<BinaryOperator>(&instr)){
-                ConstantInt* int_op;
-                PHINode* phi_op;
+                ConstantInt* int_op = nullptr;
+                PHINode* phi_op = nullptr;
                 int int_op_ops;
 
                 for(int i = 0; i < 2; i++){
@@ -295,11 +299,23 @@ void OxigenVectorizationPass::adaptOuterLoopsTripCount() {
                 }
 
                 if(int_op != nullptr && phi_op != nullptr){
-                    for(auto pair : loopsMap){
-                        if(pair.second.iteration_phi == phi_op &&
-                                ((ConstantInt*)phi_op->getIncomingValue(0))->getSExtValue() != 0 &&
-                                ((ConstantInt*)phi_op->getIncomingValue(0))->getSExtValue() == int_op->getSExtValue()/vectorizationFactor){
-                            b_op->setOperand(int_op_ops,builder.getInt32(int_op->getSExtValue()/vectorizationFactor));
+                    if(b_op->getParent()->getInstList().size() == 2){
+                        llvm::errs() << "INFO: is in loop latch: ";
+                        b_op->dump();
+
+                    }else {
+                        for (auto pair : loopsMap) {
+                            llvm::errs() << "-- entry: ";
+                            b_op->dump();
+                            int_op->dump();
+                            phi_op->dump();
+                            if (pair.second.iteration_phi == phi_op &&
+                                ((ConstantInt *) phi_op->getIncomingValue(0))->getSExtValue() != 0 &&
+                                ((ConstantInt *) phi_op->getIncomingValue(0))->getSExtValue() ==
+                                int_op->getSExtValue() / vectorizationFactor) {
+                                b_op->setOperand(int_op_ops,
+                                                 builder.getInt32(int_op->getSExtValue() / vectorizationFactor));
+                            }
                         }
                     }
                 }
@@ -318,11 +334,11 @@ bool OxigenVectorizationPass::runOnFunction(Function &F) {
     context = &(F.getParent()->getContext());
 
     initializeLoopMetadata();
-    adaptOuterLoopsTripCount();
+    //adaptOuterLoopsTripCount();
     addVectorizationLoops();
     fixGEPUsersTypes();
     adjustVectorAccesses();
-
+    F.dump();
     return true;
 }
 

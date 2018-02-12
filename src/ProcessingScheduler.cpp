@@ -17,12 +17,15 @@ void ProcessingScheduler::schedule(ProcessingComponent* processingComponent){
     scheduledComponents.push_back(processingComponent);
 }
 
-DefaultScheduler::DefaultScheduler(std::string functionName, llvm::Function* F,
+DefaultScheduler::DefaultScheduler(std::string functionName, std::string fileName, int v_factor,
+                                   llvm::Function* F,
                                    llvm::ScalarEvolution* SE,
                                    llvm::LoopInfo* LI,
                                    llvm::SCEVAAResult* SEAA){
 
     this->functionName = functionName;
+    this->fileName = fileName;
+    this->V_FACTOR = v_factor;
     this->F = F;
     this->SE = SE;
     this->LI = LI;
@@ -39,7 +42,7 @@ DefaultScheduler::DefaultScheduler(std::string functionName, llvm::Function* F,
     DFGTranslator* dfgt = new DFGTranslator(SE,F);
 
     schedule(dfgt);
-    //schedule(res);
+    schedule(res);
     schedule(rlm);
     schedule(subhdl);
     schedule(ovHandler);
@@ -219,11 +222,14 @@ void DefaultScheduler::execute(LoopReplicationManager *loopReplicationManager) {
     for(DFG* dfg : dataflowGraph){
         dependencyGraph.push_back(loopReplicationManager->analyzeDFGLoops(dfg));
     }
+    char ans;
+
+    if(DefaultScheduler::V_FACTOR)
+        DefaultScheduler::kernelOptimizations.push_back("vectorization");
 
     ///set global tiling opt
 
     int TILING_FACTOR;
-    char ans;
 
     std::cout << "Apply global tiling optimization for kernel? (y/n)\n";
     std::cin >> ans;
@@ -232,6 +238,7 @@ void DefaultScheduler::execute(LoopReplicationManager *loopReplicationManager) {
 
         std::cout << "Insert tiling factor\n";
         std::cin >> TILING_FACTOR;
+        DefaultScheduler::TILING_FACTOR = TILING_FACTOR;
 
         DefaultScheduler::kernelOptimizations.push_back("global_tiling");
 
@@ -276,6 +283,11 @@ void DefaultScheduler::execute(DFGStreamsOverlapHandler *overlapHandler) {
 
 void DefaultScheduler::execute(ResourceEstimator *resourceEstimator) {
 
+    resourceEstimator->function_name = functionName;
+    resourceEstimator->file_name = fileName;
+    resourceEstimator->v_factor = V_FACTOR;
+    resourceEstimator->tiling_factor = TILING_FACTOR;
+
     int dfgIndex = 0;
     for(DFG* dfg : dataflowGraph){
         resourceEstimator->countOperations(dfg,dependencyGraph.at(dfgIndex));
@@ -286,6 +298,7 @@ void DefaultScheduler::execute(ResourceEstimator *resourceEstimator) {
 void DefaultScheduler::execute(DFGTranslator* dfgTranslator){
 
     dfgTranslator->setKernelOptimizations(DefaultScheduler::kernelOptimizations);
+    dfgTranslator->setVFactor(DefaultScheduler::V_FACTOR);
 
     dfgTranslator->printDFGAsKernel(DefaultScheduler::dataflowGraph,DefaultScheduler::dependencyGraph,
                                     functionName+"Kernel",functionName);

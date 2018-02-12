@@ -80,13 +80,19 @@ namespace oxigen{
     protected:
         
         std::string functionName;
+		std::string fileName;
         llvm::Function* F;
         llvm::ScalarEvolution* SE;        
         llvm::LoopInfo* LI;
         llvm::SCEVAAResult* SEAA;
         
 	public:
-		DefaultScheduler(std::string functionName, llvm::Function* F,
+
+		int V_FACTOR = 0;
+		int TILING_FACTOR = 0;
+
+		DefaultScheduler(std::string functionName, std::string fileName, int v_factor,
+						 							llvm::Function* F,
 												   llvm::ScalarEvolution* SE,
 												   llvm::LoopInfo* LI,
 												   llvm::SCEVAAResult* SEAA);

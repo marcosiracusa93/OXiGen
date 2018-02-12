@@ -17,11 +17,16 @@
 
 using namespace oxigen;
 
-OXiGenPass* oxigen::createOXiGenWrapperPass(std::string functionName){
-    return new OXiGenPass(functionName);
+OXiGenPass* oxigen::createOXiGenWrapperPass(std::string functionName,std::string fileName,int v_factor){
+    return new OXiGenPass(functionName,fileName,v_factor);
 }
 
-OXiGenPass::OXiGenPass(std::string functionName) : FunctionPass(ID){ this->functionName = functionName; }
+OXiGenPass::OXiGenPass(std::string functionName,std::string fileName,int v_factor) : FunctionPass(ID){
+    this->functionName = functionName;
+    this->fileName = fileName;
+    this->v_factor = v_factor;
+
+}
 
 bool OXiGenPass::runOnFunction(Function &F) {
         
@@ -32,7 +37,7 @@ bool OXiGenPass::runOnFunction(Function &F) {
         LoopInfo* LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
         SCEVAAResult* SEAA = &getAnalysis<SCEVAAWrapperPass>().getResult();
 
-        DefaultScheduler* scheduler = new DefaultScheduler(functionName, &F, SE ,LI, SEAA);
+        DefaultScheduler* scheduler = new DefaultScheduler(functionName,fileName,v_factor, &F, SE ,LI, SEAA);
         scheduler->executeComponentsQueue();
 
         return false;

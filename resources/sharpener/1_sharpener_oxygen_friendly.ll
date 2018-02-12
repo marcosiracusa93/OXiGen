@@ -19,6 +19,20 @@ target triple = "x86_64-unknown-linux-gnu"
 @.str.9 = private unnamed_addr constant [20 x i8] c"Validation passed!\0A\00", align 1
 
 ; Function Attrs: noinline nounwind uwtable
+define float @fmin(float, float) #0 {
+  %3 = alloca float, align 4
+  %4 = alloca float, align 4
+  store float %0, float* %3, align 4
+  store float %1, float* %4, align 4
+  %5 = load float, float* %3, align 4
+  %6 = load float, float* %3, align 4
+  %7 = fmul float %5, %6
+  %8 = load float, float* %3, align 4
+  %9 = fadd float %7, %8
+  ret float %9
+}
+
+; Function Attrs: noinline nounwind uwtable
 define float @exp(float) #0 {
   %2 = alloca float, align 4
   store float %0, float* %2, align 4
@@ -143,14 +157,14 @@ define i32 @main(i32, i8**) #0 {
   %3 = alloca i32, align 4
   %4 = alloca i32, align 4
   %5 = alloca i8**, align 8
-  %6 = alloca [172800 x [3 x i8]], align 16
-  %7 = alloca [172800 x [3 x i8]], align 16
-  %8 = alloca [172800 x i8], align 16
-  %9 = alloca [172800 x i8], align 16
-  %10 = alloca [172800 x i8], align 16
-  %11 = alloca [172800 x i8], align 16
-  %12 = alloca [172800 x i8], align 16
-  %13 = alloca [172800 x i8], align 16
+  %6 = alloca [2073600 x [3 x i8]], align 16
+  %7 = alloca [2073600 x [3 x i8]], align 16
+  %8 = alloca [2073600 x i8], align 16
+  %9 = alloca [2073600 x i8], align 16
+  %10 = alloca [2073600 x i8], align 16
+  %11 = alloca [2073600 x i8], align 16
+  %12 = alloca [2073600 x i8], align 16
+  %13 = alloca [2073600 x i8], align 16
   %14 = alloca i8*, align 8
   %15 = alloca i8*, align 8
   %16 = alloca i8*, align 8
@@ -177,28 +191,28 @@ define i32 @main(i32, i8**) #0 {
   %28 = load i8*, i8** %27, align 8
   store i8* %28, i8** %15, align 8
   %29 = load i8*, i8** %14, align 8
-  %30 = getelementptr inbounds [172800 x [3 x i8]], [172800 x [3 x i8]]* %6, i32 0, i32 0
+  %30 = getelementptr inbounds [2073600 x [3 x i8]], [2073600 x [3 x i8]]* %6, i32 0, i32 0
   %31 = bitcast [3 x i8]* %30 to i8*
   call void @read_bmp(i8* %29, i8* %31)
-  %32 = getelementptr inbounds [172800 x [3 x i8]], [172800 x [3 x i8]]* %6, i32 0, i32 0
-  %33 = getelementptr inbounds [172800 x i8], [172800 x i8]* %8, i32 0, i32 0
-  %34 = getelementptr inbounds [172800 x i8], [172800 x i8]* %9, i32 0, i32 0
-  %35 = getelementptr inbounds [172800 x i8], [172800 x i8]* %10, i32 0, i32 0
+  %32 = getelementptr inbounds [2073600 x [3 x i8]], [2073600 x [3 x i8]]* %6, i32 0, i32 0
+  %33 = getelementptr inbounds [2073600 x i8], [2073600 x i8]* %8, i32 0, i32 0
+  %34 = getelementptr inbounds [2073600 x i8], [2073600 x i8]* %9, i32 0, i32 0
+  %35 = getelementptr inbounds [2073600 x i8], [2073600 x i8]* %10, i32 0, i32 0
   call void @deinterleave([3 x i8]* %32, i8* %33, i8* %34, i8* %35)
-  %36 = getelementptr inbounds [172800 x i8], [172800 x i8]* %8, i32 0, i32 0
-  %37 = getelementptr inbounds [172800 x i8], [172800 x i8]* %9, i32 0, i32 0
-  %38 = getelementptr inbounds [172800 x i8], [172800 x i8]* %10, i32 0, i32 0
-  %39 = getelementptr inbounds [172800 x i8], [172800 x i8]* %11, i32 0, i32 0
-  %40 = getelementptr inbounds [172800 x i8], [172800 x i8]* %12, i32 0, i32 0
-  %41 = getelementptr inbounds [172800 x i8], [172800 x i8]* %13, i32 0, i32 0
-  call void @sharpen(i8* %36, i8* %37, i8* %38, i8* %39, i8* %40, i8* %41)
-  %42 = getelementptr inbounds [172800 x [3 x i8]], [172800 x [3 x i8]]* %7, i32 0, i32 0
-  %43 = getelementptr inbounds [172800 x i8], [172800 x i8]* %11, i32 0, i32 0
-  %44 = getelementptr inbounds [172800 x i8], [172800 x i8]* %12, i32 0, i32 0
-  %45 = getelementptr inbounds [172800 x i8], [172800 x i8]* %13, i32 0, i32 0
+  %36 = getelementptr inbounds [2073600 x i8], [2073600 x i8]* %8, i32 0, i32 0
+  %37 = getelementptr inbounds [2073600 x i8], [2073600 x i8]* %9, i32 0, i32 0
+  %38 = getelementptr inbounds [2073600 x i8], [2073600 x i8]* %10, i32 0, i32 0
+  %39 = getelementptr inbounds [2073600 x i8], [2073600 x i8]* %11, i32 0, i32 0
+  %40 = getelementptr inbounds [2073600 x i8], [2073600 x i8]* %12, i32 0, i32 0
+  %41 = getelementptr inbounds [2073600 x i8], [2073600 x i8]* %13, i32 0, i32 0
+  call void @sharpen_3ch(i8* %36, i8* %37, i8* %38, i8* %39, i8* %40, i8* %41)
+  %42 = getelementptr inbounds [2073600 x [3 x i8]], [2073600 x [3 x i8]]* %7, i32 0, i32 0
+  %43 = getelementptr inbounds [2073600 x i8], [2073600 x i8]* %11, i32 0, i32 0
+  %44 = getelementptr inbounds [2073600 x i8], [2073600 x i8]* %12, i32 0, i32 0
+  %45 = getelementptr inbounds [2073600 x i8], [2073600 x i8]* %13, i32 0, i32 0
   call void @interleave([3 x i8]* %42, i8* %43, i8* %44, i8* %45)
   %46 = load i8*, i8** %15, align 8
-  %47 = getelementptr inbounds [172800 x [3 x i8]], [172800 x [3 x i8]]* %7, i32 0, i32 0
+  %47 = getelementptr inbounds [2073600 x [3 x i8]], [2073600 x [3 x i8]]* %7, i32 0, i32 0
   %48 = bitcast [3 x i8]* %47 to i8*
   call void @write_bmp(i8* %46, i8* %48)
   %49 = load i32, i32* %4, align 4
@@ -276,12 +290,12 @@ define void @read_bmp(i8*, i8*) #0 {
   %26 = load i32, i32* %25, align 2
   store i32 %26, i32* %8, align 4
   %27 = load i32, i32* %7, align 4
-  %28 = icmp ne i32 %27, 360
+  %28 = icmp ne i32 %27, 1920
   br i1 %28, label %32, label %29
 
 ; <label>:29:                                     ; preds = %17
   %30 = load i32, i32* %8, align 4
-  %31 = icmp ne i32 %30, 480
+  %31 = icmp ne i32 %30, 1080
   br i1 %31, label %32, label %38
 
 ; <label>:32:                                     ; preds = %29, %17
@@ -289,7 +303,7 @@ define void @read_bmp(i8*, i8*) #0 {
   %34 = load i32, i32* %7, align 4
   %35 = load i32, i32* %8, align 4
   %36 = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([24 x i8], [24 x i8]* @.str.6, i32 0, i32 0), i32 %34, i32 %35)
-  %37 = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([19 x i8], [19 x i8]* @.str.7, i32 0, i32 0), i32 360, i32 480)
+  %37 = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([19 x i8], [19 x i8]* @.str.7, i32 0, i32 0), i32 1920, i32 1080)
   call void @exit(i32 1) #5
   unreachable
 
@@ -325,7 +339,7 @@ define void @deinterleave([3 x i8]*, i8*, i8*, i8*) #0 {
 
 ; <label>:10:                                     ; preds = %44, %4
   %11 = load i32, i32* %9, align 4
-  %12 = icmp slt i32 %11, 172800
+  %12 = icmp slt i32 %11, 2073600
   br i1 %12, label %13, label %47
 
 ; <label>:13:                                     ; preds = %10
@@ -375,18 +389,18 @@ define void @deinterleave([3 x i8]*, i8*, i8*, i8*) #0 {
 }
 
 ; Function Attrs: noinline nounwind uwtable
-define void @sharpen(i8*, i8*, i8*, i8*, i8*, i8*) #0 {
+define void @sharpen_3ch(i8*, i8*, i8*, i8*, i8*, i8*) #0 {
   %7 = alloca i8*, align 8
   %8 = alloca i8*, align 8
   %9 = alloca i8*, align 8
   %10 = alloca i8*, align 8
   %11 = alloca i8*, align 8
   %12 = alloca i8*, align 8
-  %13 = alloca [172800 x float], align 16
-  %14 = alloca [172800 x float], align 16
-  %15 = alloca [172800 x float], align 16
-  %16 = alloca [172800 x float], align 16
-  %17 = alloca [172800 x float], align 16
+  %13 = alloca [2073600 x float], align 16
+  %14 = alloca [2073600 x float], align 16
+  %15 = alloca [2073600 x float], align 16
+  %16 = alloca [2073600 x float], align 16
+  %17 = alloca [2073600 x float], align 16
   %18 = alloca i32, align 4
   %19 = alloca i32, align 4
   %20 = alloca i32, align 4
@@ -404,7 +418,7 @@ define void @sharpen(i8*, i8*, i8*, i8*, i8*, i8*) #0 {
 
 ; <label>:24:                                     ; preds = %58, %6
   %25 = load i32, i32* %18, align 4
-  %26 = icmp slt i32 %25, 172800
+  %26 = icmp slt i32 %25, 2073600
   br i1 %26, label %27, label %61
 
 ; <label>:27:                                     ; preds = %24
@@ -437,7 +451,7 @@ define void @sharpen(i8*, i8*, i8*, i8*, i8*, i8*) #0 {
   %54 = fptrunc double %53 to float
   %55 = load i32, i32* %18, align 4
   %56 = sext i32 %55 to i64
-  %57 = getelementptr inbounds [172800 x float], [172800 x float]* %13, i64 0, i64 %56
+  %57 = getelementptr inbounds [2073600 x float], [2073600 x float]* %13, i64 0, i64 %56
   store float %54, float* %57, align 4
   br label %58
 
@@ -448,35 +462,35 @@ define void @sharpen(i8*, i8*, i8*, i8*, i8*, i8*) #0 {
   br label %24
 
 ; <label>:61:                                     ; preds = %24
-  store i32 360, i32* %19, align 4
+  store i32 1920, i32* %19, align 4
   br label %62
 
 ; <label>:62:                                     ; preds = %86, %61
   %63 = load i32, i32* %19, align 4
-  %64 = icmp slt i32 %63, 172440
+  %64 = icmp slt i32 %63, 2071680
   br i1 %64, label %65, label %89
 
 ; <label>:65:                                     ; preds = %62
   %66 = load i32, i32* %19, align 4
-  %67 = sub nsw i32 %66, 360
+  %67 = sub nsw i32 %66, 1920
   %68 = sext i32 %67 to i64
-  %69 = getelementptr inbounds [172800 x float], [172800 x float]* %13, i64 0, i64 %68
+  %69 = getelementptr inbounds [2073600 x float], [2073600 x float]* %13, i64 0, i64 %68
   %70 = load float, float* %69, align 4
   %71 = load i32, i32* %19, align 4
   %72 = sext i32 %71 to i64
-  %73 = getelementptr inbounds [172800 x float], [172800 x float]* %13, i64 0, i64 %72
+  %73 = getelementptr inbounds [2073600 x float], [2073600 x float]* %13, i64 0, i64 %72
   %74 = load float, float* %73, align 4
   %75 = fadd float %70, %74
   %76 = load i32, i32* %19, align 4
-  %77 = add nsw i32 %76, 360
+  %77 = add nsw i32 %76, 1920
   %78 = sext i32 %77 to i64
-  %79 = getelementptr inbounds [172800 x float], [172800 x float]* %13, i64 0, i64 %78
+  %79 = getelementptr inbounds [2073600 x float], [2073600 x float]* %13, i64 0, i64 %78
   %80 = load float, float* %79, align 4
   %81 = fadd float %75, %80
   %82 = fdiv float %81, 3.000000e+00
   %83 = load i32, i32* %19, align 4
   %84 = sext i32 %83 to i64
-  %85 = getelementptr inbounds [172800 x float], [172800 x float]* %14, i64 0, i64 %84
+  %85 = getelementptr inbounds [2073600 x float], [2073600 x float]* %14, i64 0, i64 %84
   store float %82, float* %85, align 4
   br label %86
 
@@ -487,35 +501,35 @@ define void @sharpen(i8*, i8*, i8*, i8*, i8*, i8*) #0 {
   br label %62
 
 ; <label>:89:                                     ; preds = %62
-  store i32 360, i32* %20, align 4
+  store i32 1920, i32* %20, align 4
   br label %90
 
 ; <label>:90:                                     ; preds = %114, %89
   %91 = load i32, i32* %20, align 4
-  %92 = icmp slt i32 %91, 172440
+  %92 = icmp slt i32 %91, 2071680
   br i1 %92, label %93, label %117
 
 ; <label>:93:                                     ; preds = %90
   %94 = load i32, i32* %20, align 4
   %95 = sub nsw i32 %94, 1
   %96 = sext i32 %95 to i64
-  %97 = getelementptr inbounds [172800 x float], [172800 x float]* %14, i64 0, i64 %96
+  %97 = getelementptr inbounds [2073600 x float], [2073600 x float]* %14, i64 0, i64 %96
   %98 = load float, float* %97, align 4
   %99 = load i32, i32* %20, align 4
   %100 = sext i32 %99 to i64
-  %101 = getelementptr inbounds [172800 x float], [172800 x float]* %14, i64 0, i64 %100
+  %101 = getelementptr inbounds [2073600 x float], [2073600 x float]* %14, i64 0, i64 %100
   %102 = load float, float* %101, align 4
   %103 = fadd float %98, %102
   %104 = load i32, i32* %20, align 4
   %105 = add nsw i32 %104, 1
   %106 = sext i32 %105 to i64
-  %107 = getelementptr inbounds [172800 x float], [172800 x float]* %14, i64 0, i64 %106
+  %107 = getelementptr inbounds [2073600 x float], [2073600 x float]* %14, i64 0, i64 %106
   %108 = load float, float* %107, align 4
   %109 = fadd float %103, %108
   %110 = fdiv float %109, 3.000000e+00
   %111 = load i32, i32* %20, align 4
   %112 = sext i32 %111 to i64
-  %113 = getelementptr inbounds [172800 x float], [172800 x float]* %15, i64 0, i64 %112
+  %113 = getelementptr inbounds [2073600 x float], [2073600 x float]* %15, i64 0, i64 %112
   store float %110, float* %113, align 4
   br label %114
 
@@ -526,29 +540,29 @@ define void @sharpen(i8*, i8*, i8*, i8*, i8*, i8*) #0 {
   br label %90
 
 ; <label>:117:                                    ; preds = %90
-  store i32 360, i32* %21, align 4
+  store i32 1920, i32* %21, align 4
   br label %118
 
 ; <label>:118:                                    ; preds = %136, %117
   %119 = load i32, i32* %21, align 4
-  %120 = icmp slt i32 %119, 172440
+  %120 = icmp slt i32 %119, 2071680
   br i1 %120, label %121, label %139
 
 ; <label>:121:                                    ; preds = %118
   %122 = load i32, i32* %21, align 4
   %123 = sext i32 %122 to i64
-  %124 = getelementptr inbounds [172800 x float], [172800 x float]* %13, i64 0, i64 %123
+  %124 = getelementptr inbounds [2073600 x float], [2073600 x float]* %13, i64 0, i64 %123
   %125 = load float, float* %124, align 4
   %126 = fmul float 2.000000e+00, %125
   %127 = load i32, i32* %21, align 4
   %128 = sext i32 %127 to i64
-  %129 = getelementptr inbounds [172800 x float], [172800 x float]* %15, i64 0, i64 %128
+  %129 = getelementptr inbounds [2073600 x float], [2073600 x float]* %15, i64 0, i64 %128
   %130 = load float, float* %129, align 4
   %131 = fsub float %126, %130
   %132 = call float @fabs(float %131)
   %133 = load i32, i32* %21, align 4
   %134 = sext i32 %133 to i64
-  %135 = getelementptr inbounds [172800 x float], [172800 x float]* %16, i64 0, i64 %134
+  %135 = getelementptr inbounds [2073600 x float], [2073600 x float]* %16, i64 0, i64 %134
   store float %132, float* %135, align 4
   br label %136
 
@@ -559,28 +573,28 @@ define void @sharpen(i8*, i8*, i8*, i8*, i8*, i8*) #0 {
   br label %118
 
 ; <label>:139:                                    ; preds = %118
-  store i32 360, i32* %22, align 4
+  store i32 1920, i32* %22, align 4
   br label %140
 
 ; <label>:140:                                    ; preds = %157, %139
   %141 = load i32, i32* %22, align 4
-  %142 = icmp slt i32 %141, 172440
+  %142 = icmp slt i32 %141, 2071680
   br i1 %142, label %143, label %160
 
 ; <label>:143:                                    ; preds = %140
   %144 = load i32, i32* %22, align 4
   %145 = sext i32 %144 to i64
-  %146 = getelementptr inbounds [172800 x float], [172800 x float]* %16, i64 0, i64 %145
+  %146 = getelementptr inbounds [2073600 x float], [2073600 x float]* %16, i64 0, i64 %145
   %147 = load float, float* %146, align 4
   %148 = load i32, i32* %22, align 4
   %149 = sext i32 %148 to i64
-  %150 = getelementptr inbounds [172800 x float], [172800 x float]* %13, i64 0, i64 %149
+  %150 = getelementptr inbounds [2073600 x float], [2073600 x float]* %13, i64 0, i64 %149
   %151 = load float, float* %150, align 4
   %152 = fadd float %151, 1.000000e+00
   %153 = fdiv float %147, %152
   %154 = load i32, i32* %22, align 4
   %155 = sext i32 %154 to i64
-  %156 = getelementptr inbounds [172800 x float], [172800 x float]* %17, i64 0, i64 %155
+  %156 = getelementptr inbounds [2073600 x float], [2073600 x float]* %17, i64 0, i64 %155
   store float %153, float* %156, align 4
   br label %157
 
@@ -591,18 +605,18 @@ define void @sharpen(i8*, i8*, i8*, i8*, i8*, i8*) #0 {
   br label %140
 
 ; <label>:160:                                    ; preds = %140
-  store i32 360, i32* %23, align 4
+  store i32 1920, i32* %23, align 4
   br label %161
 
 ; <label>:161:                                    ; preds = %219, %160
   %162 = load i32, i32* %23, align 4
-  %163 = icmp slt i32 %162, 172440
+  %163 = icmp slt i32 %162, 2071680
   br i1 %163, label %164, label %222
 
 ; <label>:164:                                    ; preds = %161
   %165 = load i32, i32* %23, align 4
   %166 = sext i32 %165 to i64
-  %167 = getelementptr inbounds [172800 x float], [172800 x float]* %17, i64 0, i64 %166
+  %167 = getelementptr inbounds [2073600 x float], [2073600 x float]* %17, i64 0, i64 %166
   %168 = load float, float* %167, align 4
   %169 = load i8*, i8** %7, align 8
   %170 = load i32, i32* %23, align 4
@@ -621,7 +635,7 @@ define void @sharpen(i8*, i8*, i8*, i8*, i8*, i8*) #0 {
   store i8 %178, i8* %182, align 1
   %183 = load i32, i32* %23, align 4
   %184 = sext i32 %183 to i64
-  %185 = getelementptr inbounds [172800 x float], [172800 x float]* %17, i64 0, i64 %184
+  %185 = getelementptr inbounds [2073600 x float], [2073600 x float]* %17, i64 0, i64 %184
   %186 = load float, float* %185, align 4
   %187 = load i8*, i8** %8, align 8
   %188 = load i32, i32* %23, align 4
@@ -640,7 +654,7 @@ define void @sharpen(i8*, i8*, i8*, i8*, i8*, i8*) #0 {
   store i8 %196, i8* %200, align 1
   %201 = load i32, i32* %23, align 4
   %202 = sext i32 %201 to i64
-  %203 = getelementptr inbounds [172800 x float], [172800 x float]* %17, i64 0, i64 %202
+  %203 = getelementptr inbounds [2073600 x float], [2073600 x float]* %17, i64 0, i64 %202
   %204 = load float, float* %203, align 4
   %205 = load i8*, i8** %9, align 8
   %206 = load i32, i32* %23, align 4
@@ -685,7 +699,7 @@ define void @interleave([3 x i8]*, i8*, i8*, i8*) #0 {
 
 ; <label>:10:                                     ; preds = %44, %4
   %11 = load i32, i32* %9, align 4
-  %12 = icmp slt i32 %11, 172800
+  %12 = icmp slt i32 %11, 2073600
   br i1 %12, label %13, label %47
 
 ; <label>:13:                                     ; preds = %10
@@ -747,10 +761,10 @@ define void @write_bmp(i8*, i8*) #0 {
   call void @llvm.memcpy.p0i8.p0i8.i64(i8* %8, i8* getelementptr inbounds ([54 x i8], [54 x i8]* @write_bmp.header, i32 0, i32 0), i64 54, i32 16, i1 false)
   %9 = getelementptr inbounds [54 x i8], [54 x i8]* %5, i64 0, i64 18
   %10 = bitcast i8* %9 to i32*
-  store i32 360, i32* %10, align 2
+  store i32 1920, i32* %10, align 2
   %11 = getelementptr inbounds [54 x i8], [54 x i8]* %5, i64 0, i64 22
   %12 = bitcast i8* %11 to i32*
-  store i32 480, i32* %12, align 2
+  store i32 1080, i32* %12, align 2
   %13 = load i8*, i8** %3, align 8
   %14 = call %struct._IO_FILE* @fopen(i8* %13, i8* getelementptr inbounds ([3 x i8], [3 x i8]* @.str.1, i32 0, i32 0))
   store %struct._IO_FILE* %14, %struct._IO_FILE** %6, align 8
@@ -768,7 +782,7 @@ define void @write_bmp(i8*, i8*) #0 {
   %21 = getelementptr inbounds [54 x i8], [54 x i8]* %5, i32 0, i32 0
   %22 = load %struct._IO_FILE*, %struct._IO_FILE** %6, align 8
   %23 = call i64 @fwrite(i8* %21, i64 1, i64 54, %struct._IO_FILE* %22)
-  store i32 518400, i32* %7, align 4
+  store i32 6220800, i32* %7, align 4
   %24 = load i8*, i8** %4, align 8
   %25 = load i32, i32* %7, align 4
   %26 = sext i32 %25 to i64
@@ -785,8 +799,8 @@ define i32 @validate_result(i8*, i8*, i32) #0 {
   %5 = alloca i8*, align 8
   %6 = alloca i8*, align 8
   %7 = alloca i32, align 4
-  %8 = alloca [518400 x i8], align 16
-  %9 = alloca [518400 x i8], align 16
+  %8 = alloca [6220800 x i8], align 16
+  %9 = alloca [6220800 x i8], align 16
   %10 = alloca i32, align 4
   %11 = alloca i32, align 4
   %12 = alloca i32, align 4
@@ -797,10 +811,10 @@ define i32 @validate_result(i8*, i8*, i32) #0 {
   store i8* %1, i8** %6, align 8
   store i32 %2, i32* %7, align 4
   %16 = load i8*, i8** %6, align 8
-  %17 = getelementptr inbounds [518400 x i8], [518400 x i8]* %8, i32 0, i32 0
+  %17 = getelementptr inbounds [6220800 x i8], [6220800 x i8]* %8, i32 0, i32 0
   call void @read_bmp(i8* %16, i8* %17)
   %18 = load i8*, i8** %5, align 8
-  %19 = getelementptr inbounds [518400 x i8], [518400 x i8]* %9, i32 0, i32 0
+  %19 = getelementptr inbounds [6220800 x i8], [6220800 x i8]* %9, i32 0, i32 0
   call void @read_bmp(i8* %18, i8* %19)
   store i32 0, i32* %10, align 4
   store i32 0, i32* %11, align 4
@@ -809,17 +823,17 @@ define i32 @validate_result(i8*, i8*, i32) #0 {
 
 ; <label>:20:                                     ; preds = %72, %3
   %21 = load i32, i32* %12, align 4
-  %22 = icmp slt i32 %21, 518400
+  %22 = icmp slt i32 %21, 6220800
   br i1 %22, label %23, label %75
 
 ; <label>:23:                                     ; preds = %20
   %24 = load i32, i32* %12, align 4
   %25 = sdiv i32 %24, 3
-  %26 = srem i32 %25, 360
+  %26 = srem i32 %25, 1920
   store i32 %26, i32* %13, align 4
   %27 = load i32, i32* %12, align 4
   %28 = sdiv i32 %27, 3
-  %29 = sdiv i32 %28, 360
+  %29 = sdiv i32 %28, 1920
   store i32 %29, i32* %14, align 4
   %30 = load i32, i32* %7, align 4
   %31 = icmp ne i32 %30, 0
@@ -837,25 +851,25 @@ define i32 @validate_result(i8*, i8*, i32) #0 {
 
 ; <label>:38:                                     ; preds = %35
   %39 = load i32, i32* %13, align 4
-  %40 = icmp eq i32 %39, 359
+  %40 = icmp eq i32 %39, 1919
   br i1 %40, label %44, label %41
 
 ; <label>:41:                                     ; preds = %38
   %42 = load i32, i32* %14, align 4
-  %43 = icmp eq i32 %42, 479
+  %43 = icmp eq i32 %42, 1079
   br i1 %43, label %44, label %45
 
 ; <label>:44:                                     ; preds = %41, %38, %35, %32
   br label %72
 
 ; <label>:45:                                     ; preds = %41, %23
-  %46 = getelementptr inbounds [518400 x i8], [518400 x i8]* %8, i32 0, i32 0
+  %46 = getelementptr inbounds [6220800 x i8], [6220800 x i8]* %8, i32 0, i32 0
   %47 = load i32, i32* %12, align 4
   %48 = sext i32 %47 to i64
   %49 = getelementptr inbounds i8, i8* %46, i64 %48
   %50 = load i8, i8* %49, align 1
   %51 = zext i8 %50 to i32
-  %52 = getelementptr inbounds [518400 x i8], [518400 x i8]* %9, i32 0, i32 0
+  %52 = getelementptr inbounds [6220800 x i8], [6220800 x i8]* %9, i32 0, i32 0
   %53 = load i32, i32* %12, align 4
   %54 = sext i32 %53 to i64
   %55 = getelementptr inbounds i8, i8* %52, i64 %54
@@ -915,8 +929,6 @@ define i32 @validate_result(i8*, i8*, i32) #0 {
   %85 = load i32, i32* %4, align 4
   ret i32 %85
 }
-
-declare float @fmin(float, float) #2
 
 ; Function Attrs: argmemonly nounwind
 declare void @llvm.memcpy.p0i8.p0i8.i64(i8* nocapture writeonly, i8* nocapture readonly, i64, i32, i1) #4

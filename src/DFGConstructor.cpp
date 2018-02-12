@@ -9,6 +9,7 @@
 using namespace oxigen;
 
 long DFGOffsetNode::UID = 0;
+int DFGLoopNode::LOOP_ID_COUNTER = 0;
 
 ///DFGNode methods implementation
 
@@ -470,7 +471,7 @@ DFGWriteNode::DFGWriteNode(llvm::Value* value, IOStreams* loopStreams, int windo
     DFGNode(value,windowEnd){
 
     this->typeID = NodeType::WriteNode;
-
+    value->dump();
     if(llvm::Instruction* instr = llvm::dyn_cast<llvm::Instruction>(value)) {
 
         llvm::GetElementPtrInst* innermostAccess = (llvm::GetElementPtrInst*)(instr->getOperand(1));
@@ -543,12 +544,6 @@ DFGOffsetWriteNode::DFGOffsetWriteNode(llvm::Value* value,IOStreams* IOs, const 
         DFGWriteNode(value,IOs,loopTripCount){
 
     this->typeID = NodeType::OffsetWrite;
-
-    llvm::Value* valuePtr = ((llvm::Instruction*)(((llvm::Instruction*)value)->getOperand(1)))->getOperand(0);
-
-
-    llvm::errs() << "Assigning new offset...\n";
-    writingStream = IOs->getInStreamFromGEP((llvm::GetElementPtrInst*)valuePtr);
 
     if(offset->getSCEVType() == llvm::SCEVTypes::scConstant){
         llvm::ConstantInt* intOfs = ((llvm::SCEVConstant*)offset)->getValue();
@@ -627,10 +622,10 @@ DFGOffsetReadNode::DFGOffsetReadNode(llvm::Value* value,IOStreams* IOs, const ll
 
     this->typeID = NodeType::OffsetRead;
 
-    llvm::Value* valuePtr = ((llvm::Instruction*)(((llvm::Instruction*)value)->getOperand(0)))->getOperand(0);
+    /*llvm::Value* valuePtr = ((llvm::Instruction*)(((llvm::Instruction*)value)->getOperand(0)))->getOperand(0);
 
     llvm::errs() << "Assigning new offset...";
-    sourceStream = IOs->getInStreamFromGEP((llvm::GetElementPtrInst*)valuePtr);
+    sourceStream = IOs->getInStreamFromGEP((llvm::GetElementPtrInst*)valuePtr);*/
 
     if(offset->getSCEVType() == llvm::SCEVTypes::scConstant){
         llvm::ConstantInt* intOfs = ((llvm::SCEVConstant*)offset)->getValue();
@@ -2169,6 +2164,8 @@ bool oxigen::isExitPhi(llvm::PHINode *phi) {
 bool oxigen::isNestedVectorWrite(DFGNode *node,bool onlyAlloca) {
 
     if(node->getLoopDepth() < 2 && node->getType() != NodeType::Offset)
+        return false;
+    if(node->getLoop() == nullptr)
         return false;
 
     for(DFGNode* s : node->getSuccessors()) {

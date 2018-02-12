@@ -12,6 +12,7 @@ namespace oxigen{
     enum MaxLoopTranslationMode { JavaLoop = 0, AutoLoop = 1 };
 
     const std::string GLOBAL_TILING = "global_tiling";
+    const std::string VECTORIZATION = "vectorization";
 
 /**
      * @class SequentialNamesManager
@@ -120,6 +121,7 @@ namespace oxigen{
         int DOUBLE_MANTISSA = 53;
         int DOUBLE_EXP = 11;
         int currentGlobalDelay;
+        int v_factor = 0;
 
         std::string globalVariables;
         std::string globalDFEVars;
@@ -225,6 +227,7 @@ namespace oxigen{
         private:
 
             llvm::Function* F;
+            int V_FACTOR = 0;
         
         public:
 
@@ -238,6 +241,8 @@ namespace oxigen{
             }
             
             void printDFGAsKernel(std::vector<DFG*> dfg,std::vector<LoopDependencyGraph*> dependencyGraph, std::string kernelName, std::string packageName);
+
+            void setVFactor(int v){ this->V_FACTOR = v; }
 
             void setKernelOptimizations(std::vector<std::string> kernelOptimizations){
                 this->kernelOptimizations = kernelOptimizations;

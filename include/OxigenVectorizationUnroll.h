@@ -27,12 +27,6 @@ namespace oxigen {
 
         char ID = 0;
 
-        Function *F;
-        LoopInfo *LI;
-        ScalarEvolution *SE;
-
-        LLVMContext *context;
-
     public:
 
         OxigenVectorizationUnroll() : FunctionPass(ID) {}

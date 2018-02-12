@@ -460,6 +460,10 @@ namespace oxigen{
         llvm::Loop* loop;
         int constTripCount;
 
+        static  int LOOP_ID_COUNTER;
+        int loopID = 0;
+        int operationsMultiplier = 1;
+
     public:
 
         DFGLoopNode(llvm::Loop* loop);
@@ -487,6 +491,17 @@ namespace oxigen{
         void setTripCount(int iters){ constTripCount = iters; }
 
         std::vector<DFG*> getIndipendentLoopGraphs();
+
+        int getLoopID(){
+            if(!loopID){
+                LOOP_ID_COUNTER++;
+                loopID = LOOP_ID_COUNTER;
+            }
+            return loopID;
+        }
+
+        int getOperationsMultiplier(){ return operationsMultiplier; }
+        void setOperationsMultiplier(int m){ operationsMultiplier = m; }
 
     };
 

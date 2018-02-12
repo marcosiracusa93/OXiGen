@@ -35,8 +35,10 @@ namespace oxigen{
      */
     class OXiGenPass : public FunctionPass{
     
-    char ID = 0;
-    std::string functionName;   //name of the analyzed function
+        char ID = 0;
+        int v_factor = 0;
+        std::string functionName;   //name of the analyzed function
+        std::string fileName;
         
     public:
         
@@ -46,7 +48,7 @@ namespace oxigen{
          * to specify here is the name of the original function in the C implementation, which is
          * preserved by LLVM during the IR generation.
          */
-        OXiGenPass(std::string functionName);
+        OXiGenPass(std::string functionName,std::string fileName,int v_factor = 0);
         
         /**
          * @brief methods which processes the llvm function to produce the MaxJ code
@@ -71,7 +73,7 @@ namespace oxigen{
      * preserved by LLVM during the IR generation
      * @return the @{OXiGenPass} object used to run the pass on a LLVM function
      */
-    OXiGenPass* createOXiGenWrapperPass(std::string functionName);
+    OXiGenPass* createOXiGenWrapperPass(std::string functionName,std::string fileName,int v_factor = 0);
 }
 
 #endif

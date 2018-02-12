@@ -12,28 +12,6 @@ OxigenVectorizationUnroll* oxigen::createOxigenVectorizationUnroll() {
 
 bool OxigenVectorizationUnroll::runOnFunction(Function &F) {
 
-    LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
-    SE = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();
-    Pass* lup = createLoopUnrollPass(INT_MAX,INT_MAX,INT_MAX,INT_MAX,INT_MAX);
-    LoopPassManager* pm = new LoopPassManager();
-    pm->addPass(lup);
-
-    for(Loop* outerLoop : *LI){
-        for(Loop* subLoop : outerLoop->getSubLoops()){
-
-            int tripCount = 0;
-            const SCEV* tripCountSCEV = SE->getBackedgeTakenCount(subLoop);
-
-            if(tripCountSCEV->getSCEVType() == SCEVTypes::scConstant){
-                SCEVConstant* c = (SCEVConstant*)tripCountSCEV;
-                tripCount = c->getValue()->getSExtValue();
-                //pm->run(&subLoop,)
-            }
-
-        }
-    }
-
-    F.dump();
     return true;
 }
 

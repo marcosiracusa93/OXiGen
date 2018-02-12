@@ -2,13 +2,13 @@
 #include <stdlib.h>
 #include "../MaxJFunctions.h"
 
-#define WIDTH 360
-#define HEIGHT 480
+#define WIDTH 1920
+#define HEIGHT 1080
 #define SIZE WIDTH*HEIGHT
 
 #define TOLERANCE 1
 
-void sharpen(
+void sharpen_3ch(
 	unsigned char r_in[SIZE], unsigned char g_in[SIZE], unsigned char b_in[SIZE], 
 	unsigned char r_out[SIZE], unsigned char g_out[SIZE], unsigned char b_out[SIZE]);
 
@@ -42,7 +42,7 @@ int main(int argc, char* argv[])
 	read_bmp(input_filename, (unsigned char*)in);
 	deinterleave(in, r_in, g_in, b_in);
 
-	sharpen(r_in, g_in, b_in, r_out, g_out, b_out);
+	sharpen_3ch(r_in, g_in, b_in, r_out, g_out, b_out);
 
 	interleave(out, r_out, g_out, b_out);
 	write_bmp(output_filename, (unsigned char*)out);
@@ -61,7 +61,7 @@ int main(int argc, char* argv[])
 
 // Kernel function
 
-void sharpen(
+void sharpen_3ch(
 	unsigned char r_in[SIZE], unsigned char g_in[SIZE], unsigned char b_in[SIZE], 
 	unsigned char r_out[SIZE], unsigned char g_out[SIZE], unsigned char b_out[SIZE])
 {

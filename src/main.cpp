@@ -79,44 +79,55 @@ int main(int argc, char**argv) {
         std::cout << "Null pointer returned from parsing, abort\n" << filePath << std::endl;
         return -1;
     }
-    
+
+    char in;
+    int v_factor = 0;
+    std::cout << "Apply vectorization for kernel?(y/n)\n";
+    std::cin >> in;
+
     module = (Module*)modPtr.get();
 
     legacy::FunctionPassManager* functionPassManager = new legacy::FunctionPassManager(module);
 
     ScalarEvolutionWrapperPass* scevPassRef = new ScalarEvolutionWrapperPass();
     LoopInfoWrapperPass* loopInfoPassRef = new LoopInfoWrapperPass();
-///*
-    //The pass manager is used to run the preliminary LLVM passes on the .ll file,
-    //and the OXiGen custom pass
 
-    functionPassManager->add(createPromoteMemoryToRegisterPass());          // -mem2reg
-    functionPassManager->add(loopInfoPassRef);                              // -loops
-    functionPassManager->add(scevPassRef);                                  // -scalar-evolution
+    if(in == 'y') {
+        //The pass manager is used to run the preliminary LLVM passes on the .ll file,
+        //and the OXiGen custom pass
 
-    //run for generation of the vectorized function in the module
-    functionPassManager->add(oxigen::createOxigenGenVectorizedPass(2));     // creates the vectorized function signature
-    functionPassManager->run(*module->getFunction(StringRef(functionName)));
+        std::cout << "Select vectorization factor\n";
+        std::cin >> v_factor;
 
-    functionPassManager = new legacy::FunctionPassManager(module);
+        functionPassManager->add(createPromoteMemoryToRegisterPass());          // -mem2reg
+        functionPassManager->add(loopInfoPassRef);                              // -loops
+        functionPassManager->add(scevPassRef);                                  // -scalar-evolution
 
-    //repeat analysis for the vectorized function
-    functionPassManager->add(loopInfoPassRef);
-    functionPassManager->add(scevPassRef);
-    functionPassManager->add(oxigen::createOxigenVectorizationPass(2));     // run function vectorization
+        //run for generation of the vectorized function in the module
+        functionPassManager->add(
+                oxigen::createOxigenGenVectorizedPass(v_factor));     // creates the vectorized function signature
+        functionPassManager->run(*module->getFunction(StringRef(functionName)));
 
-    functionName = "vectorized_" + functionName;
-    functionPassManager->run(*module->getFunction(StringRef(functionName)));
+        functionPassManager = new legacy::FunctionPassManager(module);
 
-    functionPassManager = new legacy::FunctionPassManager(module);
-//*/
+        //repeat analysis for the vectorized function
+        functionPassManager->add(loopInfoPassRef);
+        functionPassManager->add(scevPassRef);
+        functionPassManager->add(oxigen::createOxigenVectorizationPass(v_factor));     // run function vectorization
+
+        functionName = "vectorized_" + functionName;
+        functionPassManager->run(*module->getFunction(StringRef(functionName)));
+
+        functionPassManager = new legacy::FunctionPassManager(module);
+    }
+
     functionPassManager->add(createPromoteMemoryToRegisterPass());
 
     functionPassManager->add(loopInfoPassRef);
     functionPassManager->add(scevPassRef);
     functionPassManager->add(createSCEVAAWrapperPass());
-    functionPassManager->add(oxigen::createOxigenVectorizationUnroll());
-    //functionPassManager->add(oxigen::createOXiGenWrapperPass(functionName));// -OXiGen custom pass
+    //functionPassManager->add(oxigen::createOxigenVectorizationUnroll());
+    functionPassManager->add(oxigen::createOXiGenWrapperPass(functionName,fileName,v_factor));// -OXiGen custom pass
     functionPassManager->run(*module->getFunction(StringRef(functionName)));
     
     return 0;

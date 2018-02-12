@@ -9,8 +9,19 @@
 
 namespace oxigen {
 
-    typedef std::pair<unsigned,int> InstrDescriptor;
-    typedef std::map<InstrDescriptor,int> OperationsUseMap;
+    struct InstrDescriptor{
+        unsigned first;
+        int second;
+        std::vector<bool> opIsConstant;
+
+        InstrDescriptor(unsigned OP,int b_width,std::vector<bool> opIsConst){
+            first = OP;
+            second = b_width;
+            opIsConstant = opIsConst;
+        }
+    };
+
+    typedef std::map<InstrDescriptor*,int> OperationsUseMap;
     typedef std::map<unsigned,std::string> OpcodeToStringMap;
     typedef std::map<std::string,int> NameToLibFuncOpcodeMap;
 
@@ -29,27 +40,35 @@ namespace oxigen {
         Exp = -10,
         Min = -11,
         Max = -12,
-        Ncdf = -13
+        Ncdf = -13,
+        Fabs = -14,
+        Fmin = -15
     };
 
     class OperationCount{
 
     private:
 
-        OperationsUseMap operationsMap;
+        std::map<DFGLoopNode*,OperationsUseMap* > operationsMaps;
+        OperationsUseMap* outerOperationsMap;
+        std::string function_name;
+        std::string file_name;
+        int v_factor = 0;
+        int tiling_factor = 0;
 
     public:
 
-        OperationCount(DFG* dfg,LoopDependencyGraph* dependencyGraph,llvm::Function* F);
+        OperationCount(DFG* dfg,LoopDependencyGraph* dependencyGraph,llvm::Function* F,
+                       std::string function_name,std::string file_name,int v_factor = 0,int tiling_factor = 0);
 
-        OperationsUseMap getOperationsUseMap();
+
         void printOperationsCount();
 
     private:
 
         void countOperationsInNodeVector(std::vector<DFGNode*> nodes,
                                          LoopDependencyGraph* dependencyGraph,
-                                         llvm::Function* F, int multiplier = 1);
+                                         llvm::Function* F, int multiplier = 1,DFGLoopNode* loopNode = nullptr);
 
         void countOperationsForLoop(DFGLoopNode* loopNode,LoopDependencyGraph* dependencyGraph,
                                     llvm::Function* F,int currentMultiplier = 1);
@@ -63,6 +82,11 @@ namespace oxigen {
         llvm::Function* F;
 
     public:
+
+        std::string function_name;
+        std::string file_name;
+        int v_factor = 0;
+        int tiling_factor = 0;
 
         ResourceEstimator(llvm::Function* F){
             this->F = F;

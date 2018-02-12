@@ -178,6 +178,11 @@ int LoopDependencyGraph::getFinalDelay() {
 
 LoopGraphNode* LoopDependencyGraph::getNodeForLoop(DFGLoopNode *loopNode) {
 
+    if(loopNode == nullptr){
+        std::vector<DFGNode*> nvw;
+        return new LoopGraphNode(nullptr, nvw);
+    }
+
     LoopGraphNode* graphNode = nullptr;
 
     for(auto n : beginLoopNodes){
