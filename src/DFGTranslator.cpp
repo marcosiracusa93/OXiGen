@@ -557,7 +557,7 @@ std::string MaxJInstructionPrinter::appendInstruction(DFGNode* node){
             }
 
             vectorName = node->getName();
-            std::string decl = "\t\tDFEVector<DFEVar> " + vectorName + " = DFEVector<DFEVar>(";
+            std::string decl = "\t\tDFEVector<DFEVar> " + vectorName + " = new DFEVectorType<DFEVar>(";
             std::string baseType;
 
             int bitWidth = dataType->getScalarSizeInBits();
@@ -571,7 +571,7 @@ std::string MaxJInstructionPrinter::appendInstruction(DFGNode* node){
 
                 int mantissa = dataType->getFPMantissaWidth();
                 baseType = "dfeFloat(" + std::to_string(bitWidth-mantissa) + "," + std::to_string(mantissa) +
-                           ")," + std::to_string(size) + ")";
+                           ")," + std::to_string(size) + ").newInstance(this)";
             }
             decl.append(baseType + ";\n");
             declaredNestedVectors[basePtr] = std::pair<std::string,std::string>(vectorName,decl);
